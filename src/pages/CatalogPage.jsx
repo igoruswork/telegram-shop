@@ -53,23 +53,22 @@ export function CatalogPage({
   const filtered = useMemo(() => {
     let result = products;
 
-    if (activeCategory !== 'Всі') {
-      result = result.filter((p) => p.category === activeCategory);
-    }
-
-    if (activeCategory !== 'Всі' && activeSubCategory !== 'Всі') {
-      result = result.filter((p) => p.p_category === activeSubCategory);
-    }
-
+    // Якщо є пошук — шукаємо по ВСІХ товарах (ігноруємо категорію)
     if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      result = result.filter(
-        (p) =>
-          (p.name || '').toLowerCase().includes(q) ||
-          (p.category || '').toLowerCase().includes(q) ||
-          (p.p_category || '').toLowerCase().includes(q) ||
-          (p.sku || '').toLowerCase().includes(q)
-      );
+      const words = search.toLowerCase().trim().split(/\s+/);
+      result = result.filter((p) => {
+        const haystack = `${p.name || ''} ${p.sku || ''} ${p.category || ''} ${p.p_category || ''}`.toLowerCase();
+        return words.every((w) => haystack.includes(w));
+      });
+    } else {
+      // Фільтрація за категоріями тільки коли немає пошуку
+      if (activeCategory !== 'Всі') {
+        result = result.filter((p) => p.category === activeCategory);
+      }
+
+      if (activeCategory !== 'Всі' && activeSubCategory !== 'Всі') {
+        result = result.filter((p) => p.p_category === activeSubCategory);
+      }
     }
 
     return result;

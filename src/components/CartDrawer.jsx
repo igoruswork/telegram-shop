@@ -63,8 +63,14 @@ export function CartDrawer({
   return (
     <>
       {success && (
-        <div className="success-toast">
-          ✅ Замовлення #{success ? '' : ''}надіслано! Менеджер зв'яжеться з вами.
+        <div className="success-overlay">
+          <div className="success-overlay-content">
+            <div className="success-overlay-icon">✅</div>
+            <div className="success-overlay-title">Замовлення надіслано!</div>
+            <div className="success-overlay-text">
+              Менеджер зв'яжеться з вами для уточнення деталей та оплати
+            </div>
+          </div>
         </div>
       )}
 
