@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useSingleTap } from '../lib/useSingleTap';
 import { ProductCard } from '../components/ProductCard';
 
@@ -32,6 +32,13 @@ export function CatalogPage({
   const [activeCategory, setActiveCategory] = useState('Всі');
   const [activeSubCategory, setActiveSubCategory] = useState('Всі');
   const bindSingleTap = useSingleTap();
+  const searchRef = useRef(null);
+
+  const clearSearch = useCallback(() => {
+    setSearch('');
+    // Blur input to hide keyboard on mobile
+    if (searchRef.current) searchRef.current.blur();
+  }, []);
 
   const handleCategoryClick = (cat) => {
     setActiveCategory(cat);
@@ -100,6 +107,7 @@ export function CatalogPage({
         <div className="search-wrap">
           <span className="search-icon">🔍</span>
           <input
+            ref={searchRef}
             className="search-input"
             type="text"
             inputMode="search"
@@ -112,7 +120,7 @@ export function CatalogPage({
               type="button"
               className="search-clear"
               aria-label="Очистити пошук"
-              {...bindSingleTap(() => setSearch(''), { preventDefault: true })}
+              {...bindSingleTap(clearSearch, { preventDefault: true })}
             >
               ✕
             </button>

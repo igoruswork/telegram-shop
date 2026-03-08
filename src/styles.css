@@ -288,6 +288,9 @@ body {
   color: var(--text-primary);
   outline: none;
   transition: var(--transition);
+  touch-action: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .search-input:focus {
@@ -310,6 +313,7 @@ body {
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 2;
   width: 28px;
   height: 28px;
   border: none;
