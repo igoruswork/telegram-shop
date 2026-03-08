@@ -350,11 +350,6 @@ body {
   animation: fadeUp 0.4s ease-out both;
 }
 
-.product-card:active {
-  transform: scale(0.97);
-  box-shadow: var(--card-shadow-hover);
-}
-
 .product-card-img {
   width: 100%;
   aspect-ratio: 1;
