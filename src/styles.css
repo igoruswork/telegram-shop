@@ -253,20 +253,21 @@ body {
 
 .cart-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
+  top: -6px;
+  right: -6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 12px;
   background: var(--red);
   color: white;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: popIn 0.3s ease-out;
+  border: 2px solid rgba(212, 238, 255, 0.9);
 }
 
 /* ---- Search ---- */
@@ -276,7 +277,7 @@ body {
 
 .search-input {
   width: 100%;
-  padding: 10px 16px 10px 40px;
+  padding: 10px 40px 10px 40px;
   border: 1.5px solid rgba(14, 165, 233, 0.12);
   border-radius: var(--radius-sm);
   background: var(--card-bg);
@@ -302,6 +303,36 @@ body {
   font-size: 16px;
   color: var(--text-tertiary);
   pointer-events: none;
+}
+
+.search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.search-clear:active {
+  opacity: 0.6;
+}
+
+.cart-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--accent-dark);
 }
 
 /* ---- Categories ---- */
@@ -832,7 +863,7 @@ body {
 }
 
 .cart-item-price {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--accent-dark);
   font-weight: 600;
 }
