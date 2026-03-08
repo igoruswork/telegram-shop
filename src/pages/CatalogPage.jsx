@@ -83,7 +83,12 @@ export function CatalogPage({
       <div className="header">
         <div className="header-row">
           <div className="header-title">Каталог</div>
-          <button className="header-cart-btn" onClick={onCartClick}>
+          <button
+            type="button"
+            className="header-cart-btn"
+            aria-label="Відкрити кошик"
+            {...bindSingleTap(onCartClick, { preventDefault: true })}
+          >
             🛒
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </button>
@@ -107,8 +112,9 @@ export function CatalogPage({
         {allCategories.map((cat) => (
           <button
             key={cat}
+            type="button"
             className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
-            onClick={() => handleCategoryClick(cat)}
+            {...bindSingleTap(() => handleCategoryClick(cat), { preventDefault: true })}
           >
             {cat}
           </button>
@@ -121,8 +127,9 @@ export function CatalogPage({
           {allSubCategories.map((sub) => (
             <button
               key={sub}
+              type="button"
               className={`category-chip ${activeSubCategory === sub ? 'active' : ''}`}
-              onClick={() => setActiveSubCategory(sub)}
+              {...bindSingleTap(() => setActiveSubCategory(sub), { preventDefault: true })}
               style={activeSubCategory === sub ? {} : { background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(14,165,233,0.1)' }}
             >
               {sub}
@@ -169,8 +176,10 @@ export function CatalogPage({
                 <button
                   type="button"
                   className="product-card-main"
-                  onClick={() => onProductClick(product)}
                   aria-label={`Відкрити товар ${product.name}`}
+                  {...bindSingleTap(() => onProductClick(product), {
+                    preventDefault: true,
+                  })}
                 >
                   <div className="product-card-imgwrap">
                     {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
@@ -251,7 +260,12 @@ export function CatalogPage({
 
       {/* FAB кошика */}
       {cartCount > 0 && (
-        <button className="cart-fab" onClick={onCartClick}>
+        <button
+          type="button"
+          className="cart-fab"
+          aria-label="Відкрити кошик"
+          {...bindSingleTap(onCartClick, { preventDefault: true })}
+        >
           <div className="cart-fab-left">
             <span className="cart-fab-count">{cartCount}</span>
             <span>Кошик</span>

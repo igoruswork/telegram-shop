@@ -68,14 +68,24 @@ export function CartDrawer({
         </div>
       )}
 
-      <div className="cart-overlay" onClick={onClose} />
+      <div
+        className="cart-overlay"
+        {...bindSingleTap(onClose, { preventDefault: true })}
+      />
 
       <div className="cart-drawer">
         <div className="cart-drawer-handle" />
 
         <div className="cart-drawer-header">
           <div className="cart-drawer-title">Кошик</div>
-          <button type="button" className="cart-drawer-close" onClick={onClose}>✕</button>
+          <button
+            type="button"
+            className="cart-drawer-close"
+            aria-label="Закрити кошик"
+            {...bindSingleTap(onClose, { preventDefault: true })}
+          >
+            ✕
+          </button>
         </div>
 
         <div className="cart-drawer-body">

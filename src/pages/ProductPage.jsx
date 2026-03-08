@@ -54,7 +54,14 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
     return (
       <div className="product-page">
         <div className="product-page-header">
-          <button type="button" className="back-btn" onClick={onBack}>←</button>
+          <button
+            type="button"
+            className="back-btn"
+            aria-label="Назад"
+            {...bindSingleTap(onBack, { preventDefault: true })}
+          >
+            ←
+          </button>
           <div className="product-page-title">Завантаження…</div>
         </div>
         <div className="skeleton-img" style={{ width: '100%', aspectRatio: '1' }} />
@@ -70,7 +77,14 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
     return (
       <div className="product-page">
         <div className="product-page-header">
-          <button type="button" className="back-btn" onClick={onBack}>←</button>
+          <button
+            type="button"
+            className="back-btn"
+            aria-label="Назад"
+            {...bindSingleTap(onBack, { preventDefault: true })}
+          >
+            ←
+          </button>
           <div className="product-page-title">Товар не знайдено</div>
         </div>
         <div className="no-results" style={{ padding: 60 }}>
@@ -84,7 +98,14 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
   return (
     <div className="product-page">
       <div className="product-page-header">
-        <button type="button" className="back-btn" onClick={onBack}>←</button>
+        <button
+          type="button"
+          className="back-btn"
+          aria-label="Назад"
+          {...bindSingleTap(onBack, { preventDefault: true })}
+        >
+          ←
+        </button>
         <div className="product-page-title">{product.name}</div>
       </div>
 
