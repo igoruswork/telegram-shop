@@ -120,7 +120,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
       )}
 
       <div className="product-page-body">
-        {product.badge && (
+        {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
           <span className={`product-page-badge ${getBadgeClass(product.badge)}`}>
             {product.badge}
           </span>
@@ -133,7 +133,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
           {product.p_category ? ` → ${product.p_category}` : ''}
         </div>
 
-        {product.sku && (
+        {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
           <div className="product-page-sku">Штрихкод: {product.sku}</div>
         )}
 

@@ -215,42 +215,30 @@ export function CatalogPage({
                     {formatPrice(product.price)}{' '}
                     <span>₴</span>
                   </div>
-                  {qty > 0 ? (
-                    <div className="catalog-qty-controls">
-                      <button
-                        type="button"
-                        className="catalog-qty-btn catalog-qty-minus"
-                        aria-label={`Зменшити кількість ${product.name}`}
-                        {...bindSingleTap(() => onUpdateQty(product.id, -1), {
-                          preventDefault: true,
-                        })}
-                      >
-                        -
-                      </button>
-                      <span className="catalog-qty-value">{qty}</span>
-                      <button
-                        type="button"
-                        className="catalog-qty-btn catalog-qty-plus"
-                        aria-label={`Збільшити кількість ${product.name}`}
-                        {...bindSingleTap(() => onUpdateQty(product.id, 1), {
-                          preventDefault: true,
-                        })}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : (
+                  <div className="catalog-qty-controls">
                     <button
                       type="button"
-                      className="product-add-btn"
-                      aria-label={`Додати ${product.name} в кошик`}
-                      {...bindSingleTap(() => onAddToCart(product), {
+                      className="catalog-qty-btn catalog-qty-minus"
+                      aria-label={`Зменшити кількість ${product.name}`}
+                      disabled={qty === 0}
+                      {...bindSingleTap(() => onUpdateQty(product.id, -1), {
+                        preventDefault: true,
+                      })}
+                    >
+                      −
+                    </button>
+                    <span className="catalog-qty-value">{qty}</span>
+                    <button
+                      type="button"
+                      className="catalog-qty-btn catalog-qty-plus"
+                      aria-label={qty === 0 ? `Додати ${product.name} в кошик` : `Збільшити кількість ${product.name}`}
+                      {...bindSingleTap(() => qty === 0 ? onAddToCart(product) : onUpdateQty(product.id, 1), {
                         preventDefault: true,
                       })}
                     >
                       +
                     </button>
-                  )}
+                  </div>
                 </div>
               </article>
             )

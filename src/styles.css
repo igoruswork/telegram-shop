@@ -500,7 +500,12 @@ body {
   transition: var(--transition);
 }
 
-.catalog-qty-btn:active {
+.catalog-qty-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.catalog-qty-btn:active:not(:disabled) {
   opacity: 0.7;
 }
 
