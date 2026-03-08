@@ -159,63 +159,83 @@ export function CatalogPage({
           {filtered.map((product, idx) => {
             const qty = cart?.find(c => c.id === product.id)?.qty || 0;
             return (
-              <div
+              <article
                 key={product.id}
                 className="product-card"
                 style={{ animationDelay: `${idx * 0.05}s` }}
-                onClick={() => onProductClick(product)}
               >
-                <div className="product-card-imgwrap">
-                  {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
-                    <span className={`product-badge ${getBadgeClass(product.badge)}`}>
-                      {product.badge}
-                    </span>
-                  )}
-                  {product.thumbnail_url ? (
-                    <img
-                      className="product-card-img"
-                      src={product.thumbnail_url}
-                      alt={product.name}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="product-card-img-placeholder">📦</div>
-                  )}
-                </div>
-
-                <div className="product-card-body">
-                  <div className="product-card-name">{product.name}</div>
-                  {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
-                    <div className="product-card-category" style={{ marginBottom: 2 }}>{product.sku}</div>
-                  )}
-                  <div className="product-card-category">
-                    {product.p_category || product.category}
-                  </div>
-                  <div className="product-card-footer">
-                    <div className="product-card-price">
-                      {formatPrice(product.price)}{' '}
-                      <span>₴</span>
-                    </div>
-                    {qty > 0 ? (
-                      <div className="catalog-qty-controls" onClick={(e) => { e.stopPropagation(); }}>
-                        <button className="catalog-qty-btn catalog-qty-minus" onClick={() => onUpdateQty(product.id, -1)}>-</button>
-                        <span className="catalog-qty-value">{qty}</span>
-                        <button className="catalog-qty-btn catalog-qty-plus" onClick={() => onUpdateQty(product.id, 1)}>+</button>
-                      </div>
+                <button
+                  type="button"
+                  className="product-card-main"
+                  onClick={() => onProductClick(product)}
+                  aria-label={`Відкрити товар ${product.name}`}
+                >
+                  <div className="product-card-imgwrap">
+                    {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
+                      <span className={`product-badge ${getBadgeClass(product.badge)}`}>
+                        {product.badge}
+                      </span>
+                    )}
+                    {product.thumbnail_url ? (
+                      <img
+                        className="product-card-img"
+                        src={product.thumbnail_url}
+                        alt={product.name}
+                        loading="lazy"
+                      />
                     ) : (
+                      <div className="product-card-img-placeholder">📦</div>
+                    )}
+                  </div>
+
+                  <div className="product-card-body">
+                    <div className="product-card-name">{product.name}</div>
+                    {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
+                      <div className="product-card-category" style={{ marginBottom: 2 }}>{product.sku}</div>
+                    )}
+                    <div className="product-card-category">
+                      {product.p_category || product.category}
+                    </div>
+                  </div>
+                </button>
+
+                <div className="product-card-footer">
+                  <div className="product-card-price">
+                    {formatPrice(product.price)}{' '}
+                    <span>₴</span>
+                  </div>
+                  {qty > 0 ? (
+                    <div className="catalog-qty-controls">
                       <button
-                        className="product-add-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddToCart(product);
-                        }}
+                        type="button"
+                        className="catalog-qty-btn catalog-qty-minus"
+                        onClick={() => onUpdateQty(product.id, -1)}
+                        aria-label={`Зменшити кількість ${product.name}`}
+                      >
+                        -
+                      </button>
+                      <span className="catalog-qty-value">{qty}</span>
+                      <button
+                        type="button"
+                        className="catalog-qty-btn catalog-qty-plus"
+                        onClick={() => onUpdateQty(product.id, 1)}
+                        aria-label={`Збільшити кількість ${product.name}`}
                       >
                         +
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="product-add-btn"
+                      onClick={() => onAddToCart(product)}
+                      aria-label={`Додати ${product.name} в кошик`}
+                    >
+                      +
+                    </button>
+                  )}
                 </div>
-              </div>
+              </article>
             )
           })}
         </div>

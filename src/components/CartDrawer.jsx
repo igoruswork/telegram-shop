@@ -73,7 +73,7 @@ export function CartDrawer({
 
         <div className="cart-drawer-header">
           <div className="cart-drawer-title">Кошик</div>
-          <button className="cart-drawer-close" onClick={onClose}>✕</button>
+          <button type="button" className="cart-drawer-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="cart-drawer-body">
@@ -104,11 +104,13 @@ export function CartDrawer({
 
                 <div className="cart-item-controls">
                   <button
+                    type="button"
                     className="cart-qty-btn"
                     onClick={() => onUpdateQty(item.id, -1)}
                   >−</button>
                   <span className="cart-qty-value">{item.qty}</span>
                   <button
+                    type="button"
                     className="cart-qty-btn"
                     onClick={() => onUpdateQty(item.id, 1)}
                   >+</button>
@@ -133,6 +135,7 @@ export function CartDrawer({
             )}
 
             <button
+              type="button"
               className="cart-submit-btn"
               onClick={handleSubmit}
               disabled={submitting}

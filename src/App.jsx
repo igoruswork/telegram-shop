@@ -33,6 +33,22 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
+  useEffect(() => {
+    const setViewportHeight = () => {
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
+    };
+
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.visualViewport?.addEventListener('resize', setViewportHeight);
+
+    return () => {
+      window.removeEventListener('resize', setViewportHeight);
+      window.visualViewport?.removeEventListener('resize', setViewportHeight);
+    };
+  }, []);
+
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async () => {
     setLoading(true);

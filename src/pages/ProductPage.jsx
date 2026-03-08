@@ -52,7 +52,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
     return (
       <div className="product-page">
         <div className="product-page-header">
-          <button className="back-btn" onClick={onBack}>←</button>
+          <button type="button" className="back-btn" onClick={onBack}>←</button>
           <div className="product-page-title">Завантаження…</div>
         </div>
         <div className="skeleton-img" style={{ width: '100%', aspectRatio: '1' }} />
@@ -68,7 +68,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
     return (
       <div className="product-page">
         <div className="product-page-header">
-          <button className="back-btn" onClick={onBack}>←</button>
+          <button type="button" className="back-btn" onClick={onBack}>←</button>
           <div className="product-page-title">Товар не знайдено</div>
         </div>
         <div className="no-results" style={{ padding: 60 }}>
@@ -82,7 +82,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
   return (
     <div className="product-page">
       <div className="product-page-header">
-        <button className="back-btn" onClick={onBack}>←</button>
+        <button type="button" className="back-btn" onClick={onBack}>←</button>
         <div className="product-page-title">{product.name}</div>
       </div>
 
@@ -119,6 +119,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
             {formatPrice(product.price)} <span>₴</span>
           </div>
           <button
+            type="button"
             className="product-page-add-btn"
             onClick={() => onAddToCart(product)}
           >
