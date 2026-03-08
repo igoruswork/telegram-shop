@@ -233,8 +233,7 @@ body {
   height: 44px;
   border: none;
   border-radius: 50%;
-  background: var(--card-bg);
-  backdrop-filter: blur(8px);
+  background: var(--card-bg-solid);
   border: 1.5px solid var(--card-border);
   cursor: pointer;
   display: flex;
@@ -278,14 +277,24 @@ body {
   padding: 10px 44px 10px 42px;
   border: 1.5px solid rgba(14, 165, 233, 0.12);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.92);
+  background: #ffffffeb;
   font-family: var(--font);
   font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-appearance: none;
+  appearance: none;
+  opacity: 1;
   outline: none;
   transition: var(--transition);
   touch-action: auto;
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
+  -webkit-text-fill-color: var(--text-tertiary);
+  opacity: 1;
 }
 
 .search-input:focus {
