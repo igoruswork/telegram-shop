@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useSingleTap } from '../lib/useSingleTap';
+import { ProductCard } from '../components/ProductCard';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -172,14 +173,7 @@ export function CatalogPage({
                 className="product-card"
                 style={{ animationDelay: `${idx * 0.05}s` }}
               >
-                <button
-                  type="button"
-                  className="product-card-main"
-                  aria-label={`Відкрити товар ${product.name}`}
-                  {...bindSingleTap(() => onProductClick(product), {
-                    preventDefault: true,
-                  })}
-                >
+                <ProductCard product={product} onProductClick={onProductClick}>
                   <div className="product-card-imgwrap">
                     {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
                       <span className={`product-badge ${getBadgeClass(product.badge)}`}>
@@ -207,7 +201,7 @@ export function CatalogPage({
                       {product.p_category || product.category}
                     </div>
                   </div>
-                </button>
+                </ProductCard>
 
                 <div className="product-card-footer">
                   <div className="product-card-price">

@@ -383,7 +383,7 @@ body {
   color: inherit;
   font: inherit;
   display: block;
-  touch-action: manipulation;
+  touch-action: pan-y;
   position: relative;
   z-index: 1;
 }
@@ -1150,7 +1150,6 @@ select {
 button,
 a,
 .category-chip,
-.product-card-main,
 .product-add-btn,
 .catalog-qty-btn,
 .header-cart-btn,
@@ -1163,6 +1162,13 @@ a,
 .cart-fab,
 .cart-overlay {
   touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+}
+
+.product-card-main {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
