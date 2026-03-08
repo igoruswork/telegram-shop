@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
+import { useSingleTap } from '../lib/useSingleTap';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -18,6 +19,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const bindSingleTap = useSingleTap();
 
   // Завантажити свіжі дані товару з Supabase по ID
   useEffect(() => {
@@ -121,7 +123,9 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
           <button
             type="button"
             className="product-page-add-btn"
-            onClick={() => onAddToCart(product)}
+            {...bindSingleTap(() => onAddToCart(product), {
+              preventDefault: true,
+            })}
           >
             🛒 Додати в кошик
           </button>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSingleTap } from '../lib/useSingleTap';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -29,6 +30,7 @@ export function CatalogPage({
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Всі');
   const [activeSubCategory, setActiveSubCategory] = useState('Всі');
+  const bindSingleTap = useSingleTap();
 
   const handleCategoryClick = (cat) => {
     setActiveCategory(cat);
@@ -209,8 +211,10 @@ export function CatalogPage({
                       <button
                         type="button"
                         className="catalog-qty-btn catalog-qty-minus"
-                        onClick={() => onUpdateQty(product.id, -1)}
                         aria-label={`Зменшити кількість ${product.name}`}
+                        {...bindSingleTap(() => onUpdateQty(product.id, -1), {
+                          preventDefault: true,
+                        })}
                       >
                         -
                       </button>
@@ -218,8 +222,10 @@ export function CatalogPage({
                       <button
                         type="button"
                         className="catalog-qty-btn catalog-qty-plus"
-                        onClick={() => onUpdateQty(product.id, 1)}
                         aria-label={`Збільшити кількість ${product.name}`}
+                        {...bindSingleTap(() => onUpdateQty(product.id, 1), {
+                          preventDefault: true,
+                        })}
                       >
                         +
                       </button>
@@ -228,8 +234,10 @@ export function CatalogPage({
                     <button
                       type="button"
                       className="product-add-btn"
-                      onClick={() => onAddToCart(product)}
                       aria-label={`Додати ${product.name} в кошик`}
+                      {...bindSingleTap(() => onAddToCart(product), {
+                        preventDefault: true,
+                      })}
                     >
                       +
                     </button>

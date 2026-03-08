@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createOrder } from '../lib/supabase';
+import { useSingleTap } from '../lib/useSingleTap';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -20,6 +21,7 @@ export function CartDrawer({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const bindSingleTap = useSingleTap();
 
   if (!open) return null;
 
@@ -106,13 +108,17 @@ export function CartDrawer({
                   <button
                     type="button"
                     className="cart-qty-btn"
-                    onClick={() => onUpdateQty(item.id, -1)}
+                    {...bindSingleTap(() => onUpdateQty(item.id, -1), {
+                      preventDefault: true,
+                    })}
                   >−</button>
                   <span className="cart-qty-value">{item.qty}</span>
                   <button
                     type="button"
                     className="cart-qty-btn"
-                    onClick={() => onUpdateQty(item.id, 1)}
+                    {...bindSingleTap(() => onUpdateQty(item.id, 1), {
+                      preventDefault: true,
+                    })}
                   >+</button>
                 </div>
               </div>
@@ -137,8 +143,10 @@ export function CartDrawer({
             <button
               type="button"
               className="cart-submit-btn"
-              onClick={handleSubmit}
               disabled={submitting}
+              {...bindSingleTap(handleSubmit, {
+                preventDefault: true,
+              })}
             >
               {submitting ? 'Надсилання…' : 'Оформити замовлення'}
             </button>
