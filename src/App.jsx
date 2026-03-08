@@ -171,6 +171,8 @@ export default function App() {
             haptic('medium');
             setCartOpen(true);
           }}
+          cart={cart}
+          onUpdateQty={updateQty}
         />
       )}
 
