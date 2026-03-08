@@ -11,6 +11,9 @@ export function useTelegram() {
     if (!tg) return;
     tg.ready();
     tg.expand();
+    // Disable Telegram's vertical swipe-to-close gesture —
+    // it intercepts the first tap on page elements
+    try { tg.disableVerticalSwipes(); } catch {}
     try { tg.enableClosingConfirmation(); } catch {}
   }, [tg]);
 
