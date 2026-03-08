@@ -205,8 +205,7 @@ export function CatalogPage({
 
                 <div className="product-card-footer">
                   <div className="product-card-price">
-                    {formatPrice(product.price)}{' '}
-                    <span>₴</span>
+                    {formatPrice(product.price)}
                   </div>
                   <div className="catalog-qty-controls">
                     <button
