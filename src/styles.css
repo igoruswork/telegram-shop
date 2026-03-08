@@ -289,8 +289,6 @@ body {
   outline: none;
   transition: var(--transition);
   touch-action: auto;
-  position: relative;
-  z-index: 1;
 }
 
 .search-input:focus {
