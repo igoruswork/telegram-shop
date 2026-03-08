@@ -139,7 +139,7 @@ export function CatalogPage({
             key={cat}
             type="button"
             className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
-            {...bindSingleTap(() => handleCategoryClick(cat), { preventDefault: true })}
+            onClick={() => handleCategoryClick(cat)}
           >
             {cat}
           </button>
@@ -154,7 +154,7 @@ export function CatalogPage({
               key={sub}
               type="button"
               className={`category-chip ${activeSubCategory === sub ? 'active' : ''}`}
-              {...bindSingleTap(() => setActiveSubCategory(sub), { preventDefault: true })}
+              onClick={() => setActiveSubCategory(sub)}
               style={activeSubCategory === sub ? {} : { background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(14,165,233,0.1)' }}
             >
               {sub}
@@ -238,9 +238,7 @@ export function CatalogPage({
                       className="catalog-qty-btn catalog-qty-minus"
                       aria-label={`Зменшити кількість ${product.name}`}
                       disabled={qty === 0}
-                      {...bindSingleTap(() => onUpdateQty(product.id, -1), {
-                        preventDefault: true,
-                      })}
+                      onClick={() => onUpdateQty(product.id, -1)}
                     >
                       −
                     </button>
@@ -249,9 +247,7 @@ export function CatalogPage({
                       type="button"
                       className="catalog-qty-btn catalog-qty-plus"
                       aria-label={qty === 0 ? `Додати ${product.name} в кошик` : `Збільшити кількість ${product.name}`}
-                      {...bindSingleTap(() => qty === 0 ? onAddToCart(product) : onUpdateQty(product.id, 1), {
-                        preventDefault: true,
-                      })}
+                      onClick={() => qty === 0 ? onAddToCart(product) : onUpdateQty(product.id, 1)}
                     >
                       +
                     </button>
