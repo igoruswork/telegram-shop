@@ -166,7 +166,7 @@ export function CatalogPage({
                 onClick={() => onProductClick(product)}
               >
                 <div className="product-card-imgwrap">
-                  {product.badge && String(product.badge).toUpperCase() !== 'NULL' && (
+                  {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
                     <span className={`product-badge ${getBadgeClass(product.badge)}`}>
                       {product.badge}
                     </span>
@@ -185,7 +185,7 @@ export function CatalogPage({
 
                 <div className="product-card-body">
                   <div className="product-card-name">{product.name}</div>
-                  {product.sku && String(product.sku).toUpperCase() !== 'NULL' && (
+                  {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
                     <div className="product-card-category" style={{ marginBottom: 2 }}>{product.sku}</div>
                   )}
                   <div className="product-card-category">
