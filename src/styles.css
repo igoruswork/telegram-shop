@@ -48,7 +48,6 @@ body {
   background: linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%);
   min-height: 100%;
   color: var(--text-primary);
-  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   text-size-adjust: 100%;
 }
@@ -60,6 +59,7 @@ body {
 
 #root {
   min-height: var(--app-height);
+  overflow-x: hidden;
 }
 
 .app-shell {
@@ -428,9 +428,11 @@ body {
   color: inherit;
   font: inherit;
   display: block;
-  touch-action: pan-y;
+  touch-action: pan-y !important;
   position: relative;
   z-index: 1;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .product-card-img {
@@ -1218,6 +1220,7 @@ a,
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   cursor: pointer;
+  touch-action: pan-y !important;
 }
 
 button:focus,

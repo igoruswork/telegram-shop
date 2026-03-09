@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef } from 'react';
 
 const MOVE_THRESHOLD = 10;
 
@@ -8,6 +8,10 @@ const MOVE_THRESHOLD = 10;
  * Uses onTouchEnd for instant response on mobile (no 300ms delay).
  * Tracks finger movement to distinguish taps from scrolls.
  * Falls back to onClick for desktop/mouse users.
+ *
+ * IMPORTANT: Does NOT call e.preventDefault() — this was blocking
+ * fling/inertial scrolling on Android Telegram WebView.
+ * Instead uses a flag to suppress the duplicate click event.
  */
 export function useSingleTap() {
   const stateRef = useRef({ x: 0, y: 0, moved: false, handled: false });
@@ -37,105 +41,22 @@ export function useSingleTap() {
       },
       onTouchEnd: (e) => {
         if (stateRef.current.moved) return;
-        e.preventDefault(); // Prevent delayed click from firing
+        // Do NOT call e.preventDefault() — it blocks fling scroll on Android.
         if (stopPropagation) e.stopPropagation();
         stateRef.current.handled = true;
         handler(e);
       },
       onClick: (e) => {
-        // Desktop fallback — on touch devices this is suppressed
-        // by preventDefault in onTouchEnd
+        // On touch devices, handler already fired in onTouchEnd.
+        // Suppress the follow-up click to prevent double invocation.
         if (stateRef.current.handled) {
           stateRef.current.handled = false;
           return;
         }
+        // Desktop fallback
         if (stopPropagation) e.stopPropagation();
         handler(e);
       },
     };
   }, []);
-}
-
-/**
- * Single-tap hook that registers touchstart/touchmove as PASSIVE listeners.
- * This allows the browser to scroll immediately without waiting for JS.
- * Use this for large tappable areas (product cards) that sit inside scroll containers.
- *
- * IMPORTANT: touchend is also PASSIVE — we do NOT call preventDefault() there
- * because on Android/Chromium it blocks fling (inertial) scrolling.
- * Instead we use a flag + timeout to suppress the subsequent click event.
- *
- * Returns a ref callback - attach it to the element's ref prop.
- * Also returns onClick for desktop fallback.
- */
-export function usePassiveSingleTap(handler) {
-  const stateRef = useRef({ x: 0, y: 0, moved: false, handled: false });
-  const handlerRef = useRef(handler);
-  const elementRef = useRef(null);
-
-  // Keep handler ref up to date
-  handlerRef.current = handler;
-
-  useEffect(() => {
-    const el = elementRef.current;
-    if (!el) return;
-
-    const onTouchStart = (e) => {
-      const t = e.touches[0];
-      stateRef.current = {
-        x: t.clientX,
-        y: t.clientY,
-        moved: false,
-        handled: false,
-      };
-    };
-
-    const onTouchMove = (e) => {
-      if (stateRef.current.moved) return;
-      const t = e.touches[0];
-      if (
-        Math.abs(t.clientX - stateRef.current.x) > MOVE_THRESHOLD ||
-        Math.abs(t.clientY - stateRef.current.y) > MOVE_THRESHOLD
-      ) {
-        stateRef.current.moved = true;
-      }
-    };
-
-    const onTouchEnd = () => {
-      if (stateRef.current.moved) return;
-      // Do NOT call e.preventDefault() — it blocks fling/inertial scroll on Android.
-      // Instead, fire handler immediately and set a flag to suppress the click.
-      stateRef.current.handled = true;
-      handlerRef.current();
-    };
-
-    // ALL listeners are PASSIVE — browser can scroll freely
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: true });
-    el.addEventListener('touchend', onTouchEnd, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-    };
-  }, []);
-
-  const onClick = useCallback((e) => {
-    // On touch devices the handler already fired in touchend,
-    // so suppress the follow-up click to prevent double invocation.
-    if (stateRef.current.handled) {
-      stateRef.current.handled = false;
-      e.preventDefault();
-      return;
-    }
-    // Desktop fallback — no touch events fired, so handle click normally.
-    handlerRef.current(e);
-  }, []);
-
-  const refCallback = useCallback((node) => {
-    elementRef.current = node;
-  }, []);
-
-  return { ref: refCallback, onClick };
 }

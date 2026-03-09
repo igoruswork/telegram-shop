@@ -1,23 +1,28 @@
-import React from 'react';
-import { usePassiveSingleTap } from '../lib/useSingleTap';
+import React, { useCallback } from 'react';
 
 /**
- * Product card with passive touch listeners for smooth scrolling on Android.
- * Wraps the tappable area in a ref-based passive listener instead of
- * React's non-passive onTouchStart/onTouchMove.
+ * Product card — clickable area that opens product detail.
+ *
+ * Uses a plain <div role="button"> + onClick instead of <button> + touch events.
+ * Reason: on Android Telegram WebView, <button> elements with touch listeners
+ * capture touch gestures and block vertical scrolling of the parent container.
+ * With modern viewport meta (maximum-scale=1), there is no 300ms click delay,
+ * so onClick fires instantly — no need for custom touch handling.
  */
 export function ProductCard({ product, onProductClick, children }) {
-    const { ref, onClick } = usePassiveSingleTap(() => onProductClick(product));
+    const handleClick = useCallback(() => {
+        onProductClick(product);
+    }, [product, onProductClick]);
 
     return (
-        <button
-            ref={ref}
-            type="button"
+        <div
+            role="button"
+            tabIndex={0}
             className="product-card-main"
             aria-label={`Відкрити товар ${product.name}`}
-            onClick={onClick}
+            onClick={handleClick}
         >
             {children}
-        </button>
+        </div>
     );
 }
