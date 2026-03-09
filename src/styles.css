@@ -415,6 +415,7 @@ body {
   flex-direction: column;
   position: relative;
   isolation: isolate;
+  touch-action: pan-y;
 }
 
 .product-card-main {

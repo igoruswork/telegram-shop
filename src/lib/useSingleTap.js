@@ -61,6 +61,10 @@ export function useSingleTap() {
  * This allows the browser to scroll immediately without waiting for JS.
  * Use this for large tappable areas (product cards) that sit inside scroll containers.
  *
+ * IMPORTANT: touchend is also PASSIVE — we do NOT call preventDefault() there
+ * because on Android/Chromium it blocks fling (inertial) scrolling.
+ * Instead we use a flag + timeout to suppress the subsequent click event.
+ *
  * Returns a ref callback - attach it to the element's ref prop.
  * Also returns onClick for desktop fallback.
  */
@@ -97,18 +101,18 @@ export function usePassiveSingleTap(handler) {
       }
     };
 
-    const onTouchEnd = (e) => {
+    const onTouchEnd = () => {
       if (stateRef.current.moved) return;
-      e.preventDefault();
+      // Do NOT call e.preventDefault() — it blocks fling/inertial scroll on Android.
+      // Instead, fire handler immediately and set a flag to suppress the click.
       stateRef.current.handled = true;
-      handlerRef.current(e);
+      handlerRef.current();
     };
 
-    // Register touchstart and touchmove as PASSIVE — 
-    // browser can start scrolling immediately
+    // ALL listeners are PASSIVE — browser can scroll freely
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: true });
-    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
 
     return () => {
       el.removeEventListener('touchstart', onTouchStart);
@@ -118,10 +122,14 @@ export function usePassiveSingleTap(handler) {
   }, []);
 
   const onClick = useCallback((e) => {
+    // On touch devices the handler already fired in touchend,
+    // so suppress the follow-up click to prevent double invocation.
     if (stateRef.current.handled) {
       stateRef.current.handled = false;
+      e.preventDefault();
       return;
     }
+    // Desktop fallback — no touch events fired, so handle click normally.
     handlerRef.current(e);
   }, []);
 
