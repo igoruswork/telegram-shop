@@ -9,15 +9,24 @@ const MOVE_THRESHOLD = 10;
  * Tracks finger movement to distinguish taps from scrolls.
  * Falls back to onClick for desktop/mouse users.
  *
- * IMPORTANT: Does NOT call e.preventDefault() — this was blocking
- * fling/inertial scrolling on Android Telegram WebView.
- * Instead uses a flag to suppress the duplicate click event.
+ * Options:
+ *   preventDefault (default: true)
+ *     — calls e.preventDefault() in onTouchEnd to eliminate the 300ms
+ *       click delay on older Android devices. Set to FALSE for buttons
+ *       that live inside a scroll container (e.g. +/- qty buttons in
+ *       the product grid) so that fling/inertial scrolling still works.
+ *
+ *   stopPropagation (default: false)
+ *     — calls e.stopPropagation() in onTouchEnd and onClick.
  */
 export function useSingleTap() {
   const stateRef = useRef({ x: 0, y: 0, moved: false, handled: false });
 
   return useCallback((handler, options = {}) => {
-    const { stopPropagation = false } = options;
+    const {
+      preventDefault = true,
+      stopPropagation = false,
+    } = options;
 
     return {
       onTouchStart: (e) => {
@@ -41,7 +50,9 @@ export function useSingleTap() {
       },
       onTouchEnd: (e) => {
         if (stateRef.current.moved) return;
-        // Do NOT call e.preventDefault() — it blocks fling scroll on Android.
+        // preventDefault eliminates the 300ms click delay on older Android.
+        // Disable it for buttons inside scroll containers to preserve fling.
+        if (preventDefault) e.preventDefault();
         if (stopPropagation) e.stopPropagation();
         stateRef.current.handled = true;
         handler(e);

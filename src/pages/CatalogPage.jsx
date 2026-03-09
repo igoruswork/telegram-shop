@@ -239,7 +239,7 @@ export function CatalogPage({
                       aria-label={`Зменшити кількість ${product.name}`}
                       disabled={qty === 0}
                       {...bindSingleTap(() => onUpdateQty(product.id, -1), {
-                        preventDefault: true,
+                        preventDefault: false,
                       })}
                     >
                       −
@@ -250,7 +250,7 @@ export function CatalogPage({
                       className="catalog-qty-btn catalog-qty-plus"
                       aria-label={qty === 0 ? `Додати ${product.name} в кошик` : `Збільшити кількість ${product.name}`}
                       {...bindSingleTap(() => qty === 0 ? onAddToCart(product) : onUpdateQty(product.id, 1), {
-                        preventDefault: true,
+                        preventDefault: false,
                       })}
                     >
                       +
