@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { logAccess } from '../lib/supabase';
 
 export function GatePage({ onAuthorized, tgUserId }) {
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+380');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -52,7 +52,14 @@ export function GatePage({ onAuthorized, tgUserId }) {
           inputMode="tel"
           placeholder="+380 XX XXX XX XX"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val.startsWith('+380')) {
+              setPhone('+380');
+            } else {
+              setPhone(val);
+            }
+          }}
           autoComplete="tel"
         />
         <input

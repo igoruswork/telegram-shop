@@ -157,6 +157,41 @@ export async function logAccess({ phone, lastName, tgUserId }) {
 }
 
 /**
+ * Отримати ВСІ товари (включаючи view = false) — для адміна
+ */
+export async function fetchAllProducts() {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
+    .order('number_sites', { ascending: true });
+
+  if (error) {
+    console.error('fetchAllProducts error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити всі товари.'));
+  }
+  return data || [];
+}
+
+/**
+ * Оновити поля товару (для адміна)
+ */
+export async function updateProduct(id, fields) {
+  ensureSupabaseConfigured();
+
+  const { error } = await supabase
+    .from('products')
+    .update(fields)
+    .eq('id', id);
+
+  if (error) {
+    console.error('updateProduct error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося оновити товар.'));
+  }
+}
+
+/**
  * Підписатися на зміни таблиці products (Realtime)
  * Повертає функцію для відписки
  */

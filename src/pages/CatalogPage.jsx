@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useSingleTap } from '../lib/useSingleTap';
 import { ProductCard } from '../components/ProductCard';
 
@@ -27,23 +27,45 @@ export function CatalogPage({
   onCartClick,
   cart,
   onUpdateQty,
+  isAdmin,
+  onAdminClick,
+  savedState,
+  onSaveState,
 }) {
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('Всі');
-  const [activeSubCategory, setActiveSubCategory] = useState('Всі');
+  const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
+  const [activeSubCategory, setActiveSubCategory] = useState(savedState?.activeSubCategory || 'Всі');
   const bindSingleTap = useSingleTap();
   const searchRef = useRef(null);
 
+  // Відновлення позиції скролу після монтування
+  useEffect(() => {
+    if (savedState?.scrollY) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, savedState.scrollY);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const clearSearch = useCallback(() => {
     setSearch('');
-    // Blur input to hide keyboard on mobile
     if (searchRef.current) searchRef.current.blur();
   }, []);
 
   const handleCategoryClick = (cat) => {
     setActiveCategory(cat);
-    setActiveSubCategory('Всі'); // Скидаємо підкатегорію при зміні категорії
+    setActiveSubCategory('Всі');
   };
+
+  // Зберегти стан і перейти до товару
+  const handleProductClick = useCallback((product) => {
+    onSaveState?.({
+      scrollY: window.scrollY,
+      activeCategory,
+      activeSubCategory,
+    });
+    onProductClick(product);
+  }, [onProductClick, onSaveState, activeCategory, activeSubCategory]);
 
   const subCategories = useMemo(() => {
     if (activeCategory === 'Всі') return [];
@@ -57,11 +79,9 @@ export function CatalogPage({
     return ['Всі', ...subCategories];
   }, [subCategories]);
 
-  // Фільтрація — дані приходять з Supabase через props
   const filtered = useMemo(() => {
     let result = products;
 
-    // Якщо є пошук — шукаємо по ВСІХ товарах (ігноруємо категорію)
     if (search.trim()) {
       const words = search.toLowerCase().trim().split(/\s+/);
       result = result.filter((p) => {
@@ -69,7 +89,6 @@ export function CatalogPage({
         return words.every((w) => haystack.includes(w));
       });
     } else {
-      // Фільтрація за категоріями тільки коли немає пошуку
       if (activeCategory !== 'Всі') {
         result = result.filter((p) => p.category === activeCategory);
       }
@@ -90,18 +109,30 @@ export function CatalogPage({
       <div className="header">
         <div className="header-row">
           <div className="header-title">Каталог</div>
-          <button
-            type="button"
-            className="header-cart-btn"
-            aria-label="Відкрити кошик"
-            {...bindSingleTap(onCartClick, { preventDefault: true })}
-          >
-            <svg className="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
-            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {isAdmin && (
+              <button
+                type="button"
+                className="admin-header-btn"
+                aria-label="Адмін панель"
+                onClick={onAdminClick}
+              >
+                ⚙️
+              </button>
+            )}
+            <button
+              type="button"
+              className="header-cart-btn"
+              aria-label="Відкрити кошик"
+              {...bindSingleTap(onCartClick, { preventDefault: true })}
+            >
+              <svg className="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+            </button>
+          </div>
         </div>
 
         <div className="search-wrap">
@@ -132,7 +163,7 @@ export function CatalogPage({
         </div>
       </div>
 
-      {/* Категорії — з Supabase */}
+      {/* Категорії */}
       <div className="categories-scroll">
         {allCategories.map((cat) => (
           <button
@@ -163,7 +194,7 @@ export function CatalogPage({
         </div>
       )}
 
-      {/* Товари — з Supabase */}
+      {/* Товари */}
       {loading ? (
         <div className="loading-grid">
           {[1, 2, 3, 4].map((i) => (
@@ -198,7 +229,7 @@ export function CatalogPage({
                 className="product-card"
                 style={{ animationDelay: `${idx * 0.05}s` }}
               >
-                <ProductCard product={product} onProductClick={onProductClick}>
+                <ProductCard product={product} onProductClick={handleProductClick}>
                   <div className="product-card-imgwrap">
                     {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
                       <span className={`product-badge ${getBadgeClass(product.badge)}`}>

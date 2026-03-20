@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTelegram } from './lib/useTelegram';
 import {
   fetchProducts,
@@ -9,8 +9,11 @@ import {
 import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductPage } from './pages/ProductPage';
+import { AdminPage } from './pages/AdminPage';
 import { CartDrawer } from './components/CartDrawer';
 import './styles.css';
+
+const ADMIN_PHONE = '+380111111111';
 
 export default function App() {
   const { user, haptic, hapticNotification } = useTelegram();
@@ -18,10 +21,14 @@ export default function App() {
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
   const [gateData, setGateData] = useState({ phone: '', lastName: '' });
+  const isAdmin = gateData.phone === ADMIN_PHONE;
 
   // ─── Навігація ────────────────────────────────────────
-  const [page, setPage] = useState('catalog'); // 'catalog' | 'product'
+  const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
   const [selectedProductId, setSelectedProductId] = useState(null);
+
+  // ─── Збереження стану каталогу (скрол + категорія) ───
+  const [catalogState, setCatalogState] = useState(null);
 
   // ─── Дані з Supabase ─────────────────────────────────
   const [products, setProducts] = useState([]);
@@ -74,11 +81,8 @@ export default function App() {
   useEffect(() => {
     if (!authorized) return;
 
-    // Перше завантаження
     loadData();
 
-    // Realtime підписка — при будь-якій зміні в products
-    // автоматично перезавантажує дані з Supabase
     const unsubscribe = subscribeToProducts(() => {
       loadData();
     });
@@ -153,6 +157,16 @@ export default function App() {
     setSelectedProductId(null);
   }, [haptic]);
 
+  const openAdmin = useCallback(() => {
+    haptic('light');
+    setPage('admin');
+  }, [haptic]);
+
+  const closeAdmin = useCallback(() => {
+    haptic('light');
+    setPage('catalog');
+  }, [haptic]);
+
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {
     hapticNotification('success');
@@ -189,6 +203,10 @@ export default function App() {
           }}
           cart={cart}
           onUpdateQty={updateQty}
+          isAdmin={isAdmin}
+          onAdminClick={openAdmin}
+          savedState={catalogState}
+          onSaveState={setCatalogState}
         />
       )}
 
@@ -198,6 +216,10 @@ export default function App() {
           onBack={goBack}
           onAddToCart={addToCart}
         />
+      )}
+
+      {page === 'admin' && (
+        <AdminPage onBack={closeAdmin} />
       )}
 
       <CartDrawer
