@@ -42,7 +42,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
       <div className="gate-logo">🛍</div>
       <h1 className="gate-title">Вітаємо!</h1>
       <p className="gate-subtitle">
-        Для перегляду каталогу введіть номер телефону та прізвище
+        Для перегляду каталогу введіть номер телефону, ім'я та прізвище
       </p>
 
       <form className="gate-form" onSubmit={handleSubmit}>
@@ -65,10 +65,10 @@ export function GatePage({ onAuthorized, tgUserId }) {
         <input
           className="gate-input"
           type="text"
-          placeholder="Прізвище"
+          placeholder="Ім'я та Прізвище"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          autoComplete="family-name"
+          autoComplete="name"
         />
 
         {error && <div className="gate-error">{error}</div>}
