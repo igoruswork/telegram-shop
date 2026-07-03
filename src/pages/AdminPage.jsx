@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { fetchAllProducts, updateProduct } from '../lib/supabase';
+import { createProduct, fetchAllProducts, updateProduct } from '../lib/supabase';
+
+const emptyProductForm = {
+  id: '',
+  name: '',
+  sku: '',
+  price: '',
+  thumbnail_url: '',
+  category: '',
+  p_category: '',
+};
 
 export function AdminPage({ onBack }) {
   const [products, setProducts] = useState([]);
@@ -11,6 +21,10 @@ export function AdminPage({ onBack }) {
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
+  const [isAdding, setIsAdding] = useState(false);
+  const [newProduct, setNewProduct] = useState(emptyProductForm);
+  const [creating, setCreating] = useState(false);
+  const [createSaved, setCreateSaved] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,6 +45,19 @@ export function AdminPage({ onBack }) {
     const unique = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
     return ['Всі', ...unique];
   }, [products]);
+
+  const categoryOptions = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
+    [products]
+  );
+
+  const subCategoryOptions = useMemo(() => {
+    const source = newProduct.category
+      ? products.filter((p) => p.category === newProduct.category)
+      : products;
+
+    return [...new Set(source.map((p) => p.p_category).filter(Boolean))].sort();
+  }, [products, newProduct.category]);
 
   const subCategories = useMemo(() => {
     if (activeCategory === 'Всі') return [];
@@ -66,6 +93,7 @@ export function AdminPage({ onBack }) {
     badge: edits[p.id]?.badge ?? (p.badge || ''),
     category: edits[p.id]?.category ?? (p.category || ''),
     price: edits[p.id]?.price ?? String(p.price ?? ''),
+    number_sites: edits[p.id]?.number_sites ?? String(p.number_sites ?? ''),
   });
 
   const isDirty = (p) => {
@@ -75,13 +103,19 @@ export function AdminPage({ onBack }) {
       (e.p_category !== undefined && e.p_category !== (p.p_category || '')) ||
       (e.badge !== undefined && e.badge !== (p.badge || '')) ||
       (e.category !== undefined && e.category !== (p.category || '')) ||
-      (e.price !== undefined && e.price !== String(p.price ?? ''))
+      (e.price !== undefined && e.price !== String(p.price ?? '')) ||
+      (e.number_sites !== undefined && e.number_sites !== String(p.number_sites ?? ''))
     );
   };
 
   const handleField = (id, field, value) => {
     setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
     setSaved((prev) => ({ ...prev, [id]: false }));
+  };
+
+  const handleNewProductField = (field, value) => {
+    setNewProduct((prev) => ({ ...prev, [field]: value }));
+    setCreateSaved(false);
   };
 
   const handleToggleView = async (p) => {
@@ -103,6 +137,7 @@ export function AdminPage({ onBack }) {
     if (e.badge !== undefined) fields.badge = e.badge || null;
     if (e.category !== undefined) fields.category = e.category || null;
     if (e.price !== undefined) fields.price = e.price === '' ? null : Number(e.price);
+    if (e.number_sites !== undefined) fields.number_sites = e.number_sites === '' ? null : Number(e.number_sites);
     if (!Object.keys(fields).length) return;
 
     setSaving((prev) => ({ ...prev, [p.id]: true }));
@@ -119,6 +154,84 @@ export function AdminPage({ onBack }) {
     }
   };
 
+  const handleCreateProduct = async (e) => {
+    e.preventDefault();
+    if (creating) return;
+
+    const id = Number(newProduct.id);
+    const price = Number(newProduct.price);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      alert('Вкажіть коректний id.');
+      return;
+    }
+
+    if (!newProduct.name.trim()) {
+      alert('Вкажіть name.');
+      return;
+    }
+
+    if (!newProduct.sku.trim()) {
+      alert('Вкажіть sku.');
+      return;
+    }
+
+    if (!newProduct.price.trim() || !Number.isFinite(price)) {
+      alert('Вкажіть коректну price.');
+      return;
+    }
+
+    if (!newProduct.thumbnail_url.trim()) {
+      alert('Вкажіть thumbnail_url.');
+      return;
+    }
+
+    if (!newProduct.category.trim()) {
+      alert('Вкажіть category.');
+      return;
+    }
+
+    if (!newProduct.p_category.trim()) {
+      alert('Вкажіть p_category.');
+      return;
+    }
+
+    const maxOrder = products.reduce((max, p) => {
+      const order = Number(p.number_sites);
+      return Number.isFinite(order) ? Math.max(max, order) : max;
+    }, 0);
+
+    const payload = {
+      id,
+      name: newProduct.name.trim(),
+      sku: newProduct.sku.trim(),
+      price,
+      thumbnail_url: newProduct.thumbnail_url.trim(),
+      category: newProduct.category.trim(),
+      p_category: newProduct.p_category.trim(),
+      badge: null,
+      view: true,
+      number_sites: maxOrder + 1,
+    };
+
+    setCreating(true);
+    try {
+      const created = await createProduct(payload);
+      setProducts((prev) => [...prev, created].sort((a, b) => {
+        const aOrder = Number(a.number_sites ?? 0);
+        const bOrder = Number(b.number_sites ?? 0);
+        return aOrder - bOrder;
+      }));
+      setNewProduct(emptyProductForm);
+      setCreateSaved(true);
+      setTimeout(() => setCreateSaved(false), 1500);
+    } catch (err) {
+      alert('Помилка: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="admin-page">
       <div className="header">
@@ -127,7 +240,12 @@ export function AdminPage({ onBack }) {
             ← Назад
           </button>
           <div className="header-title">Адмін</div>
-          <button type="button" className="admin-refresh-btn" onClick={load}>↻</button>
+          <div className="admin-header-actions">
+            <button type="button" className="admin-add-btn" onClick={() => setIsAdding((value) => !value)}>
+              {isAdding ? '×' : '+'}
+            </button>
+            <button type="button" className="admin-refresh-btn" onClick={load}>↻</button>
+          </div>
         </div>
         <div className="search-wrap">
           <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -150,6 +268,66 @@ export function AdminPage({ onBack }) {
           )}
         </div>
       </div>
+
+      {isAdding && (
+        <form className="admin-create-card" onSubmit={handleCreateProduct}>
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Новий товар</div>
+            </div>
+            {createSaved && <span className="admin-saved-badge">✓ Створено</span>}
+          </div>
+
+          <div className="admin-create-grid">
+            <label className="admin-label">
+              <span>id</span>
+              <input className="admin-input" type="number" inputMode="numeric" value={newProduct.id} placeholder="id"
+                onChange={(e) => handleNewProductField('id', e.target.value)} />
+            </label>
+            <label className="admin-label">
+              <span>name</span>
+              <input className="admin-input" type="text" value={newProduct.name} placeholder="назва товару"
+                onChange={(e) => handleNewProductField('name', e.target.value)} />
+            </label>
+            <label className="admin-label">
+              <span>sku</span>
+              <input className="admin-input" type="text" inputMode="numeric" value={newProduct.sku} placeholder="штрихкод"
+                onChange={(e) => handleNewProductField('sku', e.target.value)} />
+            </label>
+            <label className="admin-label">
+              <span>price</span>
+              <input className="admin-input" type="number" inputMode="decimal" step="0.01" value={newProduct.price} placeholder="ціна"
+                onChange={(e) => handleNewProductField('price', e.target.value)} />
+            </label>
+            <label className="admin-label">
+              <span>category</span>
+              <input className="admin-input" type="text" list="admin-category-options" value={newProduct.category} placeholder="оберіть або введіть"
+                onChange={(e) => handleNewProductField('category', e.target.value)} />
+            </label>
+            <label className="admin-label">
+              <span>p_category</span>
+              <input className="admin-input" type="text" list="admin-subcategory-options" value={newProduct.p_category} placeholder="оберіть або введіть"
+                onChange={(e) => handleNewProductField('p_category', e.target.value)} />
+            </label>
+            <label className="admin-label admin-label--wide">
+              <span>thumbnail</span>
+              <input className="admin-input" type="url" value={newProduct.thumbnail_url} placeholder="https://..."
+                onChange={(e) => handleNewProductField('thumbnail_url', e.target.value)} />
+            </label>
+          </div>
+
+          <datalist id="admin-category-options">
+            {categoryOptions.map((category) => <option key={category} value={category} />)}
+          </datalist>
+          <datalist id="admin-subcategory-options">
+            {subCategoryOptions.map((subCategory) => <option key={subCategory} value={subCategory} />)}
+          </datalist>
+
+          <button type="submit" className="admin-save-btn admin-create-submit" disabled={creating}>
+            {creating ? 'Створення…' : 'Додати товар'}
+          </button>
+        </form>
+      )}
 
       {/* Категорії */}
       <div className="categories-scroll">
@@ -237,6 +415,11 @@ export function AdminPage({ onBack }) {
                   <span>price</span>
                   <input className="admin-input" type="number" inputMode="decimal" value={edit.price} placeholder="ціна"
                     onChange={(e) => handleField(p.id, 'price', e.target.value)} />
+                </label>
+                <label className="admin-label">
+                  <span>number_sites</span>
+                  <input className="admin-input" type="number" inputMode="numeric" value={edit.number_sites} placeholder="порядок"
+                    onChange={(e) => handleField(p.id, 'number_sites', e.target.value)} />
                 </label>
                 {dirty && (
                   <button type="button" className="admin-save-btn" disabled={isSaving} onClick={() => handleSave(p)}>

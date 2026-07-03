@@ -192,6 +192,26 @@ export async function updateProduct(id, fields) {
 }
 
 /**
+ * Створити новий товар (для адміна)
+ */
+export async function createProduct(fields) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('products')
+    .insert(fields)
+    .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
+    .single();
+
+  if (error) {
+    console.error('createProduct error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося створити товар.'));
+  }
+
+  return data;
+}
+
+/**
  * Підписатися на зміни таблиці products (Realtime)
  * Повертає функцію для відписки
  */
