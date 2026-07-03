@@ -14,9 +14,58 @@ import { CartDrawer } from './components/CartDrawer';
 import './styles.css';
 
 const ADMIN_PHONE = '+380111111111';
+const DEFAULT_BRAND_COLOR = '#075985';
+const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
+
+function isHexColor(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(value || '');
+}
+
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ].join(', ');
+}
+
+function darkenHex(hex, amount = 0.34) {
+  const value = hex.replace('#', '');
+  const channels = [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ];
+
+  const darkened = channels
+    .map((channel) => Math.max(0, Math.round(channel * (1 - amount))))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `#${darkened}`;
+}
+
+function loadStoredBrandColors() {
+  try {
+    const raw = localStorage.getItem(BRAND_COLORS_STORAGE_KEY);
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([brand, color]) => brand.trim() && isHexColor(color))
+    );
+  } catch {
+    return {};
+  }
+}
 
 export default function App() {
   const { user, haptic, hapticNotification } = useTelegram();
+  const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
+  const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
 
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
@@ -54,6 +103,23 @@ export default function App() {
       window.removeEventListener('resize', setViewportHeight);
       window.visualViewport?.removeEventListener('resize', setViewportHeight);
     };
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--brand-color', defaultBrandColor);
+    document.documentElement.style.setProperty('--brand-price-color', darkenHex(defaultBrandColor));
+    document.documentElement.style.setProperty('--brand-rgb', hexToRgb(defaultBrandColor));
+    localStorage.setItem(BRAND_COLORS_STORAGE_KEY, JSON.stringify(brandColors));
+  }, [brandColors, defaultBrandColor]);
+
+  const setBrandColorForBrand = useCallback((brand, color) => {
+    const key = String(brand || '').trim();
+    if (!key || !isHexColor(color)) return;
+
+    setBrandColors((prev) => ({
+      ...prev,
+      [key]: color,
+    }));
   }, []);
 
   // ─── Завантаження даних з Supabase ───────────────────
@@ -207,6 +273,8 @@ export default function App() {
           onAdminClick={openAdmin}
           savedState={catalogState}
           onSaveState={setCatalogState}
+          brandColors={brandColors}
+          defaultBrandColor={defaultBrandColor}
         />
       )}
 
@@ -219,7 +287,12 @@ export default function App() {
       )}
 
       {page === 'admin' && (
-        <AdminPage onBack={closeAdmin} />
+        <AdminPage
+          onBack={closeAdmin}
+          brandColors={brandColors}
+          onBrandColorChange={setBrandColorForBrand}
+          defaultBrandColor={DEFAULT_BRAND_COLOR}
+        />
       )}
 
       <CartDrawer

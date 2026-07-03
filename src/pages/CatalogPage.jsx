@@ -15,6 +15,46 @@ function getBadgeClass(badge) {
   return 'default';
 }
 
+function isHexColor(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(value || '');
+}
+
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ].join(', ');
+}
+
+function darkenHex(hex, amount = 0.34) {
+  const value = hex.replace('#', '');
+  const channels = [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ];
+
+  const darkened = channels
+    .map((channel) => Math.max(0, Math.round(channel * (1 - amount))))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `#${darkened}`;
+}
+
+function getBrandStyle(category, brandColors, defaultBrandColor) {
+  const color = brandColors?.[category] || defaultBrandColor;
+  const validColor = isHexColor(color) ? color : defaultBrandColor;
+
+  return {
+    '--brand-color': validColor,
+    '--brand-price-color': darkenHex(validColor),
+    '--brand-rgb': hexToRgb(validColor),
+  };
+}
+
 export function CatalogPage({
   products,
   categories,
@@ -31,6 +71,8 @@ export function CatalogPage({
   onAdminClick,
   savedState,
   onSaveState,
+  brandColors,
+  defaultBrandColor,
 }) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
@@ -170,6 +212,7 @@ export function CatalogPage({
             key={cat}
             type="button"
             className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
+            style={getBrandStyle(cat, brandColors, defaultBrandColor)}
             {...bindSingleTap(() => handleCategoryClick(cat), { preventDefault: true })}
           >
             {cat}
@@ -186,7 +229,10 @@ export function CatalogPage({
               type="button"
               className={`category-chip ${activeSubCategory === sub ? 'active' : ''}`}
               {...bindSingleTap(() => setActiveSubCategory(sub), { preventDefault: true })}
-              style={activeSubCategory === sub ? {} : { background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(14,165,233,0.1)' }}
+              style={{
+                ...getBrandStyle(activeCategory, brandColors, defaultBrandColor),
+                ...(activeSubCategory === sub ? {} : { background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(14,165,233,0.1)' }),
+              }}
             >
               {sub}
             </button>
@@ -227,7 +273,10 @@ export function CatalogPage({
               <article
                 key={product.id}
                 className="product-card"
-                style={{ animationDelay: `${idx * 0.05}s` }}
+                style={{
+                  ...getBrandStyle(product.category, brandColors, defaultBrandColor),
+                  animationDelay: `${idx * 0.05}s`,
+                }}
               >
                 <ProductCard product={product} onProductClick={handleProductClick}>
                   <div className="product-card-imgwrap">

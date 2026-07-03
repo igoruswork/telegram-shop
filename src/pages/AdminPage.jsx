@@ -11,7 +11,19 @@ const emptyProductForm = {
   p_category: '',
 };
 
-export function AdminPage({ onBack }) {
+const brandColorPresets = [
+  '#075985', '#0284c7', '#0ea5e9', '#06b6d4', '#14b8a6',
+  '#10b981', '#22c55e', '#84cc16', '#eab308', '#f59e0b',
+  '#f97316', '#ea580c', '#ef4444', '#e11d48', '#be123c',
+  '#db2777', '#c026d3', '#9333ea', '#7c3aed', '#4f46e5',
+  '#2563eb', '#1d4ed8', '#334155', '#111827',
+];
+
+function isHexColor(value) {
+  return /^#[0-9a-fA-F]{6}$/.test(value || '');
+}
+
+export function AdminPage({ onBack, brandColors = {}, onBrandColorChange, defaultBrandColor }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,6 +37,11 @@ export function AdminPage({ onBack }) {
   const [newProduct, setNewProduct] = useState(emptyProductForm);
   const [creating, setCreating] = useState(false);
   const [createSaved, setCreateSaved] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState('');
+  const selectedBrandColor = selectedBrand
+    ? (brandColors[selectedBrand] || defaultBrandColor)
+    : defaultBrandColor;
+  const [brandColorDraft, setBrandColorDraft] = useState(selectedBrandColor);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,6 +58,10 @@ export function AdminPage({ onBack }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    setBrandColorDraft(selectedBrandColor);
+  }, [selectedBrandColor]);
+
   const allCategories = useMemo(() => {
     const unique = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
     return ['Всі', ...unique];
@@ -50,6 +71,17 @@ export function AdminPage({ onBack }) {
     () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
     [products]
   );
+
+  useEffect(() => {
+    if (categoryOptions.length === 0) {
+      setSelectedBrand('');
+      return;
+    }
+
+    if (!selectedBrand || !categoryOptions.includes(selectedBrand)) {
+      setSelectedBrand(categoryOptions[0]);
+    }
+  }, [categoryOptions, selectedBrand]);
 
   const subCategoryOptions = useMemo(() => {
     const source = newProduct.category
@@ -116,6 +148,20 @@ export function AdminPage({ onBack }) {
   const handleNewProductField = (field, value) => {
     setNewProduct((prev) => ({ ...prev, [field]: value }));
     setCreateSaved(false);
+  };
+
+  const handleBrandColorInput = (value) => {
+    setBrandColorDraft(value);
+    if (selectedBrand && isHexColor(value)) {
+      onBrandColorChange(selectedBrand, value);
+    }
+  };
+
+  const handleBrandColorChange = (value) => {
+    setBrandColorDraft(value);
+    if (selectedBrand) {
+      onBrandColorChange(selectedBrand, value);
+    }
   };
 
   const handleToggleView = async (p) => {
@@ -328,6 +374,76 @@ export function AdminPage({ onBack }) {
           </button>
         </form>
       )}
+
+      <div className="admin-settings-card">
+        <div className="admin-create-head">
+          <div>
+            <div className="admin-create-title">Налаштування</div>
+            <div className="admin-settings-subtitle">Колір зберігається окремо для кожного бренду</div>
+          </div>
+        </div>
+
+        <label className="admin-label admin-brand-select-label">
+          <span>brand</span>
+          <select
+            className="admin-input admin-brand-select"
+            value={selectedBrand}
+            onChange={(e) => setSelectedBrand(e.target.value)}
+            disabled={categoryOptions.length === 0}
+          >
+            {categoryOptions.length === 0 ? (
+              <option value="">Немає брендів</option>
+            ) : (
+              categoryOptions.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))
+            )}
+          </select>
+        </label>
+
+        <div className="admin-brand-row">
+          <label className="admin-brand-picker">
+            <input
+              type="color"
+              value={selectedBrandColor}
+              onChange={(e) => handleBrandColorChange(e.target.value)}
+              aria-label="Колір бренду"
+              disabled={!selectedBrand}
+            />
+            <span style={{ background: selectedBrandColor }} />
+          </label>
+          <input
+            className="admin-input admin-brand-hex"
+            type="text"
+            value={brandColorDraft}
+            maxLength={7}
+            onChange={(e) => handleBrandColorInput(e.target.value)}
+            placeholder="#075985"
+          />
+          <button
+            type="button"
+            className="admin-reset-btn"
+            onClick={() => handleBrandColorChange(defaultBrandColor)}
+            disabled={!selectedBrand}
+          >
+            Скинути
+          </button>
+        </div>
+
+        <div className="admin-brand-presets">
+          {brandColorPresets.map((color) => (
+            <button
+              key={color}
+              type="button"
+              className={`admin-brand-swatch ${selectedBrandColor.toLowerCase() === color ? 'active' : ''}`}
+              style={{ background: color }}
+              aria-label={`Обрати колір ${color}`}
+              onClick={() => handleBrandColorChange(color)}
+              disabled={!selectedBrand}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* Категорії */}
       <div className="categories-scroll">

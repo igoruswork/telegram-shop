@@ -4,16 +4,19 @@
    ====================================== */
 
 :root {
-  --bg-start: #d4eeff;
-  --bg-end: #f0f9ff;
-  --card-bg: rgba(255, 255, 255, 0.72);
+  --bg-start: #f7fbfd;
+  --bg-end: #eef7fb;
+  --card-bg: #ffffff;
   --card-bg-solid: #ffffff;
-  --card-border: rgba(255, 255, 255, 0.9);
-  --card-shadow: 0 2px 16px rgba(14, 116, 178, 0.08);
-  --card-shadow-hover: 0 8px 32px rgba(14, 116, 178, 0.14);
-  --accent: #0ea5e9;
-  --accent-dark: #0284c7;
-  --accent-light: #e0f2fe;
+  --card-border: #e5eef4;
+  --card-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
+  --card-shadow-hover: 0 18px 42px rgba(15, 23, 42, 0.12);
+  --accent: #0b8fbd;
+  --accent-dark: #075985;
+  --accent-light: #eef8fc;
+  --brand-color: #075985;
+  --brand-price-color: #053b59;
+  --brand-rgb: 7, 89, 133;
   --green: #10b981;
   --green-bg: #d1fae5;
   --red: #ef4444;
@@ -23,9 +26,9 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
-  --radius: 16px;
-  --radius-sm: 10px;
-  --radius-xs: 6px;
+  --radius: 14px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
   --font: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
   --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   --app-height: 100dvh;
@@ -1253,6 +1256,286 @@ button:focus-visible {
   outline: none;
 }
 
+/* ---- Clean Beauty Store Refresh ---- */
+html,
+body {
+  background: linear-gradient(180deg, #f7fbfd 0%, #eef7fb 100%);
+}
+
+.app-shell {
+  background: transparent;
+}
+
+.gate-page {
+  background: linear-gradient(180deg, #f7fbfd 0%, #eef7fb 100%);
+}
+
+.gate-logo {
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(var(--brand-rgb), 0.92), rgba(var(--brand-rgb), 0.74));
+  box-shadow: 0 16px 34px rgba(var(--brand-rgb), 0.18);
+}
+
+.gate-input,
+.search-input,
+.admin-input {
+  background: #ffffff;
+  border-color: #dbe8f0;
+  box-shadow: none;
+}
+
+.gate-btn,
+.product-page-add-btn,
+.cart-submit-btn {
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.9), rgba(var(--brand-rgb), 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.header {
+  background: rgba(247, 251, 253, 0.96);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid #dbe8f0;
+}
+
+.header-row {
+  margin-bottom: 12px;
+}
+
+.header-title {
+  font-size: 25px;
+  letter-spacing: 0;
+  background: none;
+  color: #0f172a;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: currentColor;
+  background-clip: text;
+}
+
+.header-cart-btn,
+.back-btn {
+  background: #ffffff;
+  border-color: #dbe8f0;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+.cart-icon {
+  color: var(--brand-color);
+}
+
+.cart-badge {
+  background: #ef4444;
+  border-color: rgba(255, 255, 255, 0.96);
+}
+
+.search-input {
+  min-height: 48px;
+  border-radius: 14px;
+  padding: 12px 48px 12px 44px;
+}
+
+.search-input:focus,
+.gate-input:focus,
+.admin-input:focus {
+  border-color: #0b8fbd;
+  box-shadow: 0 0 0 4px rgba(11, 143, 189, 0.1);
+}
+
+.categories-scroll {
+  gap: 10px;
+}
+
+.category-chip {
+  min-height: 42px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px) saturate(150%);
+  color: #334155;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.category-chip.active {
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.88), rgba(var(--brand-rgb), 0.7));
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 12px 26px rgba(var(--brand-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.product-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 43%, rgba(var(--brand-rgb), 0.12) 74%, rgba(var(--brand-rgb), 0.22) 100%),
+    radial-gradient(circle at 50% 100%, rgba(var(--brand-rgb), 0.24), transparent 58%),
+    #ffffff;
+  border-color: rgba(var(--brand-rgb), 0.18);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(var(--brand-rgb), 0.11), 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+.product-card::before {
+  display: none;
+}
+
+.product-card-imgwrap {
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 86%, rgba(var(--brand-rgb), 0.035) 100%);
+}
+
+.product-card-img {
+  object-fit: contain;
+  padding: 12px;
+  background: transparent;
+}
+
+.product-card-body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(var(--brand-rgb), 0.075) 100%);
+  border-top: 1px solid rgba(var(--brand-rgb), 0.11);
+}
+
+.product-card-name {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.product-card-category {
+  color: #64748b;
+}
+
+.product-card-footer {
+  background:
+    radial-gradient(circle at 82% 50%, rgba(var(--brand-rgb), 0.18), transparent 45%),
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.07), rgba(var(--brand-rgb), 0.2));
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+.product-card-price {
+  color: var(--brand-price-color);
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.catalog-qty-controls {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.catalog-qty-plus {
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.88), rgba(var(--brand-rgb), 0.68));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: 0 10px 20px rgba(var(--brand-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.catalog-qty-minus {
+  color: #64748b;
+}
+
+.product-badge {
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+.product-page-header {
+  background: rgba(247, 251, 253, 0.96);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid #dbe8f0;
+}
+
+.product-page-body {
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  margin-top: -18px;
+  position: relative;
+  z-index: 1;
+}
+
+.cart-fab {
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.92), rgba(var(--brand-rgb), 0.74));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 18px 42px rgba(var(--brand-rgb), 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.cart-drawer {
+  border-radius: 22px 22px 0 0;
+}
+
+.cart-drawer-close,
+.cart-qty-btn {
+  background: #f8fafc;
+  border: 1px solid #dbe8f0;
+}
+
+.admin-create-card,
+.admin-card {
+  background: #ffffff;
+  border-color: #e5eef4;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
+}
+
+.admin-add-btn,
+.admin-save-btn {
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.9), rgba(var(--brand-rgb), 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 12px 28px rgba(var(--brand-rgb), 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+@media (min-width: 900px) {
+  .header {
+    border-radius: 0 0 18px 18px;
+    margin-bottom: 4px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .categories-scroll {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .product-card {
+    border-radius: 16px;
+  }
+
+  .product-card-body {
+    padding: 12px 12px 10px;
+  }
+
+  .product-card-name {
+    font-size: 13px;
+    min-height: 34px;
+  }
+
+  .product-card-footer {
+    align-items: center;
+    padding: 0 10px 12px;
+  }
+
+  .product-card-price {
+    font-size: 19px;
+  }
+
+  .catalog-qty-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .catalog-qty-value {
+    min-width: 18px;
+    font-size: 14px;
+  }
+}
+
 @supports (-webkit-touch-callout: none) {
   body {
     min-height: -webkit-fill-available;
@@ -1572,4 +1855,177 @@ button:focus-visible {
   font-size: 13px;
   color: var(--green);
   font-weight: 700;
+}
+
+/* ---- Brand color settings and glass controls ---- */
+.admin-settings-card {
+  margin: 10px 12px 2px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.54)),
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.09), rgba(var(--brand-rgb), 0.02));
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
+.admin-settings-subtitle {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+}
+
+.admin-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.admin-brand-select-label {
+  margin-top: 12px;
+}
+
+.admin-brand-select {
+  min-height: 44px;
+  padding-right: 34px;
+  background:
+    linear-gradient(45deg, transparent 50%, #64748b 50%) calc(100% - 16px) 18px / 6px 6px no-repeat,
+    linear-gradient(135deg, #64748b 50%, transparent 50%) calc(100% - 11px) 18px / 6px 6px no-repeat,
+    rgba(255, 255, 255, 0.76);
+}
+
+.admin-brand-picker {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.admin-brand-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.admin-brand-picker span {
+  position: absolute;
+  inset: 9px;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 8px 16px rgba(var(--brand-rgb), 0.22);
+}
+
+.admin-brand-hex {
+  min-height: 48px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-reset-btn {
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.66);
+  color: #334155;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+.admin-brand-presets {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.admin-brand-swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  cursor: pointer;
+}
+
+.admin-brand-swatch.active {
+  outline: 3px solid rgba(var(--brand-rgb), 0.2);
+  outline-offset: 2px;
+}
+
+.admin-brand-swatch:disabled,
+.admin-reset-btn:disabled,
+.admin-brand-picker:has(input:disabled) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.gate-btn,
+.product-page-add-btn,
+.cart-submit-btn,
+.cart-fab,
+.admin-add-btn,
+.admin-save-btn,
+.admin-refresh-btn,
+.admin-back-btn,
+.header-cart-btn,
+.back-btn,
+.cart-drawer-close,
+.cart-qty-btn,
+.catalog-qty-btn,
+.category-chip,
+.admin-reset-btn {
+  backdrop-filter: blur(16px) saturate(165%);
+  -webkit-backdrop-filter: blur(16px) saturate(165%);
+}
+
+.admin-add-btn,
+.admin-save-btn {
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.9), rgba(var(--brand-rgb), 0.68));
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  box-shadow: 0 12px 28px rgba(var(--brand-rgb), 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.admin-add-btn:active,
+.admin-save-btn:active {
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.78), rgba(var(--brand-rgb), 0.58));
+}
+
+.admin-back-btn,
+.admin-refresh-btn,
+.header-cart-btn,
+.back-btn,
+.cart-drawer-close,
+.cart-qty-btn {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.admin-back-btn {
+  color: var(--brand-color);
+}
+
+.search-input:focus,
+.gate-input:focus,
+.admin-input:focus {
+  border-color: rgba(var(--brand-rgb), 0.52);
+  box-shadow: 0 0 0 4px rgba(var(--brand-rgb), 0.1);
 }
