@@ -42,7 +42,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
       <div className="gate-logo">🛍</div>
       <h1 className="gate-title">Вітаємо!</h1>
       <p className="gate-subtitle">
-        Для перегляду каталогу введіть номер телефону, ім'я та прізвище
+        Для перегляду введіть номер телефону, ім'я та прізвище
       </p>
 
       <form className="gate-form" onSubmit={handleSubmit}>
