@@ -157,6 +157,28 @@ export async function logAccess({ phone, lastName, tgUserId }) {
 }
 
 /**
+ * Знайти останнє ім'я та прізвище для телефону в access_log
+ */
+export async function fetchLatestAccessByPhone(phone) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('access_log')
+    .select('phone, last_name, created_at')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchLatestAccessByPhone error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося знайти попередній вхід.'));
+  }
+
+  return data;
+}
+
+/**
  * Отримати ВСІ товари (включаючи view = false) — для адміна
  */
 export async function fetchAllProducts() {

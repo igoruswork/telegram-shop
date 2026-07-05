@@ -14,8 +14,10 @@ import { CartDrawer } from './components/CartDrawer';
 import './styles.css';
 
 const ADMIN_PHONE = '+380111111111';
+const DEFAULT_CATALOG_TITLE = 'Каталог';
 const DEFAULT_BRAND_COLOR = '#075985';
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
+const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
 
 function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
@@ -64,6 +66,10 @@ function loadStoredBrandColors() {
 
 export default function App() {
   const { user, haptic, hapticNotification } = useTelegram();
+  const [catalogTitle, setCatalogTitle] = useState(() => {
+    const stored = localStorage.getItem(CATALOG_TITLE_STORAGE_KEY)?.trim();
+    return stored || DEFAULT_CATALOG_TITLE;
+  });
   const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
 
@@ -111,6 +117,10 @@ export default function App() {
     document.documentElement.style.setProperty('--brand-rgb', hexToRgb(defaultBrandColor));
     localStorage.setItem(BRAND_COLORS_STORAGE_KEY, JSON.stringify(brandColors));
   }, [brandColors, defaultBrandColor]);
+
+  useEffect(() => {
+    localStorage.setItem(CATALOG_TITLE_STORAGE_KEY, catalogTitle.trim() || DEFAULT_CATALOG_TITLE);
+  }, [catalogTitle]);
 
   const setBrandColorForBrand = useCallback((brand, color) => {
     const key = String(brand || '').trim();
@@ -275,6 +285,7 @@ export default function App() {
           onSaveState={setCatalogState}
           brandColors={brandColors}
           defaultBrandColor={defaultBrandColor}
+          catalogTitle={catalogTitle}
         />
       )}
 
@@ -292,6 +303,9 @@ export default function App() {
           brandColors={brandColors}
           onBrandColorChange={setBrandColorForBrand}
           defaultBrandColor={DEFAULT_BRAND_COLOR}
+          catalogTitle={catalogTitle}
+          onCatalogTitleChange={setCatalogTitle}
+          defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
         />
       )}
 

@@ -73,10 +73,12 @@ export function CatalogPage({
   onSaveState,
   brandColors,
   defaultBrandColor,
+  catalogTitle,
 }) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
   const [activeSubCategory, setActiveSubCategory] = useState(savedState?.activeSubCategory || 'Всі');
+  const [headerCompact, setHeaderCompact] = useState(false);
   const bindSingleTap = useSingleTap();
   const searchRef = useRef(null);
 
@@ -92,6 +94,35 @@ export function CatalogPage({
   const clearSearch = useCallback(() => {
     setSearch('');
     if (searchRef.current) searchRef.current.blur();
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+
+    const updateHeaderState = () => {
+      frame = 0;
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      setHeaderCompact(scrollY > 96);
+    };
+
+    const requestUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(updateHeaderState);
+    };
+
+    updateHeaderState();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate);
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', requestUpdate);
+      window.removeEventListener('resize', requestUpdate);
+    };
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const handleCategoryClick = (cat) => {
@@ -148,10 +179,12 @@ export function CatalogPage({
   return (
     <div>
       {/* Header */}
-      <div className="header">
+      <div className={`header catalog-header ${headerCompact ? 'catalog-header--compact' : ''}`}>
         <div className="header-row">
-          <div className="header-title">Каталог</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="catalog-title-cluster">
+            <div className="header-title catalog-header-title">{catalogTitle || 'Каталог'}</div>
+          </div>
+          <div className="catalog-header-actions">
             {isAdmin && (
               <button
                 type="button"
@@ -177,7 +210,7 @@ export function CatalogPage({
           </div>
         </div>
 
-        <div className="search-wrap">
+        <div className="search-wrap catalog-search-wrap">
           <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -204,6 +237,19 @@ export function CatalogPage({
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        className={`scroll-top-fab ${headerCompact ? 'is-active' : ''}`}
+        aria-label="Повернутися на початок"
+        onClick={scrollToTop}
+        disabled={!headerCompact}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 19V5" />
+          <path d="M5 12l7-7 7 7" />
+        </svg>
+      </button>
 
       {/* Категорії */}
       <div className="categories-scroll">

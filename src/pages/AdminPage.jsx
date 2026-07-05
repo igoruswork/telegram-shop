@@ -23,7 +23,15 @@ function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
 }
 
-export function AdminPage({ onBack, brandColors = {}, onBrandColorChange, defaultBrandColor }) {
+export function AdminPage({
+  onBack,
+  brandColors = {},
+  onBrandColorChange,
+  defaultBrandColor,
+  catalogTitle,
+  onCatalogTitleChange,
+  defaultCatalogTitle,
+}) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,6 +46,7 @@ export function AdminPage({ onBack, brandColors = {}, onBrandColorChange, defaul
   const [creating, setCreating] = useState(false);
   const [createSaved, setCreateSaved] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState('');
+  const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
   const selectedBrandColor = selectedBrand
     ? (brandColors[selectedBrand] || defaultBrandColor)
     : defaultBrandColor;
@@ -61,6 +70,10 @@ export function AdminPage({ onBack, brandColors = {}, onBrandColorChange, defaul
   useEffect(() => {
     setBrandColorDraft(selectedBrandColor);
   }, [selectedBrandColor]);
+
+  useEffect(() => {
+    setCatalogTitleDraft(catalogTitle);
+  }, [catalogTitle]);
 
   const allCategories = useMemo(() => {
     const unique = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
@@ -162,6 +175,11 @@ export function AdminPage({ onBack, brandColors = {}, onBrandColorChange, defaul
     if (selectedBrand) {
       onBrandColorChange(selectedBrand, value);
     }
+  };
+
+  const handleCatalogTitleInput = (value) => {
+    setCatalogTitleDraft(value);
+    onCatalogTitleChange(value.trim() || defaultCatalogTitle);
   };
 
   const handleToggleView = async (p) => {
@@ -379,9 +397,21 @@ export function AdminPage({ onBack, brandColors = {}, onBrandColorChange, defaul
         <div className="admin-create-head">
           <div>
             <div className="admin-create-title">Налаштування</div>
-            <div className="admin-settings-subtitle">Колір зберігається окремо для кожного бренду</div>
+            <div className="admin-settings-subtitle">Назва каталогу і кольори брендів</div>
           </div>
         </div>
+
+        <label className="admin-label admin-title-label">
+          <span>title</span>
+          <input
+            className="admin-input"
+            type="text"
+            value={catalogTitleDraft}
+            placeholder={defaultCatalogTitle}
+            onChange={(e) => handleCatalogTitleInput(e.target.value)}
+            maxLength={28}
+          />
+        </label>
 
         <label className="admin-label admin-brand-select-label">
           <span>brand</span>
