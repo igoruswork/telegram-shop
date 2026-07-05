@@ -2080,6 +2080,8 @@ body {
   pointer-events: none;
   transform: translateY(-8px) scale(0.88);
   transition: var(--transition);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .scroll-top-fab svg {
@@ -2091,14 +2093,15 @@ body {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0) scale(1);
+  animation: scrollTopPulse 1.8s ease-in-out infinite;
+}
+
+.scroll-top-fab.is-active svg {
+  animation: scrollTopArrow 1.35s ease-in-out infinite;
 }
 
 .scroll-top-fab:active {
   transform: translateY(-2px) scale(0.9);
-}
-
-.scroll-top-fab:disabled {
-  cursor: default;
 }
 
 .catalog-search-wrap {
@@ -2106,6 +2109,34 @@ body {
   opacity: 1;
   overflow: hidden;
   transition: max-height 180ms ease, opacity 140ms ease, transform 180ms ease;
+}
+
+@keyframes scrollTopPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 10px 24px rgba(15, 23, 42, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      0 0 0 0 rgba(var(--brand-rgb), 0.18);
+  }
+
+  50% {
+    box-shadow:
+      0 12px 28px rgba(15, 23, 42, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      0 0 0 7px rgba(var(--brand-rgb), 0);
+  }
+}
+
+@keyframes scrollTopArrow {
+  0%,
+  100% {
+    transform: translateY(1px);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 .catalog-header--compact {
@@ -2254,6 +2285,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .product-card {
     transform: none;
+    animation: none;
+  }
+
+  .scroll-top-fab,
+  .scroll-top-fab.is-active svg {
     animation: none;
   }
 

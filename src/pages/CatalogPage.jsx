@@ -242,8 +242,9 @@ export function CatalogPage({
         type="button"
         className={`scroll-top-fab ${headerCompact ? 'is-active' : ''}`}
         aria-label="Повернутися на початок"
-        onClick={scrollToTop}
-        disabled={!headerCompact}
+        aria-hidden={!headerCompact}
+        tabIndex={headerCompact ? 0 : -1}
+        {...bindSingleTap(scrollToTop, { preventDefault: true })}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 19V5" />
