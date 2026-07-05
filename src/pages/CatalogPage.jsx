@@ -319,12 +319,17 @@ export function CatalogPage({
             return (
               <article
                 key={product.id}
-                className="product-card"
+                className={`product-card ${qty > 0 ? 'product-card--in-cart' : ''}`}
                 style={{
                   ...getBrandStyle(product.category, brandColors, defaultBrandColor),
                   animationDelay: `${idx * 0.05}s`,
                 }}
               >
+                {qty > 0 && (
+                  <div className="product-card-cart-mark" aria-label={`У кошику ${qty}`}>
+                    {qty}
+                  </div>
+                )}
                 <ProductCard product={product} onProductClick={handleProductClick}>
                   <div className="product-card-imgwrap">
                     {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
