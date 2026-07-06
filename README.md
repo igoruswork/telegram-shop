@@ -95,6 +95,32 @@
 | `sku` | text | Штрихкод |
 | `price` | numeric | Ціна |
 | `thumbnail_url` | text | URL картинки |
+| `source_thumbnail_url` | text | Оригінальний URL картинки з CRM |
+| `image_storage_path` | text | Шлях картинки в Supabase Storage |
+| `image_status` | text | `pending`, `ok` або `broken` |
+| `image_checked_at` | timestamptz | Остання перевірка картинки |
+
+---
+
+## 🖼 Картинки товарів
+
+Щоб не тягнути кожне фото напряму з CRM, картинки можна перенести в Supabase Storage:
+
+1. Виконайте SQL з `supabase/migrations/20260706000000_product_images_storage.sql`.
+2. Додайте `SUPABASE_SERVICE_ROLE_KEY` у локальний `.env.local` тільки для міграційного скрипта.
+3. Перевірте доступність частини картинок:
+
+```bash
+npm run images:check
+```
+
+4. Перенесіть існуючі картинки:
+
+```bash
+npm run images:migrate
+```
+
+Для нових товарів Edge Function `supabase/functions/import-product-image` може автоматично копіювати CRM-картинку в bucket `product-images` і оновлювати `products.thumbnail_url`.
 
 ---
 

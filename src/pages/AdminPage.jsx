@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { createProduct, fetchAllProducts, updateProduct } from '../lib/supabase';
+import {
+  createProduct,
+  fetchAllProducts,
+  fetchProductImageSource,
+  importProductImage,
+  updateProduct,
+} from '../lib/supabase';
+import { SafeImage } from '../components/SafeImage';
 
 const emptyProductForm = {
   id: '',
@@ -45,6 +52,8 @@ export function AdminPage({
   const [newProduct, setNewProduct] = useState(emptyProductForm);
   const [creating, setCreating] = useState(false);
   const [createSaved, setCreateSaved] = useState(false);
+  const [imageReloading, setImageReloading] = useState({});
+  const [imageReloaded, setImageReloaded] = useState({});
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
   const selectedBrandColor = selectedBrand
@@ -218,6 +227,53 @@ export function AdminPage({
     }
   };
 
+  const handleReloadImage = async (p) => {
+    if (imageReloading[p.id]) return;
+
+    setImageReloading((prev) => ({ ...prev, [p.id]: true }));
+    setImageReloaded((prev) => ({ ...prev, [p.id]: false }));
+
+    try {
+      const sourceUrl = await fetchProductImageSource(p);
+
+      if (!sourceUrl) {
+        alert('У товару немає URL картинки для повторного завантаження.');
+        return;
+      }
+
+      const imported = await importProductImage({
+        productId: p.id,
+        sourceUrl,
+        sku: p.sku,
+        name: p.name,
+      });
+
+      if (!imported?.product?.thumbnail_url) {
+        throw new Error('Функція не повернула оновлений thumbnail_url.');
+      }
+
+      setProducts((prev) => prev.map((x) => (
+        x.id === p.id
+          ? {
+              ...x,
+              ...imported.product,
+              source_thumbnail_url: imported.source_thumbnail_url || sourceUrl,
+              image_storage_path: imported.image_storage_path,
+              image_status: 'ok',
+            }
+          : x
+      )));
+      setImageReloaded((prev) => ({ ...prev, [p.id]: true }));
+      setTimeout(() => {
+        setImageReloaded((prev) => ({ ...prev, [p.id]: false }));
+      }, 1800);
+    } catch (e) {
+      alert('Помилка оновлення фото: ' + e.message);
+    } finally {
+      setImageReloading((prev) => ({ ...prev, [p.id]: false }));
+    }
+  };
+
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (creating) return;
@@ -280,7 +336,23 @@ export function AdminPage({
 
     setCreating(true);
     try {
-      const created = await createProduct(payload);
+      let created = await createProduct(payload);
+
+      try {
+        const imported = await importProductImage({
+          productId: created.id,
+          sourceUrl: payload.thumbnail_url,
+          sku: created.sku,
+          name: created.name,
+        });
+
+        if (imported?.product?.thumbnail_url) {
+          created = { ...created, ...imported.product };
+        }
+      } catch (imageError) {
+        console.warn('Product image import skipped:', imageError);
+      }
+
       setProducts((prev) => [...prev, created].sort((a, b) => {
         const aOrder = Number(a.number_sites ?? 0);
         const bOrder = Number(b.number_sites ?? 0);
@@ -517,28 +589,42 @@ export function AdminPage({
           const dirty = isDirty(p);
           const isSaving = saving[p.id];
           const isSaved = saved[p.id];
+          const isImageReloading = imageReloading[p.id];
+          const isImageReloaded = imageReloaded[p.id];
 
           return (
             <div key={p.id} className={`admin-card ${!p.view ? 'admin-card--hidden' : ''}`}>
               <div className="admin-card-top">
-                {p.thumbnail_url ? (
-                  <img className="admin-card-img" src={p.thumbnail_url} alt={p.name} />
-                ) : (
-                  <div className="admin-card-img admin-card-img--placeholder">📦</div>
-                )}
+                <SafeImage
+                  className="admin-card-img"
+                  placeholderClassName="admin-card-img admin-card-img--placeholder"
+                  src={p.thumbnail_url}
+                  alt={p.name}
+                />
                 <div className="admin-card-info">
                   <div className="admin-card-name">{p.name}</div>
                   {p.sku && <div className="admin-card-sku">{p.sku}</div>}
                   <div className="admin-card-cat">{p.category}</div>
                 </div>
-                <button
-                  type="button"
-                  className={`admin-toggle ${p.view ? 'admin-toggle--on' : 'admin-toggle--off'}`}
-                  disabled={isSaving}
-                  onClick={() => handleToggleView(p)}
-                >
-                  {p.view ? 'Видимий' : 'Прихований'}
-                </button>
+                <div className="admin-card-actions">
+                  <button
+                    type="button"
+                    className={`admin-toggle ${p.view ? 'admin-toggle--on' : 'admin-toggle--off'}`}
+                    disabled={isSaving}
+                    onClick={() => handleToggleView(p)}
+                  >
+                    {p.view ? 'Видимий' : 'Прихований'}
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-image-refresh"
+                    disabled={isImageReloading}
+                    onClick={() => handleReloadImage(p)}
+                  >
+                    {isImageReloading ? 'Оновлення…' : '↻ Фото'}
+                  </button>
+                  {isImageReloaded && <span className="admin-image-refreshed">✓ Фото</span>}
+                </div>
               </div>
 
               <div className="admin-card-fields">

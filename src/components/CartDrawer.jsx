@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createOrder } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
+import { SafeImage } from './SafeImage';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -103,17 +104,12 @@ export function CartDrawer({
           ) : (
             cart.map((item) => (
               <div key={item.id} className="cart-item">
-                {item.thumbnail_url ? (
-                  <img
-                    className="cart-item-img"
-                    src={item.thumbnail_url}
-                    alt={item.name}
-                  />
-                ) : (
-                  <div className="cart-item-img" style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
-                  }}>📦</div>
-                )}
+                <SafeImage
+                  className="cart-item-img"
+                  src={item.thumbnail_url}
+                  alt={item.name}
+                  loading="lazy"
+                />
 
                 <div className="cart-item-info">
                   <div className="cart-item-name">{item.name}</div>

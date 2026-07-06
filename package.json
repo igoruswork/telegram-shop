@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "images:check": "node scripts/migrate-product-images.mjs --limit=50",
+    "images:migrate": "node scripts/migrate-product-images.mjs --apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

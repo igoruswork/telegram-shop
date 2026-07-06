@@ -233,6 +233,59 @@ export async function createProduct(fields) {
   return data;
 }
 
+export async function fetchProductImageSource(product) {
+  ensureSupabaseConfigured();
+
+  const fallback = product?.source_thumbnail_url || product?.thumbnail_url || '';
+  if (!product?.id) return fallback;
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('thumbnail_url, source_thumbnail_url')
+    .eq('id', product.id)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('source_thumbnail_url')) {
+      return fallback;
+    }
+
+    console.error('fetchProductImageSource error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося отримати URL картинки.'));
+  }
+
+  return data?.source_thumbnail_url || data?.thumbnail_url || fallback;
+}
+
+/**
+ * Імпортувати зображення товару у Supabase Storage через Edge Function.
+ * Якщо функція ще не задеплоєна, виклик має бути non-blocking на рівні UI.
+ */
+export async function importProductImage({ productId, sourceUrl, sku, name }) {
+  ensureSupabaseConfigured();
+
+  if (!productId || !sourceUrl) return null;
+
+  const { data, error } = await supabase.functions.invoke('import-product-image', {
+    body: {
+      productId,
+      sourceUrl,
+      sku,
+      name,
+    },
+  });
+
+  if (error) {
+    throw new Error(toReadableError(error, 'Не вдалося імпортувати картинку товару.'));
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return data;
+}
+
 /**
  * Підписатися на зміни таблиці products (Realtime)
  * Повертає функцію для відписки

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useSingleTap } from '../lib/useSingleTap';
 import { ProductCard } from '../components/ProductCard';
+import { SafeImage } from '../components/SafeImage';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -337,16 +338,14 @@ export function CatalogPage({
                         {product.badge}
                       </span>
                     )}
-                    {product.thumbnail_url ? (
-                      <img
-                        className="product-card-img"
-                        src={product.thumbnail_url}
-                        alt={product.name}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="product-card-img-placeholder">📦</div>
-                    )}
+                    <SafeImage
+                      className="product-card-img"
+                      placeholderClassName="product-card-img-placeholder"
+                      src={product.thumbnail_url}
+                      alt={product.name}
+                      loading={idx < 6 ? 'eager' : 'lazy'}
+                      fetchPriority={idx < 4 ? 'high' : 'auto'}
+                    />
                   </div>
 
                   <div className="product-card-body">

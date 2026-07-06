@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
+import { SafeImage } from '../components/SafeImage';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -109,15 +110,14 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
         <div className="product-page-title">{product.name}</div>
       </div>
 
-      {product.thumbnail_url ? (
-        <img
-          className="product-page-image"
-          src={product.thumbnail_url}
-          alt={product.name}
-        />
-      ) : (
-        <div className="product-page-image-placeholder">📦</div>
-      )}
+      <SafeImage
+        className="product-page-image"
+        placeholderClassName="product-page-image-placeholder"
+        src={product.thumbnail_url}
+        alt={product.name}
+        loading="eager"
+        fetchPriority="high"
+      />
 
       <div className="product-page-body">
         {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
