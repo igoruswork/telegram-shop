@@ -26,6 +26,14 @@ const brandColorPresets = [
   '#2563eb', '#1d4ed8', '#334155', '#111827',
 ];
 
+const adminSections = [
+  { id: 'title', label: 'Заголовок' },
+  { id: 'create', label: 'Нова картка' },
+  { id: 'colors', label: 'Кольори' },
+  { id: 'details', label: 'Деталі картки' },
+  { id: 'visibility', label: 'Видимість' },
+];
+
 function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
 }
@@ -48,7 +56,7 @@ export function AdminPage({
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
-  const [isAdding, setIsAdding] = useState(false);
+  const [activeSection, setActiveSection] = useState('details');
   const [newProduct, setNewProduct] = useState(emptyProductForm);
   const [creating, setCreating] = useState(false);
   const [createSaved, setCreateSaved] = useState(false);
@@ -368,6 +376,8 @@ export function AdminPage({
     }
   };
 
+  const isProductSection = activeSection === 'details' || activeSection === 'visibility';
+
   return (
     <div className="admin-page">
       <div className="header">
@@ -377,12 +387,18 @@ export function AdminPage({
           </button>
           <div className="header-title">Адмін</div>
           <div className="admin-header-actions">
-            <button type="button" className="admin-add-btn" onClick={() => setIsAdding((value) => !value)}>
-              {isAdding ? '×' : '+'}
+            <button
+              type="button"
+              className="admin-add-btn"
+              aria-label="Нова картка"
+              onClick={() => setActiveSection('create')}
+            >
+              +
             </button>
             <button type="button" className="admin-refresh-btn" onClick={load}>↻</button>
           </div>
         </div>
+        {isProductSection && (
         <div className="search-wrap">
           <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -403,13 +419,47 @@ export function AdminPage({
             </button>
           )}
         </div>
+        )}
       </div>
 
-      {isAdding && (
+      <div className="admin-section-tabs" role="tablist" aria-label="Розділи адмінки">
+        {adminSections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            className={`admin-section-tab ${activeSection === section.id ? 'active' : ''}`}
+            onClick={() => setActiveSection(section.id)}
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSection === 'title' && (
+        <div className="admin-settings-card admin-section-card">
+          <div className="admin-create-head">
+            <div className="admin-create-title">Зміна заголовку</div>
+          </div>
+
+          <label className="admin-label admin-title-label">
+            <span>title</span>
+            <input
+              className="admin-input"
+              type="text"
+              value={catalogTitleDraft}
+              placeholder={defaultCatalogTitle}
+              onChange={(e) => handleCatalogTitleInput(e.target.value)}
+              maxLength={28}
+            />
+          </label>
+        </div>
+      )}
+
+      {activeSection === 'create' && (
         <form className="admin-create-card" onSubmit={handleCreateProduct}>
           <div className="admin-create-head">
             <div>
-              <div className="admin-create-title">Новий товар</div>
+              <div className="admin-create-title">Нова картка</div>
             </div>
             {createSaved && <span className="admin-saved-badge">✓ Створено</span>}
           </div>
@@ -465,25 +515,13 @@ export function AdminPage({
         </form>
       )}
 
-      <div className="admin-settings-card">
+      {activeSection === 'colors' && (
+      <div className="admin-settings-card admin-section-card">
         <div className="admin-create-head">
           <div>
-            <div className="admin-create-title">Налаштування</div>
-            <div className="admin-settings-subtitle">Назва каталогу і кольори брендів</div>
+            <div className="admin-create-title">Налаштування кольорів</div>
           </div>
         </div>
-
-        <label className="admin-label admin-title-label">
-          <span>title</span>
-          <input
-            className="admin-input"
-            type="text"
-            value={catalogTitleDraft}
-            placeholder={defaultCatalogTitle}
-            onChange={(e) => handleCatalogTitleInput(e.target.value)}
-            maxLength={28}
-          />
-        </label>
 
         <label className="admin-label admin-brand-select-label">
           <span>brand</span>
@@ -546,7 +584,10 @@ export function AdminPage({
           ))}
         </div>
       </div>
+      )}
 
+      {isProductSection && (
+      <>
       {/* Категорії */}
       <div className="categories-scroll">
         {allCategories.map((cat) => (
@@ -593,7 +634,10 @@ export function AdminPage({
           const isImageReloaded = imageReloaded[p.id];
 
           return (
-            <div key={p.id} className={`admin-card ${!p.view ? 'admin-card--hidden' : ''}`}>
+            <div
+              key={p.id}
+              className={`admin-card ${activeSection === 'visibility' ? 'admin-card--visibility' : ''} ${!p.view ? 'admin-card--hidden' : ''}`}
+            >
               <div className="admin-card-top">
                 <SafeImage
                   className="admin-card-img"
@@ -606,64 +650,73 @@ export function AdminPage({
                   {p.sku && <div className="admin-card-sku">{p.sku}</div>}
                   <div className="admin-card-cat">{p.category}</div>
                 </div>
-                <div className="admin-card-actions">
-                  <button
-                    type="button"
-                    className={`admin-toggle ${p.view ? 'admin-toggle--on' : 'admin-toggle--off'}`}
-                    disabled={isSaving}
-                    onClick={() => handleToggleView(p)}
-                  >
-                    {p.view ? 'Видимий' : 'Прихований'}
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-image-refresh"
-                    disabled={isImageReloading}
-                    onClick={() => handleReloadImage(p)}
-                  >
-                    {isImageReloading ? 'Оновлення…' : '↻ Фото'}
-                  </button>
-                  {isImageReloaded && <span className="admin-image-refreshed">✓ Фото</span>}
-                </div>
+                {activeSection === 'details' ? (
+                  <div className="admin-card-actions">
+                    <button
+                      type="button"
+                      className="admin-image-refresh"
+                      disabled={isImageReloading}
+                      onClick={() => handleReloadImage(p)}
+                    >
+                      {isImageReloading ? 'Оновлення…' : '↻ Фото'}
+                    </button>
+                    {isImageReloaded && <span className="admin-image-refreshed">✓ Фото</span>}
+                  </div>
+                ) : (
+                  <div className="admin-card-actions">
+                    <button
+                      type="button"
+                      className={`admin-toggle ${p.view ? 'admin-toggle--on' : 'admin-toggle--off'}`}
+                      disabled={isSaving}
+                      onClick={() => handleToggleView(p)}
+                    >
+                      {p.view ? 'Видимий' : 'Прихований'}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div className="admin-card-fields">
-                <label className="admin-label">
-                  <span>category</span>
-                  <input className="admin-input" type="text" value={edit.category} placeholder="категорія"
-                    onChange={(e) => handleField(p.id, 'category', e.target.value)} />
-                </label>
-                <label className="admin-label">
-                  <span>p_category</span>
-                  <input className="admin-input" type="text" value={edit.p_category} placeholder="підкатегорія"
-                    onChange={(e) => handleField(p.id, 'p_category', e.target.value)} />
-                </label>
-                <label className="admin-label">
-                  <span>badge</span>
-                  <input className="admin-input" type="text" value={edit.badge} placeholder="хіт / new / акція"
-                    onChange={(e) => handleField(p.id, 'badge', e.target.value)} />
-                </label>
-                <label className="admin-label">
-                  <span>price</span>
-                  <input className="admin-input" type="number" inputMode="decimal" value={edit.price} placeholder="ціна"
-                    onChange={(e) => handleField(p.id, 'price', e.target.value)} />
-                </label>
-                <label className="admin-label">
-                  <span>number_sites</span>
-                  <input className="admin-input" type="number" inputMode="numeric" value={edit.number_sites} placeholder="порядок"
-                    onChange={(e) => handleField(p.id, 'number_sites', e.target.value)} />
-                </label>
-                {dirty && (
-                  <button type="button" className="admin-save-btn" disabled={isSaving} onClick={() => handleSave(p)}>
-                    {isSaving ? 'Збереження…' : 'Зберегти'}
-                  </button>
-                )}
-                {isSaved && <span className="admin-saved-badge">✓ Збережено</span>}
-              </div>
+              {activeSection === 'details' && (
+                <div className="admin-card-fields">
+                  <label className="admin-label">
+                    <span>category</span>
+                    <input className="admin-input" type="text" value={edit.category} placeholder="категорія"
+                      onChange={(e) => handleField(p.id, 'category', e.target.value)} />
+                  </label>
+                  <label className="admin-label">
+                    <span>p_category</span>
+                    <input className="admin-input" type="text" value={edit.p_category} placeholder="підкатегорія"
+                      onChange={(e) => handleField(p.id, 'p_category', e.target.value)} />
+                  </label>
+                  <label className="admin-label">
+                    <span>badge</span>
+                    <input className="admin-input" type="text" value={edit.badge} placeholder="хіт / new / акція"
+                      onChange={(e) => handleField(p.id, 'badge', e.target.value)} />
+                  </label>
+                  <label className="admin-label">
+                    <span>price</span>
+                    <input className="admin-input" type="number" inputMode="decimal" value={edit.price} placeholder="ціна"
+                      onChange={(e) => handleField(p.id, 'price', e.target.value)} />
+                  </label>
+                  <label className="admin-label">
+                    <span>number_sites</span>
+                    <input className="admin-input" type="number" inputMode="numeric" value={edit.number_sites} placeholder="порядок"
+                      onChange={(e) => handleField(p.id, 'number_sites', e.target.value)} />
+                  </label>
+                  {dirty && (
+                    <button type="button" className="admin-save-btn" disabled={isSaving} onClick={() => handleSave(p)}>
+                      {isSaving ? 'Збереження…' : 'Зберегти'}
+                    </button>
+                  )}
+                  {isSaved && <span className="admin-saved-badge">✓ Збережено</span>}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }

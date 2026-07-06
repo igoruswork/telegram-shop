@@ -1728,6 +1728,47 @@ body {
   gap: 6px;
 }
 
+.admin-section-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 12px 4px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.admin-section-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-section-tab {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.7);
+  color: #334155;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-section-tab.active {
+  background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.88), rgba(var(--brand-rgb), 0.68));
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.admin-section-tab:active {
+  transform: translateY(1px) scale(0.985);
+}
+
 .admin-add-btn {
   width: 34px;
   height: 34px;
@@ -1807,6 +1848,10 @@ body {
   background: rgba(60, 60, 70, 0.13);
   border-color: rgba(100, 100, 110, 0.2);
   opacity: 0.72;
+}
+
+.admin-card--visibility {
+  gap: 0;
 }
 
 .admin-card-top {
