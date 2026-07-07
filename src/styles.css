@@ -351,6 +351,44 @@ body {
   opacity: 0.6;
 }
 
+.catalog-search-wrap--admin .search-input {
+  padding-right: 82px;
+}
+
+.catalog-search-wrap--admin .search-clear {
+  right: 44px;
+}
+
+.catalog-search-admin-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(var(--brand-rgb), 0.16);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--brand-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 16px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  cursor: pointer;
+  transition: var(--transition);
+  touch-action: manipulation;
+}
+
+.catalog-search-admin-btn:active {
+  transform: translateY(-50%) scale(0.94);
+  background: rgba(var(--brand-rgb), 0.1);
+}
+
 .cart-icon {
   width: 22px;
   height: 22px;

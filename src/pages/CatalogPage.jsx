@@ -74,7 +74,6 @@ export function CatalogPage({
   onSaveState,
   brandColors,
   defaultBrandColor,
-  catalogTitle,
 }) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
@@ -181,37 +180,7 @@ export function CatalogPage({
     <div>
       {/* Header */}
       <div className={`header catalog-header ${headerCompact ? 'catalog-header--compact' : ''}`}>
-        <div className="header-row">
-          <div className="catalog-title-cluster">
-            <div className="header-title catalog-header-title">{catalogTitle || 'Каталог'}</div>
-          </div>
-          <div className="catalog-header-actions">
-            {isAdmin && (
-              <button
-                type="button"
-                className="admin-header-btn"
-                aria-label="Адмін панель"
-                onClick={onAdminClick}
-              >
-                ⚙️
-              </button>
-            )}
-            <button
-              type="button"
-              className="header-cart-btn"
-              aria-label="Відкрити кошик"
-              {...bindSingleTap(onCartClick, { preventDefault: true })}
-            >
-              <svg className="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-              </svg>
-              {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-            </button>
-          </div>
-        </div>
-
-        <div className="search-wrap catalog-search-wrap">
+        <div className={`search-wrap catalog-search-wrap ${isAdmin ? 'catalog-search-wrap--admin' : ''}`}>
           <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -234,6 +203,16 @@ export function CatalogPage({
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              className="catalog-search-admin-btn"
+              aria-label="Адмін панель"
+              onClick={onAdminClick}
+            >
+              ⚙️
             </button>
           )}
         </div>
