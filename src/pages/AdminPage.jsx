@@ -34,8 +34,15 @@ const adminSections = [
   { id: 'colors', label: 'Кольори' },
   { id: 'details', label: 'Деталі картки' },
   { id: 'visibility', label: 'Видимість' },
-  { id: 'activity', label: 'Входи і Замовлення' },
+  { id: 'access', label: 'Входи' },
+  { id: 'orders', label: 'Замовлення' },
 ];
+
+const DEFAULT_ADMIN_SECTION = 'details';
+
+function normalizeAdminSection(section) {
+  return adminSections.some((item) => item.id === section) ? section : DEFAULT_ADMIN_SECTION;
+}
 
 function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
@@ -87,6 +94,7 @@ export function AdminPage({
   catalogTitle,
   onCatalogTitleChange,
   defaultCatalogTitle,
+  initialSection = DEFAULT_ADMIN_SECTION,
 }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +105,7 @@ export function AdminPage({
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
-  const [activeSection, setActiveSection] = useState('details');
+  const [activeSection, setActiveSection] = useState(() => normalizeAdminSection(initialSection));
   const [newProduct, setNewProduct] = useState(emptyProductForm);
   const [creating, setCreating] = useState(false);
   const [createSaved, setCreateSaved] = useState(false);
@@ -131,6 +139,10 @@ export function AdminPage({
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    setActiveSection(normalizeAdminSection(initialSection));
+  }, [initialSection]);
+
   const loadAccessLogs = useCallback(async () => {
     setAccessLoading(true);
     setAccessError('');
@@ -162,8 +174,11 @@ export function AdminPage({
   }, []);
 
   useEffect(() => {
-    if (activeSection === 'activity') {
+    if (activeSection === 'access') {
       loadAccessLogs();
+    }
+
+    if (activeSection === 'orders') {
       loadOrders();
     }
   }, [activeSection, loadAccessLogs, loadOrders]);
@@ -284,8 +299,12 @@ export function AdminPage({
   };
 
   const handleRefresh = () => {
-    if (activeSection === 'activity') {
+    if (activeSection === 'access') {
       loadAccessLogs();
+      return;
+    }
+
+    if (activeSection === 'orders') {
       loadOrders();
       return;
     }
@@ -680,88 +699,78 @@ export function AdminPage({
       </div>
       )}
 
-      {activeSection === 'activity' && (
-        <div className="admin-activity-combo">
-          {(accessLoading || ordersLoading) && <div className="admin-activity-loading">Завантаження…</div>}
+      {activeSection === 'access' && (
+        <div className="admin-activity-list">
+          {accessLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {accessError && <div className="admin-activity-error">{accessError}</div>}
+          {!accessLoading && !accessError && accessLogs.map((entry) => (
+            <article key={entry.id} className="admin-access-card">
+              <div className="admin-access-person">
+                <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
+                <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
+              </div>
+              <div className="admin-access-meta">
+                {entry.tg_user_id && <span>TG {entry.tg_user_id}</span>}
+                <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {activeSection === 'orders' && (
+        <div className="admin-receipt-list">
+          {ordersLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {ordersError && <div className="admin-activity-error">{ordersError}</div>}
+          {!ordersLoading && !ordersError && orders.map((order) => {
+            const items = normalizeOrderItems(order.items);
 
-          {!accessLoading && !accessError && accessLogs.length > 0 && (
-            <section className="admin-activity-section">
-              <div className="admin-activity-heading">Входи</div>
-              <div className="admin-activity-list">
-                {accessLogs.map((entry) => (
-                  <article key={entry.id} className="admin-access-card">
-                    <div className="admin-access-person">
-                      <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
-                      <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
-                    </div>
-                    <div className="admin-access-meta">
-                      {entry.tg_user_id && <span>TG {entry.tg_user_id}</span>}
-                      <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
+            return (
+              <article key={order.id} className="admin-receipt">
+                <div className="admin-receipt-head">
+                  <div>
+                    <div className="admin-receipt-title">Чек #{order.id}</div>
+                    <div className="admin-receipt-date">{formatKyivDateTime(order.created_at)}</div>
+                  </div>
+                  {order.status && <span className="admin-receipt-status">{order.status}</span>}
+                </div>
 
-          {!ordersLoading && !ordersError && orders.length > 0 && (
-            <section className="admin-activity-section">
-              <div className="admin-activity-heading">Замовлення</div>
-              <div className="admin-receipt-list">
-                {orders.map((order) => {
-                  const items = normalizeOrderItems(order.items);
+                <div className="admin-receipt-customer">
+                  {order.last_name && <div>{order.last_name}</div>}
+                  {order.phone && <div>{order.phone}</div>}
+                  {order.tg_username && <div>@{order.tg_username}</div>}
+                </div>
 
-                  return (
-                    <article key={order.id} className="admin-receipt">
-                      <div className="admin-receipt-head">
-                        <div>
-                          <div className="admin-receipt-title">Чек #{order.id}</div>
-                          <div className="admin-receipt-date">{formatKyivDateTime(order.created_at)}</div>
+                {items.length > 0 && (
+                  <div className="admin-receipt-lines">
+                    {items.map((item, index) => {
+                      const qty = Number(item.qty || 0);
+                      const price = Number(item.price || 0);
+                      const lineTotal = qty * price;
+
+                      return (
+                        <div key={`${item.id || item.sku || index}-${index}`} className="admin-receipt-line">
+                          <div className="admin-receipt-line-main">
+                            <span className="admin-receipt-item-name">{item.name || 'Товар'}</span>
+                            {item.sku && <span className="admin-receipt-item-sku">{item.sku}</span>}
+                          </div>
+                          <div className="admin-receipt-line-price">
+                            <span>{qty} x {formatPrice(price)} ₴</span>
+                            <strong>{formatPrice(lineTotal)} ₴</strong>
+                          </div>
                         </div>
-                        {order.status && <span className="admin-receipt-status">{order.status}</span>}
-                      </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                      <div className="admin-receipt-customer">
-                        {order.last_name && <div>{order.last_name}</div>}
-                        {order.phone && <div>{order.phone}</div>}
-                        {order.tg_username && <div>@{order.tg_username}</div>}
-                      </div>
-
-                      {items.length > 0 && (
-                        <div className="admin-receipt-lines">
-                          {items.map((item, index) => {
-                            const qty = Number(item.qty || 0);
-                            const price = Number(item.price || 0);
-                            const lineTotal = qty * price;
-
-                            return (
-                              <div key={`${item.id || item.sku || index}-${index}`} className="admin-receipt-line">
-                                <div className="admin-receipt-line-main">
-                                  <span className="admin-receipt-item-name">{item.name || 'Товар'}</span>
-                                  {item.sku && <span className="admin-receipt-item-sku">{item.sku}</span>}
-                                </div>
-                                <div className="admin-receipt-line-price">
-                                  <span>{qty} x {formatPrice(price)} ₴</span>
-                                  <strong>{formatPrice(lineTotal)} ₴</strong>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      <div className="admin-receipt-total">
-                        <span>Разом</span>
-                        <strong>{formatPrice(order.total)} ₴</strong>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                <div className="admin-receipt-total">
+                  <span>Разом</span>
+                  <strong>{formatPrice(order.total)} ₴</strong>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 

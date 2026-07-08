@@ -105,6 +105,7 @@ export default function App() {
   // ─── Навігація ────────────────────────────────────────
   const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
   const [selectedProductId, setSelectedProductId] = useState(null);
+  const [initialAdminSection, setInitialAdminSection] = useState('details');
 
   // ─── Збереження стану каталогу (скрол + категорія) ───
   const [catalogState, setCatalogState] = useState(null);
@@ -363,8 +364,9 @@ export default function App() {
     setSelectedProductId(null);
   }, [haptic]);
 
-  const openAdmin = useCallback(() => {
+  const openAdmin = useCallback((section = 'details') => {
     haptic('light');
+    setInitialAdminSection(section);
     setPage('admin');
   }, [haptic]);
 
@@ -436,6 +438,7 @@ export default function App() {
           catalogTitle={catalogTitle}
           onCatalogTitleChange={setCatalogTitleSetting}
           defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
+          initialSection={initialAdminSection}
         />
       )}
 
