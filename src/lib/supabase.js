@@ -230,6 +230,46 @@ export async function fetchLatestAccessByPhone(phone) {
 }
 
 /**
+ * Отримати останні входи в застосунок для адмін-панелі
+ */
+export async function fetchAccessLogEntries(limit = 100) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('access_log')
+    .select('id, phone, last_name, tg_user_id, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('fetchAccessLogEntries error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити входи.'));
+  }
+
+  return data || [];
+}
+
+/**
+ * Отримати останні замовлення для адмін-панелі
+ */
+export async function fetchAdminOrders(limit = 100) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, phone, last_name, tg_user_id, tg_username, items, total, status, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('fetchAdminOrders error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити замовлення.'));
+  }
+
+  return data || [];
+}
+
+/**
  * Отримати ВСІ товари (включаючи view = false) — для адміна
  */
 export async function fetchAllProducts() {

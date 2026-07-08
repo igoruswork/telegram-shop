@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   createProduct,
+  fetchAccessLogEntries,
+  fetchAdminOrders,
   fetchAllProducts,
   fetchProductImageSource,
   importProductImage,
@@ -32,10 +34,50 @@ const adminSections = [
   { id: 'colors', label: 'Кольори' },
   { id: 'details', label: 'Деталі картки' },
   { id: 'visibility', label: 'Видимість' },
+  { id: 'access', label: 'Входи' },
+  { id: 'orders', label: 'Замовлення' },
 ];
 
 function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
+}
+
+function formatKyivDateTime(value) {
+  if (!value) return '';
+
+  try {
+    const formatted = new Intl.DateTimeFormat('uk-UA', {
+      timeZone: 'Europe/Kyiv',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
+
+    return `${formatted} Київ`;
+  } catch {
+    return '';
+  }
+}
+
+function formatPrice(value) {
+  return Number(value || 0).toLocaleString('uk-UA');
+}
+
+function normalizeOrderItems(items) {
+  if (Array.isArray(items)) return items;
+
+  if (typeof items === 'string') {
+    try {
+      const parsed = JSON.parse(items);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 }
 
 export function AdminPage({
@@ -64,6 +106,12 @@ export function AdminPage({
   const [imageReloaded, setImageReloaded] = useState({});
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessError, setAccessError] = useState('');
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
   const selectedBrandColor = selectedBrand
     ? (brandColors[selectedBrand] || defaultBrandColor)
     : defaultBrandColor;
@@ -83,6 +131,46 @@ export function AdminPage({
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadAccessLogs = useCallback(async () => {
+    setAccessLoading(true);
+    setAccessError('');
+
+    try {
+      const data = await fetchAccessLogEntries();
+      setAccessLogs(data);
+    } catch (e) {
+      setAccessLogs([]);
+      setAccessError(e.message);
+    } finally {
+      setAccessLoading(false);
+    }
+  }, []);
+
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    setOrdersError('');
+
+    try {
+      const data = await fetchAdminOrders();
+      setOrders(data);
+    } catch (e) {
+      setOrders([]);
+      setOrdersError(e.message);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === 'access') {
+      loadAccessLogs();
+    }
+
+    if (activeSection === 'orders') {
+      loadOrders();
+    }
+  }, [activeSection, loadAccessLogs, loadOrders]);
 
   useEffect(() => {
     setBrandColorDraft(selectedBrandColor);
@@ -197,6 +285,20 @@ export function AdminPage({
   const handleCatalogTitleInput = (value) => {
     setCatalogTitleDraft(value);
     onCatalogTitleChange(value.trim() || defaultCatalogTitle);
+  };
+
+  const handleRefresh = () => {
+    if (activeSection === 'access') {
+      loadAccessLogs();
+      return;
+    }
+
+    if (activeSection === 'orders') {
+      loadOrders();
+      return;
+    }
+
+    load();
   };
 
   const handleToggleView = async (p) => {
@@ -395,7 +497,7 @@ export function AdminPage({
             >
               +
             </button>
-            <button type="button" className="admin-refresh-btn" onClick={load}>↻</button>
+            <button type="button" className="admin-refresh-btn" onClick={handleRefresh}>↻</button>
           </div>
         </div>
         {isProductSection && (
@@ -584,6 +686,81 @@ export function AdminPage({
           ))}
         </div>
       </div>
+      )}
+
+      {activeSection === 'access' && (
+        <div className="admin-activity-list">
+          {accessLoading && <div className="admin-activity-loading">Завантаження…</div>}
+          {accessError && <div className="admin-activity-error">{accessError}</div>}
+          {!accessLoading && !accessError && accessLogs.map((entry) => (
+            <article key={entry.id} className="admin-access-card">
+              <div className="admin-access-person">
+                <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
+                <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
+              </div>
+              <div className="admin-access-meta">
+                {entry.tg_user_id && <span>TG {entry.tg_user_id}</span>}
+                <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {activeSection === 'orders' && (
+        <div className="admin-receipt-list">
+          {ordersLoading && <div className="admin-activity-loading">Завантаження…</div>}
+          {ordersError && <div className="admin-activity-error">{ordersError}</div>}
+          {!ordersLoading && !ordersError && orders.map((order) => {
+            const items = normalizeOrderItems(order.items);
+
+            return (
+              <article key={order.id} className="admin-receipt">
+                <div className="admin-receipt-head">
+                  <div>
+                    <div className="admin-receipt-title">Чек #{order.id}</div>
+                    <div className="admin-receipt-date">{formatKyivDateTime(order.created_at)}</div>
+                  </div>
+                  {order.status && <span className="admin-receipt-status">{order.status}</span>}
+                </div>
+
+                <div className="admin-receipt-customer">
+                  {order.last_name && <div>{order.last_name}</div>}
+                  {order.phone && <div>{order.phone}</div>}
+                  {order.tg_username && <div>@{order.tg_username}</div>}
+                </div>
+
+                {items.length > 0 && (
+                  <div className="admin-receipt-lines">
+                    {items.map((item, index) => {
+                      const qty = Number(item.qty || 0);
+                      const price = Number(item.price || 0);
+                      const lineTotal = qty * price;
+
+                      return (
+                        <div key={`${item.id || item.sku || index}-${index}`} className="admin-receipt-line">
+                          <div className="admin-receipt-line-main">
+                            <span className="admin-receipt-item-name">{item.name || 'Товар'}</span>
+                            {item.sku && <span className="admin-receipt-item-sku">{item.sku}</span>}
+                          </div>
+                          <div className="admin-receipt-line-price">
+                            <span>{qty} x {formatPrice(price)} ₴</span>
+                            <strong>{formatPrice(lineTotal)} ₴</strong>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="admin-receipt-total">
+                  <span>Разом</span>
+                  <strong>{formatPrice(order.total)} ₴</strong>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
 
       {isProductSection && (

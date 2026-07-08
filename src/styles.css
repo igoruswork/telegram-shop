@@ -2122,6 +2122,210 @@ body {
   font-weight: 700;
 }
 
+.admin-activity-list,
+.admin-receipt-list {
+  padding: 10px 12px 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-activity-loading,
+.admin-activity-error {
+  padding: 18px 12px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.admin-activity-error {
+  color: #ef4444;
+}
+
+.admin-access-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.56)),
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.08), rgba(var(--brand-rgb), 0.02));
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+.admin-access-person {
+  min-width: 0;
+}
+
+.admin-access-name {
+  font-size: 14px;
+  font-weight: 850;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.admin-access-phone {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.admin-access-meta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.admin-receipt {
+  position: relative;
+  overflow: hidden;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.025) 0 1px, transparent 1px 8px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.admin-receipt::before,
+.admin-receipt::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background:
+    radial-gradient(circle at 6px 3px, transparent 0 3px, rgba(255, 255, 255, 0.9) 3.2px) 0 0 / 12px 6px repeat-x;
+  pointer-events: none;
+}
+
+.admin-receipt::before {
+  top: -1px;
+}
+
+.admin-receipt::after {
+  bottom: -1px;
+  transform: rotate(180deg);
+}
+
+.admin-receipt-head,
+.admin-receipt-total {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-receipt-title {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.admin-receipt-date {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-receipt-status {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(var(--brand-rgb), 0.1);
+  color: var(--brand-price-color);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.admin-receipt-customer {
+  margin-top: 10px;
+  padding: 9px 0;
+  border-top: 1px dashed rgba(100, 116, 139, 0.3);
+  border-bottom: 1px dashed rgba(100, 116, 139, 0.3);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.admin-receipt-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 11px;
+}
+
+.admin-receipt-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.admin-receipt-line-main {
+  min-width: 0;
+}
+
+.admin-receipt-item-name {
+  display: block;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.admin-receipt-item-sku {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-receipt-line-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-receipt-line-price strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.admin-receipt-total {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(100, 116, 139, 0.38);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.admin-receipt-total strong {
+  color: var(--brand-price-color);
+}
+
 /* ---- Brand color settings and glass controls ---- */
 .admin-settings-card {
   margin: 10px 12px 2px;
