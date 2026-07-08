@@ -351,30 +351,29 @@ body {
   opacity: 0.6;
 }
 
-.catalog-search-wrap--admin .search-input {
-  padding-right: 82px;
+.catalog-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.catalog-search-wrap--admin .search-clear {
-  right: 44px;
+.catalog-search-row .catalog-search-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .catalog-search-admin-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  width: 30px;
-  height: 30px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgba(var(--brand-rgb), 0.16);
-  border-radius: 50%;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.66);
   color: var(--brand-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 6px 16px rgba(15, 23, 42, 0.06);
   backdrop-filter: blur(12px) saturate(150%);
@@ -385,7 +384,7 @@ body {
 }
 
 .catalog-search-admin-btn:active {
-  transform: translateY(-50%) scale(0.94);
+  transform: translateY(1px) scale(0.94);
   background: rgba(var(--brand-rgb), 0.1);
 }
 
@@ -2130,6 +2129,31 @@ body {
   gap: 10px;
 }
 
+.admin-activity-combo {
+  padding: 10px 12px 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-activity-combo .admin-activity-list,
+.admin-activity-combo .admin-receipt-list {
+  padding: 0;
+}
+
+.admin-activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-activity-heading {
+  padding: 0 2px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 900;
+}
+
 .admin-activity-loading,
 .admin-activity-error {
   padding: 18px 12px;
@@ -2632,6 +2656,14 @@ body {
   pointer-events: none;
 }
 
+.catalog-header--compact .catalog-search-row {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
 .catalog-header--compact .catalog-title-cluster {
   padding-left: 0;
 }
@@ -2670,29 +2702,6 @@ body {
 
 .admin-title-label {
   margin-top: 12px;
-}
-
-/* ---- Access lookup hint ---- */
-.gate-suggestion {
-  margin-top: -2px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.gate-suggestion-btn {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid rgba(var(--brand-rgb), 0.16);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 8px 18px rgba(15, 23, 42, 0.05);
-  color: var(--brand-price-color);
-  font-family: var(--font);
-  text-align: center;
-  backdrop-filter: blur(14px) saturate(145%);
-  -webkit-backdrop-filter: blur(14px) saturate(145%);
 }
 
 /* ---- Magnetic qty button ---- */

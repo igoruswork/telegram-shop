@@ -27,8 +27,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [nameSuggestion, setNameSuggestion] = useState('');
-  const [nameLookupStatus, setNameLookupStatus] = useState('idle');
   const autoFilledNameRef = useRef('');
   const lastNameRef = useRef('');
   const nameEditedRef = useRef(false);
@@ -37,15 +35,11 @@ export function GatePage({ onAuthorized, tgUserId }) {
   const canSubmit = phoneComplete && lastName.trim().length >= 1;
 
   useEffect(() => {
-    setNameSuggestion('');
-
     if (!phoneComplete) {
-      setNameLookupStatus('idle');
       return undefined;
     }
 
     let cancelled = false;
-    setNameLookupStatus('loading');
 
     const timer = window.setTimeout(async () => {
       try {
@@ -53,9 +47,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
         if (cancelled) return;
 
         const suggestedName = latestAccess?.last_name?.trim() || '';
-        setNameSuggestion(suggestedName);
-        setNameLookupStatus(suggestedName ? 'found' : 'idle');
-
         const canAutoFill =
           suggestedName &&
           (!nameEditedRef.current || !lastNameRef.current.trim() || lastNameRef.current.trim() === autoFilledNameRef.current);
@@ -69,7 +60,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
       } catch (err) {
         if (cancelled) return;
         console.warn('Name lookup error:', err);
-        setNameLookupStatus('idle');
       }
     }, 350);
 
@@ -78,14 +68,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
       window.clearTimeout(timer);
     };
   }, [phone, phoneComplete]);
-
-  const applyNameSuggestion = () => {
-    if (!nameSuggestion) return;
-    autoFilledNameRef.current = nameSuggestion;
-    lastNameRef.current = nameSuggestion;
-    nameEditedRef.current = false;
-    setLastName(nameSuggestion);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -156,31 +138,20 @@ export function GatePage({ onAuthorized, tgUserId }) {
           aria-invalid={!phoneComplete && phone !== PHONE_PREFIX}
           onFocus={(e) => e.currentTarget.select()}
         />
-        <input
-          className="gate-input"
-          type="text"
-          placeholder="Ім'я та Прізвище"
-          value={lastName}
-          onChange={(e) => {
-            lastNameRef.current = e.target.value;
-            nameEditedRef.current = true;
-            setLastName(e.target.value);
-            setError('');
-          }}
-          autoComplete="name"
-        />
-
-        {nameLookupStatus === 'loading' && (
-          <div className="gate-suggestion">Перевіряю попередній вхід…</div>
-        )}
-        {nameSuggestion && (
-          <button
-            className="gate-suggestion gate-suggestion-btn"
-            type="button"
-            onClick={applyNameSuggestion}
-          >
-            Останній запис: {nameSuggestion}
-          </button>
+        {phoneComplete && (
+          <input
+            className="gate-input"
+            type="text"
+            placeholder="Ім'я та Прізвище"
+            value={lastName}
+            onChange={(e) => {
+              lastNameRef.current = e.target.value;
+              nameEditedRef.current = true;
+              setLastName(e.target.value);
+              setError('');
+            }}
+            autoComplete="name"
+          />
         )}
 
         {error && <div className="gate-error">{error}</div>}

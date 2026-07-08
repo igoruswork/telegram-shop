@@ -180,31 +180,7 @@ export function CatalogPage({
     <div>
       {/* Header */}
       <div className={`header catalog-header ${headerCompact ? 'catalog-header--compact' : ''}`}>
-        <div className={`search-wrap catalog-search-wrap ${isAdmin ? 'catalog-search-wrap--admin' : ''}`}>
-          <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            ref={searchRef}
-            className="search-input"
-            type="text"
-            inputMode="search"
-            placeholder="Пошук товарів…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <button
-              type="button"
-              className="search-clear"
-              aria-label="Очистити пошук"
-              {...bindSingleTap(clearSearch, { preventDefault: true })}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
+        <div className={`catalog-search-row ${isAdmin ? 'catalog-search-row--admin' : ''}`}>
           {isAdmin && (
             <button
               type="button"
@@ -215,6 +191,32 @@ export function CatalogPage({
               ⚙️
             </button>
           )}
+          <div className="search-wrap catalog-search-wrap">
+            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              ref={searchRef}
+              className="search-input"
+              type="text"
+              inputMode="search"
+              placeholder="Пошук товарів…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="Очистити пошук"
+                {...bindSingleTap(clearSearch, { preventDefault: true })}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
