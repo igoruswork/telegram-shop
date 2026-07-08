@@ -49,7 +49,58 @@ function toReadableError(error, fallback) {
   return fallback;
 }
 
+function isMissingAppSettingsTable(error) {
+  const message = error?.message || '';
+  return (
+    error?.code === '42P01' ||
+    (message.includes('relation') && message.includes('app_settings') && message.includes('does not exist'))
+  );
+}
+
 // ─── API ФУНКЦІЇ ───────────────────────────────────────────────
+
+const APP_SETTINGS_KEY = 'catalog';
+
+export async function fetchAppSettings() {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', APP_SETTINGS_KEY)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingAppSettingsTable(error)) {
+      console.warn('app_settings table is missing. Run the app settings migration.');
+      return null;
+    }
+
+    console.error('fetchAppSettings error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити налаштування каталогу.'));
+  }
+
+  return data?.value || null;
+}
+
+export async function saveAppSettings(value) {
+  ensureSupabaseConfigured();
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert(
+      {
+        key: APP_SETTINGS_KEY,
+        value,
+      },
+      { onConflict: 'key' }
+    );
+
+  if (error) {
+    console.error('saveAppSettings error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося зберегти налаштування каталогу.'));
+  }
+}
 
 /**
  * Отримати всі видимі товари (view = true), відсортовані по number_sites
@@ -299,6 +350,27 @@ export function subscribeToProducts(callback) {
       () => {
         // При будь-якій зміні — перезавантажити весь список
         callback();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export function subscribeToAppSettings(callback) {
+  if (supabaseConfigError) {
+    return () => {};
+  }
+
+  const channel = supabase
+    .channel('app-settings-live')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'app_settings', filter: `key=eq.${APP_SETTINGS_KEY}` },
+      (payload) => {
+        callback(payload.new?.value || null);
       }
     )
     .subscribe();

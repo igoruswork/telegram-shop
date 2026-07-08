@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTelegram } from './lib/useTelegram';
 import {
+  fetchAppSettings,
   fetchProducts,
   fetchCategories,
+  saveAppSettings,
+  subscribeToAppSettings,
   subscribeToProducts,
   supabaseConfigError,
 } from './lib/supabase';
@@ -54,14 +57,31 @@ function loadStoredBrandColors() {
     if (!raw) return {};
 
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-
-    return Object.fromEntries(
-      Object.entries(parsed).filter(([brand, color]) => brand.trim() && isHexColor(color))
-    );
+    return normalizeBrandColors(parsed);
   } catch {
     return {};
   }
+}
+
+function normalizeBrandColors(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+
+  return Object.fromEntries(
+    Object.entries(value).filter(([brand, color]) => String(brand).trim() && isHexColor(color))
+  );
+}
+
+function normalizeAppSettings(value) {
+  const brandColors = normalizeBrandColors(value?.brandColors || value?.brand_colors || {});
+  const rawTitle = value?.catalogTitle || value?.catalog_title || '';
+  const catalogTitle = typeof rawTitle === 'string' && rawTitle.trim()
+    ? rawTitle.trim()
+    : DEFAULT_CATALOG_TITLE;
+
+  return {
+    brandColors,
+    catalogTitle,
+  };
 }
 
 export default function App() {
@@ -71,7 +91,11 @@ export default function App() {
     return stored || DEFAULT_CATALOG_TITLE;
   });
   const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
+  const saveSettingsTimeoutRef = useRef(null);
+  const localSettingsMigrationRef = useRef(false);
 
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
@@ -122,15 +146,121 @@ export default function App() {
     localStorage.setItem(CATALOG_TITLE_STORAGE_KEY, catalogTitle.trim() || DEFAULT_CATALOG_TITLE);
   }, [catalogTitle]);
 
+  const applyRemoteSettings = useCallback((settings) => {
+    if (!settings || typeof settings !== 'object') return false;
+
+    const normalized = normalizeAppSettings(settings);
+    setBrandColors(normalized.brandColors);
+    setCatalogTitle(normalized.catalogTitle);
+    return true;
+  }, []);
+
+  const queueSaveSettings = useCallback((settings) => {
+    const normalized = normalizeAppSettings(settings);
+
+    if (saveSettingsTimeoutRef.current) {
+      window.clearTimeout(saveSettingsTimeoutRef.current);
+    }
+
+    saveSettingsTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        await saveAppSettings(normalized);
+        setRemoteSettingsFound(true);
+      } catch (error) {
+        console.warn('saveAppSettings error:', error);
+      }
+    }, 350);
+  }, []);
+
+  useEffect(() => () => {
+    if (saveSettingsTimeoutRef.current) {
+      window.clearTimeout(saveSettingsTimeoutRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAppSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        if (applyRemoteSettings(settings)) {
+          setRemoteSettingsFound(true);
+        }
+      })
+      .catch((error) => {
+        console.warn('fetchAppSettings error:', error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSettingsLoaded(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRemoteSettings]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return undefined;
+
+    return subscribeToAppSettings((settings) => {
+      if (applyRemoteSettings(settings)) {
+        setRemoteSettingsFound(true);
+      }
+    });
+  }, [applyRemoteSettings, settingsLoaded]);
+
   const setBrandColorForBrand = useCallback((brand, color) => {
     const key = String(brand || '').trim();
     if (!key || !isHexColor(color)) return;
 
-    setBrandColors((prev) => ({
-      ...prev,
+    const nextBrandColors = {
+      ...brandColors,
       [key]: color,
-    }));
-  }, []);
+    };
+
+    setBrandColors(nextBrandColors);
+    queueSaveSettings({
+      brandColors: nextBrandColors,
+      catalogTitle,
+    });
+  }, [brandColors, catalogTitle, queueSaveSettings]);
+
+  const setCatalogTitleSetting = useCallback((value) => {
+    const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
+
+    setCatalogTitle(nextCatalogTitle);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle: nextCatalogTitle,
+    });
+  }, [brandColors, queueSaveSettings]);
+
+  useEffect(() => {
+    if (
+      !authorized ||
+      !isAdmin ||
+      !settingsLoaded ||
+      remoteSettingsFound ||
+      localSettingsMigrationRef.current
+    ) {
+      return;
+    }
+
+    const hasLocalSettings =
+      Object.keys(brandColors).length > 0 ||
+      (catalogTitle.trim() && catalogTitle.trim() !== DEFAULT_CATALOG_TITLE);
+
+    if (!hasLocalSettings) return;
+
+    localSettingsMigrationRef.current = true;
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+    });
+  }, [authorized, brandColors, catalogTitle, isAdmin, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async () => {
@@ -304,7 +434,7 @@ export default function App() {
           onBrandColorChange={setBrandColorForBrand}
           defaultBrandColor={DEFAULT_BRAND_COLOR}
           catalogTitle={catalogTitle}
-          onCatalogTitleChange={setCatalogTitle}
+          onCatalogTitleChange={setCatalogTitleSetting}
           defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
         />
       )}
