@@ -131,6 +131,20 @@ npm run images:migrate
 
 Для нових товарів Edge Function `supabase/functions/import-product-image` може автоматично копіювати CRM-картинку в bucket `product-images` і оновлювати `products.thumbnail_url`.
 
+Щоб адмінка могла створювати товари, оновлювати фото та завантажувати локальні файли з UI, виконайте SQL:
+
+```sql
+supabase/migrations/20260709000000_products_admin_policies.sql
+```
+
+Для кнопки `↻ Фото` також потрібно задеплоїти Edge Function:
+
+```bash
+supabase functions deploy import-product-image
+```
+
+Перед деплоєм CLI має бути авторизований через `supabase login` або змінну `SUPABASE_ACCESS_TOKEN`.
+
 ---
 
 ## 🔧 Локальна розробка

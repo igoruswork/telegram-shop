@@ -7,6 +7,7 @@ import {
   fetchProductImageSource,
   importProductImage,
   updateProduct,
+  uploadProductImageFile,
 } from '../lib/supabase';
 import { SafeImage } from '../components/SafeImage';
 
@@ -111,6 +112,8 @@ export function AdminPage({
   const [createSaved, setCreateSaved] = useState(false);
   const [imageReloading, setImageReloading] = useState({});
   const [imageReloaded, setImageReloaded] = useState({});
+  const [imageUploading, setImageUploading] = useState({});
+  const [newProductImageFile, setNewProductImageFile] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
   const [accessLogs, setAccessLogs] = useState([]);
@@ -395,6 +398,47 @@ export function AdminPage({
     }
   };
 
+  const handleUploadImageFile = async (p, file) => {
+    if (!file || imageUploading[p.id]) return;
+
+    setImageUploading((prev) => ({ ...prev, [p.id]: true }));
+    setImageReloaded((prev) => ({ ...prev, [p.id]: false }));
+
+    try {
+      const uploaded = await uploadProductImageFile({
+        productId: p.id,
+        file,
+        sku: p.sku,
+        name: p.name,
+        sourceUrl: p.source_thumbnail_url || p.thumbnail_url,
+      });
+
+      if (!uploaded?.product?.thumbnail_url) {
+        throw new Error('Storage не повернув оновлений thumbnail_url.');
+      }
+
+      setProducts((prev) => prev.map((x) => (
+        x.id === p.id
+          ? {
+              ...x,
+              ...uploaded.product,
+              source_thumbnail_url: uploaded.source_thumbnail_url,
+              image_storage_path: uploaded.image_storage_path,
+              image_status: 'ok',
+            }
+          : x
+      )));
+      setImageReloaded((prev) => ({ ...prev, [p.id]: true }));
+      setTimeout(() => {
+        setImageReloaded((prev) => ({ ...prev, [p.id]: false }));
+      }, 1800);
+    } catch (e) {
+      alert('Помилка завантаження фото: ' + e.message);
+    } finally {
+      setImageUploading((prev) => ({ ...prev, [p.id]: false }));
+    }
+  };
+
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (creating) return;
@@ -422,8 +466,8 @@ export function AdminPage({
       return;
     }
 
-    if (!newProduct.thumbnail_url.trim()) {
-      alert('Вкажіть thumbnail_url.');
+    if (!newProduct.thumbnail_url.trim() && !newProductImageFile) {
+      alert('Вкажіть thumbnail_url або оберіть файл фото.');
       return;
     }
 
@@ -459,19 +503,38 @@ export function AdminPage({
     try {
       let created = await createProduct(payload);
 
-      try {
-        const imported = await importProductImage({
-          productId: created.id,
-          sourceUrl: payload.thumbnail_url,
-          sku: created.sku,
-          name: created.name,
-        });
+      if (newProductImageFile) {
+        try {
+          const uploaded = await uploadProductImageFile({
+            productId: created.id,
+            file: newProductImageFile,
+            sku: created.sku,
+            name: created.name,
+            sourceUrl: payload.thumbnail_url || '',
+          });
 
-        if (imported?.product?.thumbnail_url) {
-          created = { ...created, ...imported.product };
+          if (uploaded?.product?.thumbnail_url) {
+            created = { ...created, ...uploaded.product };
+          }
+        } catch (imageError) {
+          console.warn('Product file upload skipped:', imageError);
+          alert('Товар створено, але файл фото не завантажився: ' + imageError.message);
         }
-      } catch (imageError) {
-        console.warn('Product image import skipped:', imageError);
+      } else if (payload.thumbnail_url) {
+        try {
+          const imported = await importProductImage({
+            productId: created.id,
+            sourceUrl: payload.thumbnail_url,
+            sku: created.sku,
+            name: created.name,
+          });
+
+          if (imported?.product?.thumbnail_url) {
+            created = { ...created, ...imported.product };
+          }
+        } catch (imageError) {
+          console.warn('Product image import skipped:', imageError);
+        }
       }
 
       setProducts((prev) => [...prev, created].sort((a, b) => {
@@ -480,6 +543,7 @@ export function AdminPage({
         return aOrder - bOrder;
       }));
       setNewProduct(emptyProductForm);
+      setNewProductImageFile(null);
       setCreateSaved(true);
       setTimeout(() => setCreateSaved(false), 1500);
     } catch (err) {
@@ -613,6 +677,20 @@ export function AdminPage({
               <input className="admin-input" type="url" value={newProduct.thumbnail_url} placeholder="https://..."
                 onChange={(e) => handleNewProductField('thumbnail_url', e.target.value)} />
             </label>
+            <label className="admin-label admin-label--wide">
+              <span>photo_file</span>
+              <input
+                className="admin-input admin-file-input"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setNewProductImageFile(e.target.files?.[0] || null)}
+              />
+            </label>
+            {newProductImageFile && (
+              <div className="admin-file-name">
+                {newProductImageFile.name}
+              </div>
+            )}
           </div>
 
           <datalist id="admin-category-options">
@@ -840,10 +918,23 @@ export function AdminPage({
                 </div>
                 {activeSection === 'details' ? (
                   <div className="admin-card-actions">
+                    <label className={`admin-image-refresh admin-image-upload ${imageUploading[p.id] ? 'is-disabled' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={imageUploading[p.id] || isImageReloading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          e.currentTarget.value = '';
+                          handleUploadImageFile(p, file);
+                        }}
+                      />
+                      {imageUploading[p.id] ? 'Завантаження…' : '↑ Файл'}
+                    </label>
                     <button
                       type="button"
                       className="admin-image-refresh"
-                      disabled={isImageReloading}
+                      disabled={isImageReloading || imageUploading[p.id]}
                       onClick={() => handleReloadImage(p)}
                     >
                       {isImageReloading ? 'Оновлення…' : '↻ Фото'}

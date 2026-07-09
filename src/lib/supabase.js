@@ -38,6 +38,10 @@ function toReadableError(error, fallback) {
     return 'Немає доступу до таблиці. Перевірте RLS policy для anon користувача в Supabase.';
   }
 
+  if (message.includes('Failed to send a request to the Edge Function')) {
+    return `${fallback} Edge Function import-product-image не відповідає. Задеплойте її в Supabase Functions і перевірте SUPABASE_SERVICE_ROLE_KEY.`;
+  }
+
   if (message.includes('relation') && message.includes('does not exist')) {
     return 'У Supabase немає потрібних таблиць. Запустіть SQL-скрипт для створення products, orders та access_log.';
   }
@@ -60,6 +64,33 @@ function isMissingAppSettingsTable(error) {
 // ─── API ФУНКЦІЇ ───────────────────────────────────────────────
 
 const APP_SETTINGS_KEY = 'catalog';
+const PRODUCT_IMAGE_BUCKET = 'product-images';
+const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+function sanitizeStorageSegment(value, fallback) {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+
+  return cleaned || fallback;
+}
+
+function extensionFromFile(file) {
+  const nameExtension = String(file?.name || '').split('.').pop()?.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(nameExtension)) {
+    return nameExtension === 'jpeg' ? 'jpg' : nameExtension;
+  }
+
+  const type = String(file?.type || '').toLowerCase();
+  if (type.includes('webp')) return 'webp';
+  if (type.includes('png')) return 'png';
+  if (type.includes('gif')) return 'gif';
+  if (type.includes('avif')) return 'avif';
+  return 'jpg';
+}
 
 export async function fetchAppSettings() {
   ensureSupabaseConfigured();
@@ -401,6 +432,70 @@ export async function importProductImage({ productId, sourceUrl, sku, name }) {
   }
 
   return data;
+}
+
+/**
+ * Завантажити локальний файл картинки з адмінки напряму в Supabase Storage.
+ * Потребує bucket product-images і RLS policies з products admin migration.
+ */
+export async function uploadProductImageFile({ productId, file, sku, name, sourceUrl }) {
+  ensureSupabaseConfigured();
+
+  if (!productId || !file) return null;
+
+  if (!String(file.type || '').startsWith('image/')) {
+    throw new Error('Оберіть файл картинки.');
+  }
+
+  if (file.size > PRODUCT_IMAGE_MAX_BYTES) {
+    throw new Error('Картинка завелика. Максимум 5 МБ.');
+  }
+
+  const ext = extensionFromFile(file);
+  const skuSegment = sanitizeStorageSegment(sku, String(productId));
+  const storagePath = `products/${skuSegment}-${productId}-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+      cacheControl: '31536000',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error('uploadProductImageFile upload error:', uploadError);
+    throw new Error(toReadableError(uploadError, 'Не вдалося завантажити фото в Storage.'));
+  }
+
+  const { data: publicData } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(storagePath);
+  const publicUrl = publicData.publicUrl;
+
+  const fields = {
+    thumbnail_url: publicUrl,
+    source_thumbnail_url: sourceUrl || publicUrl,
+    image_storage_path: storagePath,
+    image_status: 'ok',
+    image_checked_at: new Date().toISOString(),
+  };
+
+  const { data: product, error: updateError } = await supabase
+    .from('products')
+    .update(fields)
+    .eq('id', productId)
+    .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
+    .single();
+
+  if (updateError) {
+    console.error('uploadProductImageFile update error:', updateError);
+    throw new Error(toReadableError(updateError, 'Фото завантажено, але товар не оновився.'));
+  }
+
+  return {
+    product,
+    source_thumbnail_url: fields.source_thumbnail_url,
+    image_storage_path: storagePath,
+  };
 }
 
 /**

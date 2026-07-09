@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
 
   const sku = sanitizeSegment(body.sku, String(productId));
   const ext = extensionFromType(contentType);
-  const storagePath = `products/${sku}-${productId}.${ext}`;
+  const storagePath = `products/${sku}-${productId}-${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
