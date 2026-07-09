@@ -716,6 +716,10 @@ body {
   text-size-adjust: 100%;
 }
 
+.catalog-qty-value--empty {
+  color: transparent;
+}
+
 .product-badge {
   position: absolute;
   top: 8px;

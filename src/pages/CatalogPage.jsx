@@ -408,7 +408,12 @@ export function CatalogPage({
                     >
                       −
                     </button>
-                    <span className="catalog-qty-value">{qty}</span>
+                    <span
+                      className={`catalog-qty-value ${qty === 0 ? 'catalog-qty-value--empty' : ''}`}
+                      aria-hidden={qty === 0}
+                    >
+                      {qty > 0 ? qty : ''}
+                    </span>
                     <button
                       type="button"
                       className="catalog-qty-btn catalog-qty-plus"

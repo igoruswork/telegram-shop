@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { fetchLatestAccessByPhone, logAccess } from '../lib/supabase';
+import { fetchLatestAccessByPhone, fetchLatestAccessByPhonePrefix, logAccess } from '../lib/supabase';
 
 const PHONE_PREFIX = '+380';
 const PHONE_DIGITS_COUNT = 12;
 const PHONE_PATTERN = /^\+380\d{9}$/;
+const EARLY_LOOKUP_NATIONAL_DIGITS = 5;
 
 function normalizePhoneInput(value) {
   const digits = value.replace(/\D/g, '');
@@ -22,17 +23,71 @@ function isPhoneComplete(value) {
   return PHONE_PATTERN.test(value);
 }
 
+function getNationalDigits(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.startsWith('380') ? digits.slice(3) : digits;
+}
+
+function getEarlyPhoneLookupPrefix(value) {
+  const nationalDigits = getNationalDigits(value);
+  if (nationalDigits.length < EARLY_LOOKUP_NATIONAL_DIGITS) return '';
+
+  return `${PHONE_PREFIX}${nationalDigits.slice(0, EARLY_LOOKUP_NATIONAL_DIGITS)}`;
+}
+
 export function GatePage({ onAuthorized, tgUserId }) {
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const autoFilledNameRef = useRef('');
+  const autoFilledPhoneRef = useRef('');
   const lastNameRef = useRef('');
   const nameEditedRef = useRef(false);
 
   const phoneComplete = isPhoneComplete(phone);
+  const earlyPhoneLookupPrefix = getEarlyPhoneLookupPrefix(phone);
   const canSubmit = phoneComplete && lastName.trim().length >= 1;
+
+  const applyLatestAccess = (latestAccess, fallbackPhone) => {
+    const suggestedName = latestAccess?.last_name?.trim() || '';
+    const suggestedPhone = latestAccess?.phone?.trim() || fallbackPhone;
+    const canAutoFill =
+      suggestedName &&
+      (!nameEditedRef.current || !lastNameRef.current.trim() || lastNameRef.current.trim() === autoFilledNameRef.current);
+
+    if (canAutoFill) {
+      autoFilledNameRef.current = suggestedName;
+      autoFilledPhoneRef.current = suggestedPhone;
+      lastNameRef.current = suggestedName;
+      nameEditedRef.current = false;
+      setLastName(suggestedName);
+    }
+  };
+
+  useEffect(() => {
+    if (!earlyPhoneLookupPrefix) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const latestAccess = await fetchLatestAccessByPhonePrefix(earlyPhoneLookupPrefix);
+        if (cancelled) return;
+        applyLatestAccess(latestAccess, earlyPhoneLookupPrefix);
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('Name lookup error:', err);
+      }
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [earlyPhoneLookupPrefix]);
 
   useEffect(() => {
     if (!phoneComplete) {
@@ -45,23 +100,12 @@ export function GatePage({ onAuthorized, tgUserId }) {
       try {
         const latestAccess = await fetchLatestAccessByPhone(phone);
         if (cancelled) return;
-
-        const suggestedName = latestAccess?.last_name?.trim() || '';
-        const canAutoFill =
-          suggestedName &&
-          (!nameEditedRef.current || !lastNameRef.current.trim() || lastNameRef.current.trim() === autoFilledNameRef.current);
-
-        if (canAutoFill) {
-          autoFilledNameRef.current = suggestedName;
-          lastNameRef.current = suggestedName;
-          nameEditedRef.current = false;
-          setLastName(suggestedName);
-        }
+        applyLatestAccess(latestAccess, phone);
       } catch (err) {
         if (cancelled) return;
         console.warn('Name lookup error:', err);
       }
-    }, 350);
+    }, 120);
 
     return () => {
       cancelled = true;
@@ -124,9 +168,19 @@ export function GatePage({ onAuthorized, tgUserId }) {
           value={phone}
           onChange={(e) => {
             const nextPhone = normalizePhoneInput(e.target.value);
-            if (lastNameRef.current.trim() && lastNameRef.current.trim() === autoFilledNameRef.current) {
+            const nextNationalDigits = getNationalDigits(nextPhone);
+            const shouldClearAutoFilledName =
+              lastNameRef.current.trim() &&
+              lastNameRef.current.trim() === autoFilledNameRef.current &&
+              (
+                nextNationalDigits.length < EARLY_LOOKUP_NATIONAL_DIGITS ||
+                (autoFilledPhoneRef.current && !autoFilledPhoneRef.current.startsWith(nextPhone))
+              );
+
+            if (shouldClearAutoFilledName) {
               lastNameRef.current = '';
               autoFilledNameRef.current = '';
+              autoFilledPhoneRef.current = '';
               nameEditedRef.current = false;
               setLastName('');
             }

@@ -230,6 +230,32 @@ export async function fetchLatestAccessByPhone(phone) {
 }
 
 /**
+ * Знайти останнє ім'я та прізвище за початком номера.
+ * Використовується для ранньої підказки, поки користувач вводить останні цифри.
+ */
+export async function fetchLatestAccessByPhonePrefix(phonePrefix) {
+  ensureSupabaseConfigured();
+
+  const prefix = String(phonePrefix || '').trim();
+  if (!prefix) return null;
+
+  const { data, error } = await supabase
+    .from('access_log')
+    .select('phone, last_name, created_at')
+    .like('phone', `${prefix}%`)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchLatestAccessByPhonePrefix error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося знайти попередній вхід.'));
+  }
+
+  return data;
+}
+
+/**
  * Отримати останні входи в застосунок для адмін-панелі
  */
 export async function fetchAccessLogEntries(limit = 100) {
