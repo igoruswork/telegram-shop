@@ -396,7 +396,7 @@ export function CatalogPage({
                   <div className="product-card-price">
                     {formatPrice(product.price)}
                   </div>
-                  <div className="catalog-qty-controls">
+                  <div className={`catalog-qty-controls ${qty === 0 ? 'catalog-qty-controls--empty' : ''}`}>
                     <button
                       type="button"
                       className="catalog-qty-btn catalog-qty-minus"
