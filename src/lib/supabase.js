@@ -66,6 +66,11 @@ function isMissingAppSettingsTable(error) {
 const APP_SETTINGS_KEY = 'catalog';
 const PRODUCT_IMAGE_BUCKET = 'product-images';
 const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PRODUCT_IMAGE_SOURCE_MAX_BYTES = 15 * 1024 * 1024;
+const PRODUCT_IMAGE_RESIZE_SCALE = 0.7;
+const PRODUCT_IMAGE_MIN_WIDTH = 560;
+const PRODUCT_IMAGE_QUALITY = 0.82;
+const PRODUCT_IMAGE_RENDER_QUALITY = 78;
 
 function sanitizeStorageSegment(value, fallback) {
   const cleaned = String(value || '')
@@ -90,6 +95,99 @@ function extensionFromFile(file) {
   if (type.includes('gif')) return 'gif';
   if (type.includes('avif')) return 'avif';
   return 'jpg';
+}
+
+function withoutFileExtension(name) {
+  return String(name || 'product-image').replace(/\.[^.]+$/, '') || 'product-image';
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+}
+
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Не вдалося прочитати файл картинки.'));
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+async function optimizeProductImageFile(file) {
+  const type = String(file?.type || '').toLowerCase();
+  const canUseCanvas = typeof document !== 'undefined' && typeof URL !== 'undefined';
+
+  if (!canUseCanvas || type.includes('gif') || type.includes('svg')) {
+    return file;
+  }
+
+  try {
+    const image = await loadImageFile(file);
+    const originalWidth = image.naturalWidth || image.width;
+    const originalHeight = image.naturalHeight || image.height;
+
+    if (!originalWidth || !originalHeight) {
+      return file;
+    }
+
+    const targetWidth = Math.max(1, Math.round(originalWidth * PRODUCT_IMAGE_RESIZE_SCALE));
+    const targetHeight = Math.max(1, Math.round(originalHeight * PRODUCT_IMAGE_RESIZE_SCALE));
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    const blob = await canvasToBlob(canvas, 'image/webp', PRODUCT_IMAGE_QUALITY);
+    if (!blob || blob.size >= file.size) {
+      return file;
+    }
+
+    return new File(
+      [blob],
+      `${withoutFileExtension(file.name)}.webp`,
+      {
+        type: 'image/webp',
+        lastModified: Date.now(),
+      }
+    );
+  } catch (error) {
+    console.warn('Product image optimization skipped:', error);
+    return file;
+  }
+}
+
+function buildOptimizedStorageImageUrl(storagePath) {
+  if (!url || !storagePath) return '';
+
+  const baseUrl = url.replace(/\/+$/, '');
+  const encodedBucket = encodeURIComponent(PRODUCT_IMAGE_BUCKET);
+  const encodedPath = String(storagePath).split('/').map(encodeURIComponent).join('/');
+  const params = new URLSearchParams({
+    width: String(PRODUCT_IMAGE_MIN_WIDTH),
+    resize: 'contain',
+    quality: String(PRODUCT_IMAGE_RENDER_QUALITY),
+  });
+
+  return `${baseUrl}/storage/v1/render/image/public/${encodedBucket}/${encodedPath}?${params.toString()}`;
 }
 
 export async function fetchAppSettings() {
@@ -447,18 +545,24 @@ export async function uploadProductImageFile({ productId, file, sku, name, sourc
     throw new Error('Оберіть файл картинки.');
   }
 
-  if (file.size > PRODUCT_IMAGE_MAX_BYTES) {
-    throw new Error('Картинка завелика. Максимум 5 МБ.');
+  if (file.size > PRODUCT_IMAGE_SOURCE_MAX_BYTES) {
+    throw new Error('Картинка завелика. Максимум 15 МБ.');
   }
 
-  const ext = extensionFromFile(file);
+  const uploadFile = await optimizeProductImageFile(file);
+
+  if (uploadFile.size > PRODUCT_IMAGE_MAX_BYTES) {
+    throw new Error('Картинка завелика після оптимізації. Максимум 5 МБ.');
+  }
+
+  const ext = extensionFromFile(uploadFile);
   const skuSegment = sanitizeStorageSegment(sku, String(productId));
   const storagePath = `products/${skuSegment}-${productId}-${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(PRODUCT_IMAGE_BUCKET)
-    .upload(storagePath, file, {
-      contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+    .upload(storagePath, uploadFile, {
+      contentType: uploadFile.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
       cacheControl: '31536000',
       upsert: false,
     });
@@ -468,8 +572,8 @@ export async function uploadProductImageFile({ productId, file, sku, name, sourc
     throw new Error(toReadableError(uploadError, 'Не вдалося завантажити фото в Storage.'));
   }
 
-  const { data: publicData } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(storagePath);
-  const publicUrl = publicData.publicUrl;
+  const publicUrl = buildOptimizedStorageImageUrl(storagePath) ||
+    supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
 
   const fields = {
     thumbnail_url: publicUrl,

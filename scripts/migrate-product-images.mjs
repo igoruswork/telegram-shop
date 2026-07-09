@@ -11,6 +11,10 @@ const bucket = process.env.PRODUCT_IMAGE_BUCKET || 'product-images';
 const maxBytes = Number(process.env.PRODUCT_IMAGE_MAX_BYTES || 5 * 1024 * 1024);
 const fetchTimeoutMs = Number(process.env.PRODUCT_IMAGE_FETCH_TIMEOUT_MS || 8000);
 const concurrency = Math.max(1, Number(process.env.PRODUCT_IMAGE_CONCURRENCY || 8));
+const imageScale = Number(process.env.PRODUCT_IMAGE_RESIZE_SCALE || 0.7);
+const minImageWidth = Number(process.env.PRODUCT_IMAGE_MIN_WIDTH || 560);
+const fallbackImageWidth = Number(process.env.PRODUCT_IMAGE_FALLBACK_WIDTH || 700);
+const imageQuality = Number(process.env.PRODUCT_IMAGE_QUALITY || 78);
 
 function readEnvFile(file) {
   if (!fs.existsSync(file)) return {};
@@ -61,7 +65,11 @@ const stats = {
 };
 
 function isSupabaseStorageUrl(value) {
-  return String(value || '').includes(`/storage/v1/object/public/${bucket}/`);
+  const url = String(value || '');
+  return (
+    url.includes(`/storage/v1/object/public/${bucket}/`) ||
+    url.includes(`/storage/v1/render/image/public/${bucket}/`)
+  );
 }
 
 function sanitizeSegment(value, fallback) {
@@ -81,6 +89,121 @@ function extensionFromType(contentType) {
   if (contentType.includes('image/gif')) return 'gif';
   if (contentType.includes('image/avif')) return 'avif';
   return 'jpg';
+}
+
+function readAscii(buffer, offset, length) {
+  return buffer.subarray(offset, offset + length).toString('ascii');
+}
+
+function readUint24Le(buffer, offset) {
+  return buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
+}
+
+function isJpegSofMarker(marker) {
+  return (
+    (marker >= 0xc0 && marker <= 0xc3) ||
+    (marker >= 0xc5 && marker <= 0xc7) ||
+    (marker >= 0xc9 && marker <= 0xcb) ||
+    (marker >= 0xcd && marker <= 0xcf)
+  );
+}
+
+function getImageDimensions(buffer, contentType) {
+  try {
+    if (contentType.includes('image/png') && buffer.length >= 24) {
+      return {
+        width: buffer.readUInt32BE(16),
+        height: buffer.readUInt32BE(20),
+      };
+    }
+
+    if (contentType.includes('image/gif') && buffer.length >= 10) {
+      return {
+        width: buffer.readUInt16LE(6),
+        height: buffer.readUInt16LE(8),
+      };
+    }
+
+    if (contentType.includes('image/jpeg') && buffer.length > 12 && buffer[0] === 0xff && buffer[1] === 0xd8) {
+      let offset = 2;
+      while (offset + 9 < buffer.length) {
+        if (buffer[offset] !== 0xff) {
+          offset += 1;
+          continue;
+        }
+
+        const marker = buffer[offset + 1];
+        const length = buffer.readUInt16BE(offset + 2);
+        if (length < 2 || offset + 2 + length > buffer.length) break;
+
+        if (isJpegSofMarker(marker)) {
+          return {
+            height: buffer.readUInt16BE(offset + 5),
+            width: buffer.readUInt16BE(offset + 7),
+          };
+        }
+
+        offset += 2 + length;
+      }
+    }
+
+    if (contentType.includes('image/webp') && buffer.length > 30 && readAscii(buffer, 0, 4) === 'RIFF' && readAscii(buffer, 8, 4) === 'WEBP') {
+      const chunk = readAscii(buffer, 12, 4);
+      if (chunk === 'VP8X' && buffer.length >= 30) {
+        return {
+          width: readUint24Le(buffer, 24) + 1,
+          height: readUint24Le(buffer, 27) + 1,
+        };
+      }
+
+      if (chunk === 'VP8 ' && buffer.length >= 30) {
+        return {
+          width: buffer.readUInt16LE(26) & 0x3fff,
+          height: buffer.readUInt16LE(28) & 0x3fff,
+        };
+      }
+
+      if (chunk === 'VP8L' && buffer.length >= 25) {
+        const b0 = buffer[21];
+        const b1 = buffer[22];
+        const b2 = buffer[23];
+        const b3 = buffer[24];
+        return {
+          width: 1 + b0 + ((b1 & 0x3f) << 8),
+          height: 1 + ((b1 & 0xc0) >> 6) + (b2 << 2) + ((b3 & 0x0f) << 10),
+        };
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getOptimizedWidth(buffer, contentType) {
+  const dimensions = getImageDimensions(buffer, contentType);
+  const originalWidth = dimensions?.width || 0;
+
+  if (!Number.isFinite(originalWidth) || originalWidth <= 0) {
+    return fallbackImageWidth;
+  }
+
+  const scaledWidth = Math.round(originalWidth * imageScale);
+  return Math.min(originalWidth, Math.max(minImageWidth, scaledWidth));
+}
+
+function buildOptimizedImageUrl(storagePath, width) {
+  const baseUrl = supabaseUrl.replace(/\/+$/, '');
+  const encodedBucket = encodeURIComponent(bucket);
+  const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
+  const params = new URLSearchParams({
+    width: String(width),
+    resize: 'contain',
+    quality: String(imageQuality),
+  });
+
+  return `${baseUrl}/storage/v1/render/image/public/${encodedBucket}/${encodedPath}?${params.toString()}`;
 }
 
 async function ensureBucket() {
@@ -188,8 +311,8 @@ async function migrateProduct(product) {
 
   if (uploadError) throw uploadError;
 
-  const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
-  const newUrl = publicData.publicUrl;
+  const optimizedWidth = getOptimizedWidth(image.buffer, image.contentType);
+  const newUrl = buildOptimizedImageUrl(storagePath, optimizedWidth);
 
   const { error: updateError } = await supabase
     .from('products')

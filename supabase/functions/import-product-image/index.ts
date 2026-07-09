@@ -8,6 +8,10 @@ const corsHeaders = {
 
 const bucket = Deno.env.get('PRODUCT_IMAGE_BUCKET') || 'product-images';
 const maxBytes = Number(Deno.env.get('PRODUCT_IMAGE_MAX_BYTES') || 5 * 1024 * 1024);
+const imageScale = Number(Deno.env.get('PRODUCT_IMAGE_RESIZE_SCALE') || 0.7);
+const minImageWidth = Number(Deno.env.get('PRODUCT_IMAGE_MIN_WIDTH') || 560);
+const fallbackImageWidth = Number(Deno.env.get('PRODUCT_IMAGE_FALLBACK_WIDTH') || 700);
+const imageQuality = Number(Deno.env.get('PRODUCT_IMAGE_QUALITY') || 78);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -36,6 +40,136 @@ function extensionFromType(contentType: string) {
   if (contentType.includes('image/gif')) return 'gif';
   if (contentType.includes('image/avif')) return 'avif';
   return 'jpg';
+}
+
+function readAscii(bytes: Uint8Array, offset: number, length: number) {
+  return String.fromCharCode(...bytes.slice(offset, offset + length));
+}
+
+function readUint16Be(bytes: Uint8Array, offset: number) {
+  return (bytes[offset] << 8) | bytes[offset + 1];
+}
+
+function readUint16Le(bytes: Uint8Array, offset: number) {
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function readUint24Le(bytes: Uint8Array, offset: number) {
+  return bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
+}
+
+function readUint32Be(bytes: Uint8Array, offset: number) {
+  return (
+    (bytes[offset] * 0x1000000) +
+    ((bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3])
+  );
+}
+
+function isJpegSofMarker(marker: number) {
+  return (
+    (marker >= 0xc0 && marker <= 0xc3) ||
+    (marker >= 0xc5 && marker <= 0xc7) ||
+    (marker >= 0xc9 && marker <= 0xcb) ||
+    (marker >= 0xcd && marker <= 0xcf)
+  );
+}
+
+function getImageDimensions(bytes: Uint8Array, contentType: string) {
+  try {
+    if (contentType.includes('image/png') && bytes.length >= 24) {
+      return {
+        width: readUint32Be(bytes, 16),
+        height: readUint32Be(bytes, 20),
+      };
+    }
+
+    if (contentType.includes('image/gif') && bytes.length >= 10) {
+      return {
+        width: readUint16Le(bytes, 6),
+        height: readUint16Le(bytes, 8),
+      };
+    }
+
+    if (contentType.includes('image/jpeg') && bytes.length > 12 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+      let offset = 2;
+      while (offset + 9 < bytes.length) {
+        if (bytes[offset] !== 0xff) {
+          offset += 1;
+          continue;
+        }
+
+        const marker = bytes[offset + 1];
+        const length = readUint16Be(bytes, offset + 2);
+        if (length < 2 || offset + 2 + length > bytes.length) break;
+
+        if (isJpegSofMarker(marker)) {
+          return {
+            height: readUint16Be(bytes, offset + 5),
+            width: readUint16Be(bytes, offset + 7),
+          };
+        }
+
+        offset += 2 + length;
+      }
+    }
+
+    if (contentType.includes('image/webp') && bytes.length > 30 && readAscii(bytes, 0, 4) === 'RIFF' && readAscii(bytes, 8, 4) === 'WEBP') {
+      const chunk = readAscii(bytes, 12, 4);
+      if (chunk === 'VP8X' && bytes.length >= 30) {
+        return {
+          width: readUint24Le(bytes, 24) + 1,
+          height: readUint24Le(bytes, 27) + 1,
+        };
+      }
+
+      if (chunk === 'VP8 ' && bytes.length >= 30) {
+        return {
+          width: readUint16Le(bytes, 26) & 0x3fff,
+          height: readUint16Le(bytes, 28) & 0x3fff,
+        };
+      }
+
+      if (chunk === 'VP8L' && bytes.length >= 25) {
+        const b0 = bytes[21];
+        const b1 = bytes[22];
+        const b2 = bytes[23];
+        const b3 = bytes[24];
+        return {
+          width: 1 + b0 + ((b1 & 0x3f) << 8),
+          height: 1 + ((b1 & 0xc0) >> 6) + (b2 << 2) + ((b3 & 0x0f) << 10),
+        };
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getOptimizedWidth(bytes: Uint8Array, contentType: string) {
+  const dimensions = getImageDimensions(bytes, contentType);
+  const originalWidth = dimensions?.width || 0;
+
+  if (!Number.isFinite(originalWidth) || originalWidth <= 0) {
+    return fallbackImageWidth;
+  }
+
+  const scaledWidth = Math.round(originalWidth * imageScale);
+  return Math.min(originalWidth, Math.max(minImageWidth, scaledWidth));
+}
+
+function buildOptimizedImageUrl(supabaseUrl: string, storagePath: string, width: number) {
+  const baseUrl = supabaseUrl.replace(/\/+$/, '');
+  const encodedBucket = encodeURIComponent(bucket);
+  const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
+  const params = new URLSearchParams({
+    width: String(width),
+    resize: 'contain',
+    quality: String(imageQuality),
+  });
+
+  return `${baseUrl}/storage/v1/render/image/public/${encodedBucket}/${encodedPath}?${params.toString()}`;
 }
 
 async function markBroken(supabase: ReturnType<typeof createClient>, productId: number, sourceUrl: string) {
@@ -135,8 +269,8 @@ Deno.serve(async (req) => {
     return json({ error: uploadError.message }, 500);
   }
 
-  const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
-  const publicUrl = publicData.publicUrl;
+  const optimizedWidth = getOptimizedWidth(bytes, contentType);
+  const publicUrl = buildOptimizedImageUrl(supabaseUrl, storagePath, optimizedWidth);
 
   const { data: product, error: updateError } = await supabase
     .from('products')
@@ -159,5 +293,6 @@ Deno.serve(async (req) => {
     product,
     source_thumbnail_url: sourceUrl,
     image_storage_path: storagePath,
+    optimized_width: optimizedWidth,
   });
 });
