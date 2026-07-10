@@ -320,6 +320,7 @@ body {
   height: 18px;
   color: var(--text-tertiary);
   pointer-events: none;
+  stroke-width: 1.9;
 }
 
 .search-clear {
@@ -365,11 +366,11 @@ body {
 .catalog-user-session {
   flex: 0 1 auto;
   min-width: 42px;
-  max-width: 176px;
+  max-width: 92px;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 9px 4px 4px;
+  gap: 6px;
+  padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.64);
   border-radius: 18px;
   background:
@@ -410,7 +411,6 @@ body {
 .catalog-logout-btn svg {
   width: 19px;
   height: 19px;
-  stroke-width: 2.7;
 }
 
 .catalog-logout-btn:active {
@@ -424,20 +424,28 @@ body {
     0 2px 7px rgba(var(--brand-rgb), 0.12);
 }
 
-.catalog-user-name {
-  min-width: 0;
-  max-width: 114px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
+.catalog-user-avatar {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.2) 42%, rgba(var(--brand-rgb), 0.2) 100%),
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.86), rgba(var(--brand-rgb), 0.62));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 13px;
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.catalog-search-row--admin .catalog-user-name {
-  max-width: 76px;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    inset 0 -8px 14px rgba(15, 23, 42, 0.14),
+    0 8px 16px rgba(var(--brand-rgb), 0.14);
 }
 
 .catalog-admin-shortcuts {
@@ -491,7 +499,6 @@ body {
 .catalog-search-admin-btn svg {
   width: 19px;
   height: 19px;
-  stroke-width: 2.75;
 }
 
 .catalog-search-admin-btn:active {
@@ -524,7 +531,7 @@ body {
 
   .catalog-user-session {
     gap: 5px;
-    padding: 3px 7px 3px 3px;
+    padding: 3px;
     border-radius: 16px;
   }
 
@@ -540,13 +547,11 @@ body {
     height: 17px;
   }
 
-  .catalog-user-name {
-    max-width: 76px;
+  .catalog-user-avatar {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
     font-size: 12px;
-  }
-
-  .catalog-search-row--admin .catalog-user-name {
-    display: none;
   }
 
   .catalog-admin-shortcuts {
