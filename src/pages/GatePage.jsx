@@ -1,41 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchLatestAccessByPhone, fetchLatestAccessByPhonePrefix, logAccess } from '../lib/supabase';
+import {
+  EARLY_LOOKUP_NATIONAL_DIGITS,
+  PHONE_PREFIX,
+  getEarlyPhoneLookupPrefix,
+  getNationalDigits,
+  isPhoneComplete,
+  normalizePhoneInput,
+} from '../lib/phone';
 
-const PHONE_PREFIX = '+380';
-const PHONE_DIGITS_COUNT = 12;
-const PHONE_PATTERN = /^\+380\d{9}$/;
-const EARLY_LOOKUP_NATIONAL_DIGITS = 5;
-
-function normalizePhoneInput(value) {
-  const digits = value.replace(/\D/g, '');
-  let nationalDigits = digits;
-
-  if (digits.startsWith('380')) {
-    nationalDigits = digits.slice(3);
-  } else if (digits.startsWith('0')) {
-    nationalDigits = digits.slice(1);
-  }
-
-  return `${PHONE_PREFIX}${nationalDigits.slice(0, PHONE_DIGITS_COUNT - 3)}`;
-}
-
-function isPhoneComplete(value) {
-  return PHONE_PATTERN.test(value);
-}
-
-function getNationalDigits(value) {
-  const digits = String(value || '').replace(/\D/g, '');
-  return digits.startsWith('380') ? digits.slice(3) : digits;
-}
-
-function getEarlyPhoneLookupPrefix(value) {
-  const nationalDigits = getNationalDigits(value);
-  if (nationalDigits.length < EARLY_LOOKUP_NATIONAL_DIGITS) return '';
-
-  return `${PHONE_PREFIX}${nationalDigits.slice(0, EARLY_LOOKUP_NATIONAL_DIGITS)}`;
-}
-
-export function GatePage({ onAuthorized, tgUserId }) {
+export function GatePage({ onAuthorized, tgUserId, autoAuthorizeKnownUser = true }) {
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,14 +18,49 @@ export function GatePage({ onAuthorized, tgUserId }) {
   const autoFilledPhoneRef = useRef('');
   const lastNameRef = useRef('');
   const nameEditedRef = useRef(false);
+  const autoAuthorizeRef = useRef(false);
 
   const phoneComplete = isPhoneComplete(phone);
   const earlyPhoneLookupPrefix = getEarlyPhoneLookupPrefix(phone);
   const canSubmit = phoneComplete && lastName.trim().length >= 1;
 
+  const authorize = async ({ phone: phoneValue, lastName: lastNameValue }) => {
+    if (loading || autoAuthorizeRef.current) return;
+
+    const normalizedPhone = normalizePhoneInput(phoneValue);
+    const normalizedName = String(lastNameValue || '').trim();
+
+    if (!isPhoneComplete(normalizedPhone) || !normalizedName) return;
+
+    autoAuthorizeRef.current = true;
+    setLoading(true);
+    setError('');
+
+    try {
+      await logAccess({
+        phone: normalizedPhone,
+        lastName: normalizedName,
+        tgUserId,
+      });
+
+      onAuthorized({
+        phone: normalizedPhone,
+        lastName: normalizedName,
+      });
+    } catch (err) {
+      console.error('Gate error:', err);
+      setError('Помилка з\'єднання. Спробуйте ще раз.');
+      autoAuthorizeRef.current = false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const applyLatestAccess = (latestAccess, fallbackPhone) => {
     const suggestedName = latestAccess?.last_name?.trim() || '';
-    const suggestedPhone = latestAccess?.phone?.trim() || fallbackPhone;
+    const suggestedPhone = latestAccess?.phone?.trim()
+      ? normalizePhoneInput(latestAccess.phone)
+      : fallbackPhone;
     const canAutoFill =
       suggestedName &&
       (!nameEditedRef.current || !lastNameRef.current.trim() || lastNameRef.current.trim() === autoFilledNameRef.current);
@@ -101,6 +110,21 @@ export function GatePage({ onAuthorized, tgUserId }) {
         const latestAccess = await fetchLatestAccessByPhone(phone);
         if (cancelled) return;
         applyLatestAccess(latestAccess, phone);
+
+        const suggestedName = latestAccess?.last_name?.trim() || '';
+        const suggestedPhone = latestAccess?.phone ? normalizePhoneInput(latestAccess.phone) : '';
+
+        if (
+          autoAuthorizeKnownUser &&
+          suggestedName &&
+          suggestedPhone === phone &&
+          !nameEditedRef.current
+        ) {
+          await authorize({
+            phone,
+            lastName: suggestedName,
+          });
+        }
       } catch (err) {
         if (cancelled) return;
         console.warn('Name lookup error:', err);
@@ -127,28 +151,10 @@ export function GatePage({ onAuthorized, tgUserId }) {
       return;
     }
 
-    setLoading(true);
-    setError('');
-
-    try {
-      // Записати вхід в Supabase access_log
-      await logAccess({
-        phone: phone.trim(),
-        lastName: lastName.trim(),
-        tgUserId,
-      });
-
-      // Передати дані батьківському компоненту
-      onAuthorized({
-        phone: phone.trim(),
-        lastName: lastName.trim(),
-      });
-    } catch (err) {
-      console.error('Gate error:', err);
-      setError('Помилка з\'єднання. Спробуйте ще раз.');
-    } finally {
-      setLoading(false);
-    }
+    await authorize({
+      phone,
+      lastName,
+    });
   };
 
   return (

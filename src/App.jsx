@@ -4,6 +4,7 @@ import {
   fetchAppSettings,
   fetchProducts,
   fetchCategories,
+  logAccess,
   saveAppSettings,
   subscribeToAppSettings,
   subscribeToProducts,
@@ -14,13 +15,16 @@ import { CatalogPage } from './pages/CatalogPage';
 import { ProductPage } from './pages/ProductPage';
 import { AdminPage } from './pages/AdminPage';
 import { CartDrawer } from './components/CartDrawer';
+import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
 import './styles.css';
 
 const ADMIN_PHONE = '+380111111111';
+const DEFAULT_ADMIN_PHONES = [ADMIN_PHONE];
 const DEFAULT_CATALOG_TITLE = 'Каталог';
 const DEFAULT_BRAND_COLOR = '#075985';
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
+const USER_STORAGE_KEY = 'telegram-shop-user';
 
 function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
@@ -63,6 +67,36 @@ function loadStoredBrandColors() {
   }
 }
 
+function normalizeAdminPhones(value) {
+  const source = Array.isArray(value) ? value : [];
+  const phones = source
+    .map((phone) => normalizePhoneInput(phone))
+    .filter(isPhoneComplete);
+
+  const uniquePhones = [...new Set(phones)];
+  return uniquePhones.length ? uniquePhones : DEFAULT_ADMIN_PHONES;
+}
+
+function loadStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const phone = normalizePhoneInput(parsed?.phone);
+    const lastName = String(parsed?.lastName || parsed?.last_name || '').trim();
+
+    if (!isPhoneComplete(phone) || !lastName) return null;
+
+    return {
+      phone,
+      lastName,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function normalizeBrandColors(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
@@ -73,6 +107,7 @@ function normalizeBrandColors(value) {
 
 function normalizeAppSettings(value) {
   const brandColors = normalizeBrandColors(value?.brandColors || value?.brand_colors || {});
+  const adminPhones = normalizeAdminPhones(value?.adminPhones || value?.admin_phones || []);
   const rawTitle = value?.catalogTitle || value?.catalog_title || '';
   const catalogTitle = typeof rawTitle === 'string' && rawTitle.trim()
     ? rawTitle.trim()
@@ -81,26 +116,32 @@ function normalizeAppSettings(value) {
   return {
     brandColors,
     catalogTitle,
+    adminPhones,
   };
 }
 
 export default function App() {
   const { user, haptic, hapticNotification } = useTelegram();
+  const storedUser = loadStoredUser();
   const [catalogTitle, setCatalogTitle] = useState(() => {
     const stored = localStorage.getItem(CATALOG_TITLE_STORAGE_KEY)?.trim();
     return stored || DEFAULT_CATALOG_TITLE;
   });
   const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
+  const [adminPhones, setAdminPhones] = useState(DEFAULT_ADMIN_PHONES);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
   const saveSettingsTimeoutRef = useRef(null);
   const localSettingsMigrationRef = useRef(false);
+  const restoredUserRef = useRef(storedUser);
+  const restoredAccessLoggedRef = useRef(false);
 
   // ─── Авторизація (гейт) ──────────────────────────────
-  const [authorized, setAuthorized] = useState(false);
-  const [gateData, setGateData] = useState({ phone: '', lastName: '' });
-  const isAdmin = gateData.phone === ADMIN_PHONE;
+  const [authorized, setAuthorized] = useState(Boolean(storedUser));
+  const [gateData, setGateData] = useState(storedUser || { phone: '', lastName: '' });
+  const [forceManualGate, setForceManualGate] = useState(false);
+  const isAdmin = adminPhones.includes(normalizePhoneInput(gateData.phone));
 
   // ─── Навігація ────────────────────────────────────────
   const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
@@ -147,12 +188,34 @@ export default function App() {
     localStorage.setItem(CATALOG_TITLE_STORAGE_KEY, catalogTitle.trim() || DEFAULT_CATALOG_TITLE);
   }, [catalogTitle]);
 
+  useEffect(() => {
+    if (
+      !authorized ||
+      !restoredUserRef.current ||
+      restoredAccessLoggedRef.current ||
+      !gateData.phone ||
+      !gateData.lastName
+    ) {
+      return;
+    }
+
+    restoredAccessLoggedRef.current = true;
+    logAccess({
+      phone: gateData.phone,
+      lastName: gateData.lastName,
+      tgUserId: user?.id,
+    }).catch((error) => {
+      console.warn('remembered access log error:', error);
+    });
+  }, [authorized, gateData.lastName, gateData.phone, user?.id]);
+
   const applyRemoteSettings = useCallback((settings) => {
     if (!settings || typeof settings !== 'object') return false;
 
     const normalized = normalizeAppSettings(settings);
     setBrandColors(normalized.brandColors);
     setCatalogTitle(normalized.catalogTitle);
+    setAdminPhones(normalized.adminPhones);
     return true;
   }, []);
 
@@ -226,8 +289,9 @@ export default function App() {
     queueSaveSettings({
       brandColors: nextBrandColors,
       catalogTitle,
+      adminPhones,
     });
-  }, [brandColors, catalogTitle, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, queueSaveSettings]);
 
   const setCatalogTitleSetting = useCallback((value) => {
     const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
@@ -236,8 +300,20 @@ export default function App() {
     queueSaveSettings({
       brandColors,
       catalogTitle: nextCatalogTitle,
+      adminPhones,
     });
-  }, [brandColors, queueSaveSettings]);
+  }, [adminPhones, brandColors, queueSaveSettings]);
+
+  const setAdminPhonesSetting = useCallback((phones) => {
+    const nextAdminPhones = normalizeAdminPhones(phones);
+
+    setAdminPhones(nextAdminPhones);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones: nextAdminPhones,
+    });
+  }, [brandColors, catalogTitle, queueSaveSettings]);
 
   useEffect(() => {
     if (
@@ -260,8 +336,9 @@ export default function App() {
     queueSaveSettings({
       brandColors,
       catalogTitle,
+      adminPhones,
     });
-  }, [authorized, brandColors, catalogTitle, isAdmin, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
+  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async () => {
@@ -377,10 +454,30 @@ export default function App() {
 
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {
+    const userData = {
+      phone: normalizePhoneInput(data.phone),
+      lastName: String(data.lastName || '').trim(),
+    };
+
     hapticNotification('success');
-    setGateData(data);
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+    setGateData(userData);
     setAuthorized(true);
+    setForceManualGate(false);
   }, [hapticNotification]);
+
+  const handleLogout = useCallback(() => {
+    haptic('light');
+    localStorage.removeItem(USER_STORAGE_KEY);
+    setAuthorized(false);
+    setGateData({ phone: '', lastName: '' });
+    setForceManualGate(true);
+    setPage('catalog');
+    setSelectedProductId(null);
+    setCartOpen(false);
+    setCart([]);
+    setCatalogState(null);
+  }, [haptic]);
 
   // ─── Рендер ──────────────────────────────────────────
 
@@ -389,6 +486,7 @@ export default function App() {
       <GatePage
         onAuthorized={handleAuthorized}
         tgUserId={user?.id}
+        autoAuthorizeKnownUser={!forceManualGate}
       />
     );
   }
@@ -418,6 +516,8 @@ export default function App() {
           brandColors={brandColors}
           defaultBrandColor={defaultBrandColor}
           catalogTitle={catalogTitle}
+          userName={gateData.lastName}
+          onLogout={handleLogout}
         />
       )}
 
@@ -439,6 +539,9 @@ export default function App() {
           onCatalogTitleChange={setCatalogTitleSetting}
           defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
           initialSection={initialAdminSection}
+          adminPhones={adminPhones}
+          onAdminPhonesChange={setAdminPhonesSetting}
+          currentAdminPhone={gateData.phone}
         />
       )}
 

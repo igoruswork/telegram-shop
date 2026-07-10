@@ -102,6 +102,16 @@ function AdminShortcutIcon({ icon }) {
   );
 }
 
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M8.5 12H18" />
+    </svg>
+  );
+}
+
 export function CatalogPage({
   products,
   categories,
@@ -120,6 +130,8 @@ export function CatalogPage({
   onSaveState,
   brandColors,
   defaultBrandColor,
+  userName,
+  onLogout,
 }) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
@@ -227,6 +239,20 @@ export function CatalogPage({
       {/* Header */}
       <div className={`header catalog-header ${headerCompact ? 'catalog-header--compact' : ''}`}>
         <div className={`catalog-search-row ${isAdmin ? 'catalog-search-row--admin' : ''}`}>
+          {onLogout && (
+            <div className="catalog-user-session">
+              <button
+                type="button"
+                className="catalog-logout-btn"
+                aria-label="Вийти"
+                title="Вийти"
+                {...bindSingleTap(onLogout, { preventDefault: true })}
+              >
+                <LogoutIcon />
+              </button>
+              {userName && <span className="catalog-user-name">{userName}</span>}
+            </div>
+          )}
           {isAdmin && (
             <div className="catalog-admin-shortcuts" aria-label="Швидкі дії адміна">
               {adminShortcuts.map((shortcut) => (

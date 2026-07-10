@@ -9,6 +9,7 @@ import {
   updateProduct,
   uploadProductImageFile,
 } from '../lib/supabase';
+import { isPhoneComplete, normalizePhoneInput } from '../lib/phone';
 import { SafeImage } from '../components/SafeImage';
 
 const emptyProductForm = {
@@ -96,6 +97,9 @@ export function AdminPage({
   onCatalogTitleChange,
   defaultCatalogTitle,
   initialSection = DEFAULT_ADMIN_SECTION,
+  adminPhones = [],
+  onAdminPhonesChange,
+  currentAdminPhone = '',
 }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,10 +126,18 @@ export function AdminPage({
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+  const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
+  const [adminPhoneError, setAdminPhoneError] = useState('');
+  const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
   const selectedBrandColor = selectedBrand
     ? (brandColors[selectedBrand] || defaultBrandColor)
     : defaultBrandColor;
   const [brandColorDraft, setBrandColorDraft] = useState(selectedBrandColor);
+  const normalizedAdminPhones = useMemo(
+    () => [...new Set((adminPhones || []).map(normalizePhoneInput).filter(isPhoneComplete))],
+    [adminPhones]
+  );
+  const normalizedCurrentAdminPhone = normalizePhoneInput(currentAdminPhone);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -299,6 +311,42 @@ export function AdminPage({
   const handleCatalogTitleInput = (value) => {
     setCatalogTitleDraft(value);
     onCatalogTitleChange(value.trim() || defaultCatalogTitle);
+  };
+
+  const handleAdminPhoneInput = (value) => {
+    setAdminPhoneDraft(normalizePhoneInput(value));
+    setAdminPhoneError('');
+    setAdminPhoneSaved(false);
+  };
+
+  const handleAddAdminPhone = () => {
+    const phone = normalizePhoneInput(adminPhoneDraft);
+
+    if (!isPhoneComplete(phone)) {
+      setAdminPhoneError('Введіть номер у форматі +380XXXXXXXXX.');
+      setAdminPhoneSaved(false);
+      return;
+    }
+
+    if (normalizedAdminPhones.includes(phone)) {
+      setAdminPhoneError('Цей номер вже є у списку.');
+      setAdminPhoneSaved(false);
+      return;
+    }
+
+    onAdminPhonesChange?.([...normalizedAdminPhones, phone]);
+    setAdminPhoneDraft('');
+    setAdminPhoneError('');
+    setAdminPhoneSaved(true);
+    window.setTimeout(() => setAdminPhoneSaved(false), 1500);
+  };
+
+  const handleRemoveAdminPhone = (phone) => {
+    const nextPhones = normalizedAdminPhones.filter((item) => item !== phone);
+    onAdminPhonesChange?.(nextPhones);
+    setAdminPhoneError('');
+    setAdminPhoneSaved(true);
+    window.setTimeout(() => setAdminPhoneSaved(false), 1500);
   };
 
   const handleRefresh = () => {
@@ -629,6 +677,63 @@ export function AdminPage({
               maxLength={28}
             />
           </label>
+        </div>
+      )}
+
+      {activeSection === 'title' && (
+        <div className="admin-settings-card admin-section-card">
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Адміни</div>
+              <div className="admin-settings-subtitle">Номери, які можуть відкривати адмін-панель.</div>
+            </div>
+            {adminPhoneSaved && <span className="admin-saved-badge">✓ Збережено</span>}
+          </div>
+
+          <div className="admin-phone-add-row">
+            <input
+              className="admin-input"
+              type="tel"
+              inputMode="numeric"
+              value={adminPhoneDraft}
+              placeholder="+380502847652"
+              onChange={(e) => handleAdminPhoneInput(e.target.value)}
+              maxLength={13}
+            />
+            <button
+              type="button"
+              className="admin-save-btn admin-phone-add-btn"
+              onClick={handleAddAdminPhone}
+            >
+              Додати
+            </button>
+          </div>
+
+          {adminPhoneError && <div className="admin-phone-error">{adminPhoneError}</div>}
+
+          <div className="admin-phone-list">
+            {normalizedAdminPhones.map((phone) => {
+              const isCurrent = phone === normalizedCurrentAdminPhone;
+
+              return (
+                <div key={phone} className="admin-phone-item">
+                  <div>
+                    <div className="admin-phone-number">{phone}</div>
+                    {isCurrent && <div className="admin-phone-note">ваш номер</div>}
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-phone-remove"
+                    disabled={isCurrent || normalizedAdminPhones.length <= 1}
+                    onClick={() => handleRemoveAdminPhone(phone)}
+                    aria-label={`Прибрати ${phone} з адміністраторів`}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
