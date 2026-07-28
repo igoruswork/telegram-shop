@@ -232,7 +232,9 @@ export default function App() {
           setAuthorized(true);
           return;
         }
-        localStorage.removeItem(USER_STORAGE_KEY);
+        // Keep only a local identity hint for the next launch. It does not
+        // grant access: the user still sees the gate until an administrator
+        // changes is_approved in Supabase.
         setGateData({ phone: '', lastName: '' });
       })
       .catch((error) => {
@@ -511,18 +513,16 @@ export default function App() {
   }, [haptic]);
 
   // ─── Гейт ────────────────────────────────────────────
-  const handleAuthorized = useCallback((data, { remember = false } = {}) => {
+  const handleAuthorized = useCallback((data) => {
     const userData = {
       phone: normalizePhoneInput(data.phone),
       lastName: String(data.lastName || '').trim(),
     };
 
     hapticNotification('success');
-    if (remember) {
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    } else {
-      localStorage.removeItem(USER_STORAGE_KEY);
-    }
+    // A pending record lets the app re-check the same phone on the next
+    // launch. Automatic entry still happens only after server approval.
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
     setGateData(userData);
     setAuthorized(true);
   }, [hapticNotification]);

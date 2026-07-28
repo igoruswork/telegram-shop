@@ -28,10 +28,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
       onAuthorized({
         phone: catalogUser?.phone || normalizePhoneInput(phone),
         lastName: catalogUser?.last_name || lastName.trim(),
-      }, {
-        // Everyone can open the catalog after submitting the form. Only an
-        // explicitly approved user gets a persistent local session.
-        remember: Boolean(catalogUser?.is_approved),
       });
     } catch (err) {
       console.error('Gate error:', err);
