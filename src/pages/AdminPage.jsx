@@ -914,7 +914,10 @@ export function AdminPage({
           {accessLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {accessError && <div className="admin-activity-error">{accessError}</div>}
           {!accessLoading && !accessError && catalogUsers.map((entry) => (
-            <article key={entry.phone} className="admin-access-card">
+            <article
+              key={entry.phone}
+              className={`admin-access-card ${entry.is_approved ? 'admin-access-card--approved' : 'admin-access-card--pending'}`}
+            >
               <div className="admin-access-person">
                 <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
                 <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
@@ -928,7 +931,7 @@ export function AdminPage({
                     checked={Boolean(entry.is_approved)}
                     onChange={(event) => handleCatalogUserApproval(entry, event.target.checked)}
                   />
-                  <span>{entry.is_approved ? 'Схвалено' : 'Очікує'}</span>
+                  <span>{entry.is_approved ? 'Схвалено' : 'Очікує схвалення'}</span>
                 </label>
               </div>
             </article>
@@ -1025,7 +1028,7 @@ export function AdminPage({
         </div>
       )}
 
-      <div className="admin-content">
+      <div className={`admin-content ${activeSection === 'visibility' ? 'admin-content--visibility' : ''}`}>
         {loading && <div className="no-results" style={{ paddingTop: 48 }}>Завантаження…</div>}
         {error && <div className="no-results" style={{ paddingTop: 48, color: '#ef4444' }}>{error}</div>}
         {!loading && !error && filtered.length === 0 && (
