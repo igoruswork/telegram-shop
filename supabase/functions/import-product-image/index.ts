@@ -8,9 +8,7 @@ const corsHeaders = {
 
 const bucket = Deno.env.get('PRODUCT_IMAGE_BUCKET') || 'product-images';
 const maxBytes = Number(Deno.env.get('PRODUCT_IMAGE_MAX_BYTES') || 5 * 1024 * 1024);
-const imageScale = Number(Deno.env.get('PRODUCT_IMAGE_RESIZE_SCALE') || 0.7);
-const minImageWidth = Number(Deno.env.get('PRODUCT_IMAGE_MIN_WIDTH') || 560);
-const fallbackImageWidth = Number(Deno.env.get('PRODUCT_IMAGE_FALLBACK_WIDTH') || 700);
+const catalogImageWidth = Number(Deno.env.get('PRODUCT_IMAGE_CATALOG_WIDTH') || 640);
 const imageQuality = Number(Deno.env.get('PRODUCT_IMAGE_QUALITY') || 78);
 
 function json(body: unknown, status = 200) {
@@ -147,18 +145,6 @@ function getImageDimensions(bytes: Uint8Array, contentType: string) {
   return null;
 }
 
-function getOptimizedWidth(bytes: Uint8Array, contentType: string) {
-  const dimensions = getImageDimensions(bytes, contentType);
-  const originalWidth = dimensions?.width || 0;
-
-  if (!Number.isFinite(originalWidth) || originalWidth <= 0) {
-    return fallbackImageWidth;
-  }
-
-  const scaledWidth = Math.round(originalWidth * imageScale);
-  return Math.min(originalWidth, Math.max(minImageWidth, scaledWidth));
-}
-
 function buildOptimizedImageUrl(supabaseUrl: string, storagePath: string, width: number) {
   const baseUrl = supabaseUrl.replace(/\/+$/, '');
   const encodedBucket = encodeURIComponent(bucket);
@@ -224,6 +210,7 @@ Deno.serve(async (req) => {
   let response: Response;
   try {
     response = await fetch(sourceUrl, {
+      signal: AbortSignal.timeout(8000),
       headers: {
         Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8',
       },
@@ -269,8 +256,7 @@ Deno.serve(async (req) => {
     return json({ error: uploadError.message }, 500);
   }
 
-  const optimizedWidth = getOptimizedWidth(bytes, contentType);
-  const publicUrl = buildOptimizedImageUrl(supabaseUrl, storagePath, optimizedWidth);
+  const publicUrl = buildOptimizedImageUrl(supabaseUrl, storagePath, catalogImageWidth);
 
   const { data: product, error: updateError } = await supabase
     .from('products')
@@ -293,6 +279,6 @@ Deno.serve(async (req) => {
     product,
     source_thumbnail_url: sourceUrl,
     image_storage_path: storagePath,
-    optimized_width: optimizedWidth,
+    optimized_width: catalogImageWidth,
   });
 });

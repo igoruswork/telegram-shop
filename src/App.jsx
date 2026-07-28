@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTelegram } from './lib/useTelegram';
 import {
   fetchAppSettings,
+  fetchCatalogUserAccess,
   fetchProducts,
-  fetchCategories,
-  logAccess,
   saveAppSettings,
   subscribeToAppSettings,
   subscribeToProducts,
@@ -120,9 +119,17 @@ function normalizeAppSettings(value) {
   };
 }
 
+function sortProducts(products) {
+  return [...products].sort((left, right) => {
+    const leftOrder = Number(left.number_sites ?? 0);
+    const rightOrder = Number(right.number_sites ?? 0);
+    return leftOrder - rightOrder;
+  });
+}
+
 export default function App() {
   const { user, haptic, hapticNotification } = useTelegram();
-  const storedUser = loadStoredUser();
+  const storedUser = useMemo(loadStoredUser, []);
   const [catalogTitle, setCatalogTitle] = useState(() => {
     const stored = localStorage.getItem(CATALOG_TITLE_STORAGE_KEY)?.trim();
     return stored || DEFAULT_CATALOG_TITLE;
@@ -134,13 +141,11 @@ export default function App() {
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
   const saveSettingsTimeoutRef = useRef(null);
   const localSettingsMigrationRef = useRef(false);
-  const restoredUserRef = useRef(storedUser);
-  const restoredAccessLoggedRef = useRef(false);
 
   // ─── Авторизація (гейт) ──────────────────────────────
-  const [authorized, setAuthorized] = useState(Boolean(storedUser));
+  const [authorized, setAuthorized] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(!storedUser);
   const [gateData, setGateData] = useState(storedUser || { phone: '', lastName: '' });
-  const [forceManualGate, setForceManualGate] = useState(false);
   const isAdmin = adminPhones.includes(normalizePhoneInput(gateData.phone));
 
   // ─── Навігація ────────────────────────────────────────
@@ -153,7 +158,6 @@ export default function App() {
 
   // ─── Дані з Supabase ─────────────────────────────────
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(supabaseConfigError);
 
@@ -161,19 +165,47 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
+  const categories = useMemo(() => (
+    [...new Set(products.map((product) => product.category).filter(Boolean))].sort()
+  ), [products]);
+
+  const cartQtyByProductId = useMemo(
+    () => new Map(cart.map((item) => [item.id, item.qty])),
+    [cart]
+  );
+
+  const cartTotal = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0),
+    [cart]
+  );
+
+  const cartCount = useMemo(
+    () => cart.reduce((sum, item) => sum + item.qty, 0),
+    [cart]
+  );
+
   useEffect(() => {
+    let frame = 0;
+
     const setViewportHeight = () => {
+      frame = 0;
       const viewportHeight = window.visualViewport?.height || window.innerHeight;
       document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
     };
 
+    const scheduleViewportHeight = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(setViewportHeight);
+    };
+
     setViewportHeight();
-    window.addEventListener('resize', setViewportHeight);
-    window.visualViewport?.addEventListener('resize', setViewportHeight);
+    window.addEventListener('resize', scheduleViewportHeight);
+    window.visualViewport?.addEventListener('resize', scheduleViewportHeight);
 
     return () => {
-      window.removeEventListener('resize', setViewportHeight);
-      window.visualViewport?.removeEventListener('resize', setViewportHeight);
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', scheduleViewportHeight);
+      window.visualViewport?.removeEventListener('resize', scheduleViewportHeight);
     };
   }, []);
 
@@ -189,25 +221,31 @@ export default function App() {
   }, [catalogTitle]);
 
   useEffect(() => {
-    if (
-      !authorized ||
-      !restoredUserRef.current ||
-      restoredAccessLoggedRef.current ||
-      !gateData.phone ||
-      !gateData.lastName
-    ) {
-      return;
-    }
+    if (!storedUser) return undefined;
 
-    restoredAccessLoggedRef.current = true;
-    logAccess({
-      phone: gateData.phone,
-      lastName: gateData.lastName,
-      tgUserId: user?.id,
-    }).catch((error) => {
-      console.warn('remembered access log error:', error);
-    });
-  }, [authorized, gateData.lastName, gateData.phone, user?.id]);
+    let cancelled = false;
+
+    fetchCatalogUserAccess(storedUser.phone)
+      .then((catalogUser) => {
+        if (cancelled) return;
+        if (catalogUser?.is_approved) {
+          setAuthorized(true);
+          return;
+        }
+        localStorage.removeItem(USER_STORAGE_KEY);
+        setGateData({ phone: '', lastName: '' });
+      })
+      .catch((error) => {
+        console.warn('stored user access check error:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setAccessChecked(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storedUser]);
 
   const applyRemoteSettings = useCallback((settings) => {
     if (!settings || typeof settings !== 'object') return false;
@@ -346,19 +384,44 @@ export default function App() {
     setLoadError('');
 
     try {
-      const [productsData, categoriesData] = await Promise.all([
-        fetchProducts(),
-        fetchCategories(),
-      ]);
-      setProducts(productsData);
-      setCategories(categoriesData);
+      const productsData = await fetchProducts();
+      setProducts(sortProducts(productsData));
     } catch (error) {
       setProducts([]);
-      setCategories([]);
       setLoadError(error.message || 'Не вдалося завантажити дані.');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const applyProductRealtimeChange = useCallback((payload) => {
+    const eventType = payload?.eventType;
+    const changedProduct = payload?.new;
+    const changedId = changedProduct?.id || payload?.old?.id;
+    if (!changedId) return;
+
+    setProducts((currentProducts) => {
+      if (eventType === 'DELETE') {
+        return currentProducts.filter((product) => product.id !== changedId);
+      }
+
+      const existingIndex = currentProducts.findIndex((product) => product.id === changedId);
+      const nextProduct = existingIndex === -1
+        ? changedProduct
+        : { ...currentProducts[existingIndex], ...changedProduct };
+
+      if (!nextProduct?.view) {
+        return currentProducts.filter((product) => product.id !== changedId);
+      }
+
+      if (existingIndex === -1) {
+        return sortProducts([...currentProducts, nextProduct]);
+      }
+
+      const nextProducts = [...currentProducts];
+      nextProducts[existingIndex] = nextProduct;
+      return sortProducts(nextProducts);
+    });
   }, []);
 
   // ─── Після авторизації: завантажити + підписатися на Realtime
@@ -367,12 +430,10 @@ export default function App() {
 
     loadData();
 
-    const unsubscribe = subscribeToProducts(() => {
-      loadData();
-    });
+    const unsubscribe = subscribeToProducts(applyProductRealtimeChange);
 
     return unsubscribe;
-  }, [authorized, loadData]);
+  }, [applyProductRealtimeChange, authorized, loadData]);
 
   // ─── Кошик ───────────────────────────────────────────
   const addToCart = useCallback(
@@ -417,9 +478,6 @@ export default function App() {
     [haptic]
   );
 
-  const cartTotal = cart.reduce((sum, i) => sum + Number(i.price) * i.qty, 0);
-  const cartCount = cart.reduce((sum, i) => sum + i.qty, 0);
-
   const handleOrderSuccess = useCallback(() => {
     hapticNotification('success');
     setCart([]);
@@ -463,15 +521,19 @@ export default function App() {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
     setGateData(userData);
     setAuthorized(true);
-    setForceManualGate(false);
   }, [hapticNotification]);
+
+  const openCart = useCallback(() => {
+    haptic('medium');
+    setCartOpen(true);
+  }, [haptic]);
 
   const handleLogout = useCallback(() => {
     haptic('light');
     localStorage.removeItem(USER_STORAGE_KEY);
     setAuthorized(false);
+    setAccessChecked(true);
     setGateData({ phone: '', lastName: '' });
-    setForceManualGate(true);
     setPage('catalog');
     setSelectedProductId(null);
     setCartOpen(false);
@@ -481,12 +543,15 @@ export default function App() {
 
   // ─── Рендер ──────────────────────────────────────────
 
+  if (!accessChecked) {
+    return <div className="gate-page" aria-busy="true" />;
+  }
+
   if (!authorized) {
     return (
       <GatePage
         onAuthorized={handleAuthorized}
         tgUserId={user?.id}
-        autoAuthorizeKnownUser={!forceManualGate}
       />
     );
   }
@@ -503,11 +568,8 @@ export default function App() {
           onAddToCart={addToCart}
           cartCount={cartCount}
           cartTotal={cartTotal}
-          onCartClick={() => {
-            haptic('medium');
-            setCartOpen(true);
-          }}
-          cart={cart}
+          onCartClick={openCart}
+          cartQtyByProductId={cartQtyByProductId}
           onUpdateQty={updateQty}
           isAdmin={isAdmin}
           onAdminClick={openAdmin}

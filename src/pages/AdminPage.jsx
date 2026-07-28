@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   createProduct,
-  fetchAccessLogEntries,
   fetchAdminOrders,
   fetchAllProducts,
+  fetchCatalogUsers,
   fetchProductImageSource,
   importProductImage,
   updateProduct,
+  updateCatalogUserApproval,
   uploadProductImageFile,
 } from '../lib/supabase';
 import { isPhoneComplete, normalizePhoneInput } from '../lib/phone';
@@ -36,7 +37,7 @@ const adminSections = [
   { id: 'colors', label: 'Кольори' },
   { id: 'details', label: 'Деталі картки' },
   { id: 'visibility', label: 'Видимість' },
-  { id: 'access', label: 'Входи' },
+  { id: 'access', label: 'Користувачі' },
   { id: 'orders', label: 'Замовлення' },
 ];
 
@@ -102,7 +103,7 @@ export function AdminPage({
   currentAdminPhone = '',
 }) {
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Всі');
@@ -120,7 +121,7 @@ export function AdminPage({
   const [newProductImageFile, setNewProductImageFile] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
-  const [accessLogs, setAccessLogs] = useState([]);
+  const [catalogUsers, setCatalogUsers] = useState([]);
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState('');
   const [orders, setOrders] = useState([]);
@@ -129,6 +130,7 @@ export function AdminPage({
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
+  const hasLoadedProductsRef = useRef(false);
   const selectedBrandColor = selectedBrand
     ? (brandColors[selectedBrand] || defaultBrandColor)
     : defaultBrandColor;
@@ -152,21 +154,19 @@ export function AdminPage({
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
   useEffect(() => {
     setActiveSection(normalizeAdminSection(initialSection));
   }, [initialSection]);
 
-  const loadAccessLogs = useCallback(async () => {
+  const loadCatalogUsers = useCallback(async () => {
     setAccessLoading(true);
     setAccessError('');
 
     try {
-      const data = await fetchAccessLogEntries();
-      setAccessLogs(data);
+      const data = await fetchCatalogUsers();
+      setCatalogUsers(data);
     } catch (e) {
-      setAccessLogs([]);
+      setCatalogUsers([]);
       setAccessError(e.message);
     } finally {
       setAccessLoading(false);
@@ -190,13 +190,21 @@ export function AdminPage({
 
   useEffect(() => {
     if (activeSection === 'access') {
-      loadAccessLogs();
+      loadCatalogUsers();
     }
 
     if (activeSection === 'orders') {
       loadOrders();
     }
-  }, [activeSection, loadAccessLogs, loadOrders]);
+  }, [activeSection, loadCatalogUsers, loadOrders]);
+
+  useEffect(() => {
+    const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors'].includes(activeSection);
+    if (sectionNeedsProducts && !hasLoadedProductsRef.current) {
+      hasLoadedProductsRef.current = true;
+      load();
+    }
+  }, [activeSection, load]);
 
   useEffect(() => {
     setBrandColorDraft(selectedBrandColor);
@@ -351,7 +359,7 @@ export function AdminPage({
 
   const handleRefresh = () => {
     if (activeSection === 'access') {
-      loadAccessLogs();
+      loadCatalogUsers();
       return;
     }
 
@@ -361,6 +369,25 @@ export function AdminPage({
     }
 
     load();
+  };
+
+  const handleCatalogUserApproval = async (catalogUser, isApproved) => {
+    const previous = catalogUser.is_approved;
+    setCatalogUsers((current) => current.map((item) => (
+      item.phone === catalogUser.phone ? { ...item, is_approved: isApproved } : item
+    )));
+
+    try {
+      const updated = await updateCatalogUserApproval(catalogUser.phone, isApproved);
+      setCatalogUsers((current) => current.map((item) => (
+        item.phone === updated.phone ? updated : item
+      )));
+    } catch (error) {
+      setCatalogUsers((current) => current.map((item) => (
+        item.phone === catalogUser.phone ? { ...item, is_approved: previous } : item
+      )));
+      alert('Помилка: ' + error.message);
+    }
   };
 
   const handleToggleView = async (p) => {
@@ -886,15 +913,23 @@ export function AdminPage({
         <div className="admin-activity-list">
           {accessLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {accessError && <div className="admin-activity-error">{accessError}</div>}
-          {!accessLoading && !accessError && accessLogs.map((entry) => (
-            <article key={entry.id} className="admin-access-card">
+          {!accessLoading && !accessError && catalogUsers.map((entry) => (
+            <article key={entry.phone} className="admin-access-card">
               <div className="admin-access-person">
                 <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
                 <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
               </div>
               <div className="admin-access-meta">
                 {entry.tg_user_id && <span>TG {entry.tg_user_id}</span>}
-                <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+                <time dateTime={entry.last_access_at}>{formatKyivDateTime(entry.last_access_at)}</time>
+                <label className="admin-user-approval">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(entry.is_approved)}
+                    onChange={(event) => handleCatalogUserApproval(entry, event.target.checked)}
+                  />
+                  <span>{entry.is_approved ? 'Схвалено' : 'Очікує'}</span>
+                </label>
               </div>
             </article>
           ))}

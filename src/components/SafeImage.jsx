@@ -15,6 +15,23 @@ function getStorageObjectFallback(src) {
   }
 }
 
+function getResponsiveStorageSrcSet(src) {
+  try {
+    const url = new URL(src);
+    if (!url.pathname.includes('/storage/v1/render/image/public/')) return undefined;
+
+    return [320, 480, 640, 960]
+      .map((width) => {
+        const candidate = new URL(url);
+        candidate.searchParams.set('width', String(width));
+        return `${candidate.toString()} ${width}w`;
+      })
+      .join(', ');
+  } catch {
+    return undefined;
+  }
+}
+
 export function SafeImage({
   src,
   alt,
@@ -24,6 +41,7 @@ export function SafeImage({
   loading = 'lazy',
   decoding = 'async',
   fetchPriority,
+  sizes,
   ...props
 }) {
   const [failed, setFailed] = useState(false);
@@ -47,14 +65,19 @@ export function SafeImage({
     );
   }
 
+  const activeSrc = fallbackSrc || src;
+  const responsiveSrcSet = fallbackSrc ? undefined : getResponsiveStorageSrcSet(src);
+
   return (
     <img
       className={className}
-      src={fallbackSrc || src}
+      src={activeSrc}
       alt={alt}
       loading={loading}
       decoding={decoding}
       fetchPriority={fetchPriority}
+      srcSet={responsiveSrcSet}
+      sizes={responsiveSrcSet ? (sizes || '100vw') : undefined}
       onError={() => {
         const nextFallback = fallbackSrc ? '' : getStorageObjectFallback(src);
         if (nextFallback && nextFallback !== src) {

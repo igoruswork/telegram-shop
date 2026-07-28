@@ -1,19 +1,8 @@
-import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { useSingleTap } from '../lib/useSingleTap';
-import { ProductCard } from '../components/ProductCard';
-import { SafeImage } from '../components/SafeImage';
+import React, { useState, useMemo, useRef, useCallback, useDeferredValue, useEffect } from 'react';
+import { VirtualProductGrid } from '../components/VirtualProductGrid';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
-}
-
-function getBadgeClass(badge) {
-  if (!badge) return '';
-  const b = badge.toLowerCase();
-  if (b.includes('хіт') || b.includes('hit')) return 'hit';
-  if (b.includes('нов') || b.includes('new')) return 'new';
-  if (b.includes('акц') || b.includes('sale')) return 'sale';
-  return 'default';
 }
 
 function isHexColor(value) {
@@ -151,7 +140,7 @@ export function CatalogPage({
   cartCount,
   cartTotal,
   onCartClick,
-  cart,
+  cartQtyByProductId,
   onUpdateQty,
   isAdmin,
   onAdminClick,
@@ -166,8 +155,8 @@ export function CatalogPage({
   const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
   const [activeSubCategory, setActiveSubCategory] = useState(savedState?.activeSubCategory || 'Всі');
   const [headerCompact, setHeaderCompact] = useState(false);
-  const bindSingleTap = useSingleTap();
   const searchRef = useRef(null);
+  const deferredSearch = useDeferredValue(search);
   const userInitials = getUserInitials(userName);
 
   // Відновлення позиції скролу після монтування
@@ -243,8 +232,8 @@ export function CatalogPage({
   const filtered = useMemo(() => {
     let result = products;
 
-    if (search.trim()) {
-      const words = search.toLowerCase().trim().split(/\s+/);
+    if (deferredSearch.trim()) {
+      const words = deferredSearch.toLowerCase().trim().split(/\s+/);
       result = result.filter((p) => {
         const haystack = `${p.name || ''} ${p.sku || ''} ${p.category || ''} ${p.p_category || ''}`.toLowerCase();
         return words.every((w) => haystack.includes(w));
@@ -260,7 +249,7 @@ export function CatalogPage({
     }
 
     return result;
-  }, [products, activeCategory, activeSubCategory, search]);
+  }, [products, activeCategory, activeSubCategory, deferredSearch]);
 
   const allCategories = useMemo(() => ['Всі', ...categories], [categories]);
 
@@ -276,7 +265,7 @@ export function CatalogPage({
                 className="catalog-logout-btn"
                 aria-label="Вийти"
                 title="Вийти"
-                {...bindSingleTap(onLogout, { preventDefault: true })}
+                onClick={onLogout}
               >
                 <LogoutIcon />
               </button>
@@ -296,7 +285,7 @@ export function CatalogPage({
                   className="catalog-search-admin-btn"
                   aria-label={shortcut.label}
                   title={shortcut.label}
-                  {...bindSingleTap(() => onAdminClick(shortcut.section), { preventDefault: true })}
+                  onClick={() => onAdminClick(shortcut.section)}
                 >
                   <AdminShortcutIcon icon={shortcut.icon} />
                 </button>
@@ -321,7 +310,7 @@ export function CatalogPage({
                 type="button"
                 className="search-clear"
                 aria-label="Очистити пошук"
-                {...bindSingleTap(clearSearch, { preventDefault: true })}
+                onClick={clearSearch}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -338,7 +327,7 @@ export function CatalogPage({
         aria-label="Повернутися на початок"
         aria-hidden={!headerCompact}
         tabIndex={headerCompact ? 0 : -1}
-        {...bindSingleTap(scrollToTop, { preventDefault: true })}
+        onClick={scrollToTop}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 19V5" />
@@ -354,7 +343,7 @@ export function CatalogPage({
             type="button"
             className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
             style={getBrandStyle(cat, brandColors, defaultBrandColor)}
-            {...bindSingleTap(() => handleCategoryClick(cat), { preventDefault: true })}
+            onClick={() => handleCategoryClick(cat)}
           >
             {cat}
           </button>
@@ -369,7 +358,7 @@ export function CatalogPage({
               key={sub}
               type="button"
               className={`category-chip ${activeSubCategory === sub ? 'active' : ''}`}
-              {...bindSingleTap(() => setActiveSubCategory(sub), { preventDefault: true })}
+              onClick={() => setActiveSubCategory(sub)}
               style={{
                 ...getBrandStyle(activeCategory, brandColors, defaultBrandColor),
                 ...(activeSubCategory === sub ? {} : { background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(14,165,233,0.1)' }),
@@ -400,7 +389,7 @@ export function CatalogPage({
           <div style={{ maxWidth: 420, margin: '0 auto' }}>{error}</div>
         </div>
       ) : (
-        <div className="product-grid">
+        <>
           {filtered.length === 0 && (
             <div className="no-results">
               <div style={{ fontSize: 40, marginBottom: 8 }}>🔍</div>
@@ -408,88 +397,18 @@ export function CatalogPage({
             </div>
           )}
 
-          {filtered.map((product, idx) => {
-            const qty = cart?.find(c => c.id === product.id)?.qty || 0;
-            return (
-              <article
-                key={product.id}
-                className={`product-card ${qty > 0 ? 'product-card--in-cart' : ''}`}
-                style={{
-                  ...getBrandStyle(product.category, brandColors, defaultBrandColor),
-                  animationDelay: `${idx * 0.05}s`,
-                }}
-              >
-                {qty > 0 && (
-                  <div className="product-card-cart-mark" aria-label={`У кошику ${qty}`}>
-                    {qty}
-                  </div>
-                )}
-                <ProductCard product={product} onProductClick={handleProductClick}>
-                  <div className="product-card-imgwrap">
-                    {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
-                      <span className={`product-badge ${getBadgeClass(product.badge)}`}>
-                        {product.badge}
-                      </span>
-                    )}
-                    <SafeImage
-                      className="product-card-img"
-                      placeholderClassName="product-card-img-placeholder"
-                      src={product.thumbnail_url}
-                      alt={product.name}
-                      loading={idx < 6 ? 'eager' : 'lazy'}
-                      fetchPriority={idx < 4 ? 'high' : 'auto'}
-                    />
-                  </div>
-
-                  <div className="product-card-body">
-                    <div className="product-card-name">{product.name}</div>
-                    {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
-                      <div className="product-card-category" style={{ marginBottom: 2 }}>{product.sku}</div>
-                    )}
-                    <div className="product-card-category">
-                      {product.p_category || product.category}
-                    </div>
-                  </div>
-                </ProductCard>
-
-                <div className="product-card-footer">
-                  <div className="product-card-price">
-                    {formatPrice(product.price)}
-                  </div>
-                  <div className={`catalog-qty-controls ${qty === 0 ? 'catalog-qty-controls--empty' : ''}`}>
-                    <button
-                      type="button"
-                      className="catalog-qty-btn catalog-qty-minus"
-                      aria-label={`Зменшити кількість ${product.name}`}
-                      disabled={qty === 0}
-                      {...bindSingleTap(() => onUpdateQty(product.id, -1), {
-                        preventDefault: false,
-                      })}
-                    >
-                      −
-                    </button>
-                    <span
-                      className={`catalog-qty-value ${qty === 0 ? 'catalog-qty-value--empty' : ''}`}
-                      aria-hidden={qty === 0}
-                    >
-                      {qty > 0 ? qty : ''}
-                    </span>
-                    <button
-                      type="button"
-                      className="catalog-qty-btn catalog-qty-plus"
-                      aria-label={qty === 0 ? `Додати ${product.name} в кошик` : `Збільшити кількість ${product.name}`}
-                      {...bindSingleTap(() => qty === 0 ? onAddToCart(product) : onUpdateQty(product.id, 1), {
-                        preventDefault: false,
-                      })}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </article>
-            )
-          })}
-        </div>
+          {filtered.length > 0 && (
+            <VirtualProductGrid
+              products={filtered}
+              cartQtyByProductId={cartQtyByProductId}
+              onProductClick={handleProductClick}
+              onAddToCart={onAddToCart}
+              onUpdateQty={onUpdateQty}
+              brandColors={brandColors}
+              defaultBrandColor={defaultBrandColor}
+            />
+          )}
+        </>
       )}
 
       {/* FAB кошика */}
@@ -498,7 +417,7 @@ export function CatalogPage({
           type="button"
           className="cart-fab"
           aria-label="Відкрити кошик"
-          {...bindSingleTap(onCartClick, { preventDefault: true })}
+          onClick={onCartClick}
         >
           <div className="cart-fab-left">
             <span className="cart-fab-count">{cartCount}</span>

@@ -117,6 +117,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
         alt={product.name}
         loading="eager"
         fetchPriority="high"
+        sizes="100vw"
       />
 
       <div className="product-page-body">

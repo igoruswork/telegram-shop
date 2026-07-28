@@ -10,10 +10,8 @@ const limit = limitArg ? Number(limitArg.split('=')[1]) : 0;
 const bucket = process.env.PRODUCT_IMAGE_BUCKET || 'product-images';
 const maxBytes = Number(process.env.PRODUCT_IMAGE_MAX_BYTES || 5 * 1024 * 1024);
 const fetchTimeoutMs = Number(process.env.PRODUCT_IMAGE_FETCH_TIMEOUT_MS || 8000);
-const concurrency = Math.max(1, Number(process.env.PRODUCT_IMAGE_CONCURRENCY || 8));
-const imageScale = Number(process.env.PRODUCT_IMAGE_RESIZE_SCALE || 0.7);
-const minImageWidth = Number(process.env.PRODUCT_IMAGE_MIN_WIDTH || 560);
-const fallbackImageWidth = Number(process.env.PRODUCT_IMAGE_FALLBACK_WIDTH || 700);
+const concurrency = Math.max(1, Number(process.env.PRODUCT_IMAGE_CONCURRENCY || 2));
+const catalogImageWidth = Number(process.env.PRODUCT_IMAGE_CATALOG_WIDTH || 640);
 const imageQuality = Number(process.env.PRODUCT_IMAGE_QUALITY || 78);
 
 function readEnvFile(file) {
@@ -181,18 +179,6 @@ function getImageDimensions(buffer, contentType) {
   return null;
 }
 
-function getOptimizedWidth(buffer, contentType) {
-  const dimensions = getImageDimensions(buffer, contentType);
-  const originalWidth = dimensions?.width || 0;
-
-  if (!Number.isFinite(originalWidth) || originalWidth <= 0) {
-    return fallbackImageWidth;
-  }
-
-  const scaledWidth = Math.round(originalWidth * imageScale);
-  return Math.min(originalWidth, Math.max(minImageWidth, scaledWidth));
-}
-
 function buildOptimizedImageUrl(storagePath, width) {
   const baseUrl = supabaseUrl.replace(/\/+$/, '');
   const encodedBucket = encodeURIComponent(bucket);
@@ -311,8 +297,7 @@ async function migrateProduct(product) {
 
   if (uploadError) throw uploadError;
 
-  const optimizedWidth = getOptimizedWidth(image.buffer, image.contentType);
-  const newUrl = buildOptimizedImageUrl(storagePath, optimizedWidth);
+  const newUrl = buildOptimizedImageUrl(storagePath, catalogImageWidth);
 
   const { error: updateError } = await supabase
     .from('products')

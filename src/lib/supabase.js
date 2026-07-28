@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { optimizeProductImageFile } from './productImageOptimizer';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -67,9 +68,7 @@ const APP_SETTINGS_KEY = 'catalog';
 const PRODUCT_IMAGE_BUCKET = 'product-images';
 const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const PRODUCT_IMAGE_SOURCE_MAX_BYTES = 15 * 1024 * 1024;
-const PRODUCT_IMAGE_RESIZE_SCALE = 0.7;
-const PRODUCT_IMAGE_MIN_WIDTH = 560;
-const PRODUCT_IMAGE_QUALITY = 0.82;
+const PRODUCT_IMAGE_RENDER_WIDTH = 640;
 const PRODUCT_IMAGE_RENDER_QUALITY = 78;
 
 function sanitizeStorageSegment(value, fallback) {
@@ -97,84 +96,6 @@ function extensionFromFile(file) {
   return 'jpg';
 }
 
-function withoutFileExtension(name) {
-  return String(name || 'product-image').replace(/\.[^.]+$/, '') || 'product-image';
-}
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve) => {
-    canvas.toBlob(resolve, type, quality);
-  });
-}
-
-function loadImageFile(file) {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(image);
-    };
-
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Не вдалося прочитати файл картинки.'));
-    };
-
-    image.src = objectUrl;
-  });
-}
-
-async function optimizeProductImageFile(file) {
-  const type = String(file?.type || '').toLowerCase();
-  const canUseCanvas = typeof document !== 'undefined' && typeof URL !== 'undefined';
-
-  if (!canUseCanvas || type.includes('gif') || type.includes('svg')) {
-    return file;
-  }
-
-  try {
-    const image = await loadImageFile(file);
-    const originalWidth = image.naturalWidth || image.width;
-    const originalHeight = image.naturalHeight || image.height;
-
-    if (!originalWidth || !originalHeight) {
-      return file;
-    }
-
-    const targetWidth = Math.max(1, Math.round(originalWidth * PRODUCT_IMAGE_RESIZE_SCALE));
-    const targetHeight = Math.max(1, Math.round(originalHeight * PRODUCT_IMAGE_RESIZE_SCALE));
-    const canvas = document.createElement('canvas');
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-
-    const context = canvas.getContext('2d');
-    if (!context) return file;
-
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = 'high';
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-    const blob = await canvasToBlob(canvas, 'image/webp', PRODUCT_IMAGE_QUALITY);
-    if (!blob || blob.size >= file.size) {
-      return file;
-    }
-
-    return new File(
-      [blob],
-      `${withoutFileExtension(file.name)}.webp`,
-      {
-        type: 'image/webp',
-        lastModified: Date.now(),
-      }
-    );
-  } catch (error) {
-    console.warn('Product image optimization skipped:', error);
-    return file;
-  }
-}
-
 function buildOptimizedStorageImageUrl(storagePath) {
   if (!url || !storagePath) return '';
 
@@ -182,7 +103,7 @@ function buildOptimizedStorageImageUrl(storagePath) {
   const encodedBucket = encodeURIComponent(PRODUCT_IMAGE_BUCKET);
   const encodedPath = String(storagePath).split('/').map(encodeURIComponent).join('/');
   const params = new URLSearchParams({
-    width: String(PRODUCT_IMAGE_MIN_WIDTH),
+    width: String(PRODUCT_IMAGE_RENDER_WIDTH),
     resize: 'contain',
     quality: String(PRODUCT_IMAGE_RENDER_QUALITY),
   });
@@ -270,26 +191,6 @@ export async function fetchProductById(id) {
 }
 
 /**
- * Отримати унікальні категорії видимих товарів
- */
-export async function fetchCategories() {
-  ensureSupabaseConfigured();
-
-  const { data, error } = await supabase
-    .from('products')
-    .select('category')
-    .eq('view', true);
-
-  if (error) {
-    console.error('fetchCategories error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося завантажити категорії.'));
-  }
-
-  const unique = [...new Set((data || []).map((r) => r.category).filter(Boolean))].sort();
-  return unique;
-}
-
-/**
  * Зберегти замовлення в Supabase
  */
 export async function createOrder({ tgUserId, tgUsername, phone, lastName, items, total }) {
@@ -317,91 +218,84 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
 }
 
 /**
- * Записати вхід відвідувача в access_log
+ * Register a catalog visitor once per phone. Approval is intentionally omitted
+ * from the upsert payload, so a new access request can never self-approve.
  */
-export async function logAccess({ phone, lastName, tgUserId }) {
-  ensureSupabaseConfigured();
-
-  const { error } = await supabase
-    .from('access_log')
-    .insert({
-      phone,
-      last_name: lastName,
-      tg_user_id: tgUserId || null,
-    });
-
-  if (error) {
-    console.error('logAccess error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося записати вхід користувача.'));
-  }
-}
-
-/**
- * Знайти останнє ім'я та прізвище для телефону в access_log
- */
-export async function fetchLatestAccessByPhone(phone) {
+export async function requestCatalogAccess({ phone, lastName, tgUserId }) {
   ensureSupabaseConfigured();
 
   const { data, error } = await supabase
-    .from('access_log')
-    .select('phone, last_name, created_at')
+    .from('catalog_users')
+    .upsert(
+      {
+        phone,
+        last_name: lastName,
+        tg_user_id: tgUserId || null,
+        last_access_at: new Date().toISOString(),
+      },
+      { onConflict: 'phone' }
+    )
+    .select('phone, last_name, is_approved, last_access_at')
+    .single();
+
+  if (error) {
+    console.error('requestCatalogAccess error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося надіслати запит на доступ.'));
+  }
+
+  return data;
+}
+
+export async function fetchCatalogUserAccess(phone) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('catalog_users')
+    .select('phone, last_name, is_approved, last_access_at')
     .eq('phone', phone)
-    .order('created_at', { ascending: false })
-    .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error('fetchLatestAccessByPhone error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося знайти попередній вхід.'));
+    console.error('fetchCatalogUserAccess error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося перевірити доступ.'));
   }
 
   return data;
 }
 
-/**
- * Знайти останнє ім'я та прізвище за початком номера.
- * Використовується для ранньої підказки, поки користувач вводить останні цифри.
- */
-export async function fetchLatestAccessByPhonePrefix(phonePrefix) {
-  ensureSupabaseConfigured();
-
-  const prefix = String(phonePrefix || '').trim();
-  if (!prefix) return null;
-
-  const { data, error } = await supabase
-    .from('access_log')
-    .select('phone, last_name, created_at')
-    .like('phone', `${prefix}%`)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error('fetchLatestAccessByPhonePrefix error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося знайти попередній вхід.'));
-  }
-
-  return data;
-}
-
-/**
- * Отримати останні входи в застосунок для адмін-панелі
- */
-export async function fetchAccessLogEntries(limit = 100) {
+export async function fetchCatalogUsers(limit = 100) {
   ensureSupabaseConfigured();
 
   const { data, error } = await supabase
-    .from('access_log')
-    .select('id, phone, last_name, tg_user_id, created_at')
-    .order('created_at', { ascending: false })
+    .from('catalog_users')
+    .select('phone, last_name, tg_user_id, is_approved, created_at, updated_at, last_access_at')
+    .order('last_access_at', { ascending: false })
     .limit(limit);
 
   if (error) {
-    console.error('fetchAccessLogEntries error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося завантажити входи.'));
+    console.error('fetchCatalogUsers error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити користувачів.'));
   }
 
   return data || [];
+}
+
+export async function updateCatalogUserApproval(phone, isApproved) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('catalog_users')
+    .update({ is_approved: Boolean(isApproved) })
+    .eq('phone', phone)
+    .select('phone, last_name, tg_user_id, is_approved, created_at, updated_at, last_access_at')
+    .single();
+
+  if (error) {
+    console.error('updateCatalogUserApproval error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося змінити доступ користувача.'));
+  }
+
+  return data;
 }
 
 /**
@@ -612,9 +506,8 @@ export function subscribeToProducts(callback) {
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'products' },
-      () => {
-        // При будь-якій зміні — перезавантажити весь список
-        callback();
+      (payload) => {
+        callback(payload);
       }
     )
     .subscribe();
