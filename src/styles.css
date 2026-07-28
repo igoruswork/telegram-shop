@@ -1988,6 +1988,54 @@ body {
   grid-column: 1 / -1;
 }
 
+.admin-content--visibility .admin-card--visibility {
+  min-height: 278px;
+  padding: 10px;
+}
+
+.admin-content--visibility .admin-card--visibility .admin-card-top {
+  height: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-content--visibility .admin-card--visibility .admin-card-img {
+  width: 100%;
+  height: 110px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: rgba(248, 250, 252, 0.86);
+}
+
+.admin-content--visibility .admin-card--visibility .admin-card-info {
+  width: 100%;
+}
+
+.admin-content--visibility .admin-card--visibility .admin-card-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.admin-content--visibility .admin-card--visibility .admin-card-sku,
+.admin-content--visibility .admin-card--visibility .admin-card-cat {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-content--visibility .admin-card--visibility .admin-card-actions {
+  width: 100%;
+  margin-top: auto;
+  align-items: stretch;
+}
+
+.admin-content--visibility .admin-card--visibility .admin-toggle {
+  width: 100%;
+  min-height: 34px;
+}
+
 @media (min-width: 900px) {
   .admin-content--visibility {
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2002,40 +2050,8 @@ body {
     padding: 12px;
   }
 
-  .admin-content--visibility .admin-card--visibility .admin-card-top {
-    height: 100%;
-    flex-direction: column;
-    gap: 10px;
-  }
-
   .admin-content--visibility .admin-card--visibility .admin-card-img {
-    width: 100%;
     height: 132px;
-    border-radius: 12px;
-    object-fit: contain;
-    background: rgba(248, 250, 252, 0.86);
-  }
-
-  .admin-content--visibility .admin-card--visibility .admin-card-info {
-    width: 100%;
-  }
-
-  .admin-content--visibility .admin-card--visibility .admin-card-name {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-  }
-
-  .admin-content--visibility .admin-card--visibility .admin-card-actions {
-    width: 100%;
-    margin-top: auto;
-    align-items: stretch;
-  }
-
-  .admin-content--visibility .admin-card--visibility .admin-toggle {
-    width: 100%;
-    min-height: 34px;
   }
 }
 
