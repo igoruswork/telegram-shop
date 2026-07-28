@@ -735,7 +735,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   --qty-btn-size: 44px;
-  --qty-control-height: 52px;
+  --qty-control-height: 60px;
   --qty-control-width: clamp(116px, 64%, 136px);
   min-height: calc(var(--qty-control-height) + 2px);
   padding: 6px 6px 6px 12px;
@@ -805,8 +805,8 @@ body {
   box-sizing: border-box;
   background: var(--card-bg-solid);
   border: 1px solid rgba(14, 165, 233, 0.2);
-  border-radius: 24px;
-  padding: 3px 4px;
+  border-radius: 30px;
+  padding: 7px 8px;
   touch-action: manipulation;
 }
 
@@ -1940,10 +1940,15 @@ body {
 
   .product-card-footer {
     --qty-btn-size: 40px;
-    --qty-control-height: 48px;
+    --qty-control-height: 54px;
     --qty-control-width: clamp(108px, 64%, 118px);
     gap: 6px;
     padding: 6px 6px 6px 10px;
+  }
+
+  .catalog-qty-controls {
+    border-radius: 27px;
+    padding: 6px 7px;
   }
 
   .product-card-name {

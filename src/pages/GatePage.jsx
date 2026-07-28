@@ -7,7 +7,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
 
   const phoneComplete = isPhoneComplete(phone);
   const canSubmit = phoneComplete && lastName.trim().length >= 1;
@@ -18,7 +17,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
 
     setLoading(true);
     setError('');
-    setPending(false);
 
     try {
       const catalogUser = await requestCatalogAccess({
@@ -27,15 +25,14 @@ export function GatePage({ onAuthorized, tgUserId }) {
         tgUserId,
       });
 
-      if (catalogUser?.is_approved) {
-        onAuthorized({
-          phone: catalogUser.phone,
-          lastName: catalogUser.last_name || lastName.trim(),
-        });
-        return;
-      }
-
-      setPending(true);
+      onAuthorized({
+        phone: catalogUser?.phone || normalizePhoneInput(phone),
+        lastName: catalogUser?.last_name || lastName.trim(),
+      }, {
+        // Everyone can open the catalog after submitting the form. Only an
+        // explicitly approved user gets a persistent local session.
+        remember: Boolean(catalogUser?.is_approved),
+      });
     } catch (err) {
       console.error('Gate error:', err);
       setError(err.message || 'Помилка з\'єднання. Спробуйте ще раз.');
@@ -62,7 +59,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
           onChange={(event) => {
             setPhone(normalizePhoneInput(event.target.value));
             setError('');
-            setPending(false);
           }}
           autoComplete="tel"
           maxLength={13}
@@ -78,26 +74,19 @@ export function GatePage({ onAuthorized, tgUserId }) {
             onChange={(event) => {
               setLastName(event.target.value);
               setError('');
-              setPending(false);
             }}
             autoComplete="name"
           />
         )}
 
         {error && <div className="gate-error">{error}</div>}
-        {pending && (
-          <div className="gate-note gate-pending-note">
-            Заявку на доступ збережено. Після схвалення адміністратором увійдіть ще раз.
-          </div>
-        )}
-
         <button className="gate-btn" type="submit" disabled={!canSubmit || loading}>
-          {loading ? 'Зачекайте…' : 'Надіслати запит'}
+          {loading ? 'Зачекайте…' : 'Увійти до каталогу'}
         </button>
       </form>
 
       <p className="gate-note">
-        Адміністратор підтверджує доступ перед переглядом каталогу.
+        Після схвалення адміністратором номер буде запам’ятований для наступних входів.
       </p>
     </div>
   );

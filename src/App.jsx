@@ -511,14 +511,18 @@ export default function App() {
   }, [haptic]);
 
   // ─── Гейт ────────────────────────────────────────────
-  const handleAuthorized = useCallback((data) => {
+  const handleAuthorized = useCallback((data, { remember = false } = {}) => {
     const userData = {
       phone: normalizePhoneInput(data.phone),
       lastName: String(data.lastName || '').trim(),
     };
 
     hapticNotification('success');
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+    if (remember) {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
     setGateData(userData);
     setAuthorized(true);
   }, [hapticNotification]);
