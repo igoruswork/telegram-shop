@@ -62,6 +62,14 @@ function isMissingAppSettingsTable(error) {
   );
 }
 
+function isMissingCatalogUsersTable(error) {
+  const message = error?.message || '';
+  return (
+    error?.code === '42P01' ||
+    (message.includes('relation') && message.includes('catalog_users') && message.includes('does not exist'))
+  );
+}
+
 // ─── API ФУНКЦІЇ ───────────────────────────────────────────────
 
 const APP_SETTINGS_KEY = 'catalog';
@@ -217,6 +225,28 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
   return data;
 }
 
+async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
+  const { error } = await supabase
+    .from('access_log')
+    .insert({
+      phone,
+      last_name: lastName,
+      tg_user_id: tgUserId || null,
+    });
+
+  if (error) {
+    throw new Error(toReadableError(error, 'Не вдалося надіслати запит на доступ.'));
+  }
+
+  return {
+    phone,
+    last_name: lastName,
+    // Compatibility path for the short period between frontend and SQL deploy.
+    // The new approval flow is enforced as soon as catalog_users exists.
+    is_approved: true,
+  };
+}
+
 /**
  * Register a catalog visitor once per phone. Approval is intentionally omitted
  * from the upsert payload, so a new access request can never self-approve.
@@ -239,6 +269,11 @@ export async function requestCatalogAccess({ phone, lastName, tgUserId }) {
     .single();
 
   if (error) {
+    if (isMissingCatalogUsersTable(error)) {
+      console.warn('catalog_users is missing; using the temporary access_log compatibility path.');
+      return requestLegacyCatalogAccess({ phone, lastName, tgUserId });
+    }
+
     console.error('requestCatalogAccess error:', error);
     throw new Error(toReadableError(error, 'Не вдалося надіслати запит на доступ.'));
   }
@@ -256,6 +291,11 @@ export async function fetchCatalogUserAccess(phone) {
     .maybeSingle();
 
   if (error) {
+    if (isMissingCatalogUsersTable(error)) {
+      console.warn('catalog_users is missing; stored access will be rechecked after migration.');
+      return null;
+    }
+
     console.error('fetchCatalogUserAccess error:', error);
     throw new Error(toReadableError(error, 'Не вдалося перевірити доступ.'));
   }
