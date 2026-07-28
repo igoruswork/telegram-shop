@@ -1,15 +1,49 @@
-import React, { useState } from 'react';
-import { requestCatalogAccess } from '../lib/supabase';
+import React, { useEffect, useState } from 'react';
+import { fetchCatalogUserAccess, requestCatalogAccess } from '../lib/supabase';
 import { PHONE_PREFIX, isPhoneComplete, normalizePhoneInput } from '../lib/phone';
 
 export function GatePage({ onAuthorized, tgUserId }) {
   const [phone, setPhone] = useState(PHONE_PREFIX);
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [phoneChecking, setPhoneChecking] = useState(false);
   const [error, setError] = useState('');
 
   const phoneComplete = isPhoneComplete(phone);
-  const canSubmit = phoneComplete && lastName.trim().length >= 1;
+  const canSubmit = phoneComplete && !phoneChecking && lastName.trim().length >= 1;
+
+  useEffect(() => {
+    const normalizedPhone = normalizePhoneInput(phone);
+    if (!isPhoneComplete(normalizedPhone)) {
+      setPhoneChecking(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setPhoneChecking(true);
+
+    fetchCatalogUserAccess(normalizedPhone)
+      .then((catalogUser) => {
+        if (cancelled || !catalogUser?.is_approved) return;
+
+        onAuthorized({
+          phone: catalogUser.phone,
+          lastName: catalogUser.last_name,
+        });
+      })
+      .catch((checkError) => {
+        // The user can still proceed through the regular form if this quick
+        // lookup is temporarily unavailable.
+        console.warn('approved phone check error:', checkError);
+      })
+      .finally(() => {
+        if (!cancelled) setPhoneChecking(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onAuthorized, phone]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -53,7 +87,10 @@ export function GatePage({ onAuthorized, tgUserId }) {
           placeholder="+380502847652"
           value={phone}
           onChange={(event) => {
-            setPhone(normalizePhoneInput(event.target.value));
+            const nextPhone = normalizePhoneInput(event.target.value);
+            setPhone(nextPhone);
+            setPhoneChecking(isPhoneComplete(nextPhone));
+            setLastName('');
             setError('');
           }}
           autoComplete="tel"
@@ -61,7 +98,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
           aria-invalid={!phoneComplete && phone !== PHONE_PREFIX}
           onFocus={(event) => event.currentTarget.select()}
         />
-        {phoneComplete && (
+        {phoneComplete && !phoneChecking && (
           <input
             className="gate-input"
             type="text"
@@ -80,10 +117,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
           {loading ? 'Зачекайте…' : 'Увійти до каталогу'}
         </button>
       </form>
-
-      <p className="gate-note">
-        Після схвалення адміністратором номер буде запам’ятований для наступних входів.
-      </p>
     </div>
   );
 }
