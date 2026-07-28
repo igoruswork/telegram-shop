@@ -1,6 +1,6 @@
 # 🛍 Telegram Mini Shop
 
-Стартовий шаблон для **Telegram Mini App** — каталог товарів з кошиком.
+Telegram Mini App з каталогом товарів, кошиком, адмініструванням і Supabase.
 
 **Стек:** React 18 + Vite 5 + Supabase (Realtime) + GitHub Actions → GitHub Pages
 
@@ -11,7 +11,7 @@
 ### 1. Supabase
 
 1. Перейдіть на [supabase.com](https://supabase.com) → **New Project**
-2. Відкрийте **SQL Editor** → застосуйте базову схему `products`, `orders`, `access_log`, а потім усі SQL-файли з `supabase/migrations/` за часовим порядком → натисніть **Run**
+2. Відкрийте **SQL Editor** → застосуйте базову схему `products`, `orders`, `access_log`, а потім усі SQL-файли з `supabase/migrations/` за часовим порядком → натисніть **Run**. Для актуального flow доступу обов’язкова міграція `20260728000000_catalog_users_approval.sql`.
 3. Перейдіть **Settings → API** → скопіюйте `Project URL` і `anon / public` key
 
 ### 2. GitHub
@@ -43,17 +43,24 @@
 
 ```
 ├── .github/workflows/deploy.yml    # CI/CD → GitHub Pages
-├── supabase/migrations/
-│   └── 001_create_tables.sql       # SQL таблиці + тестові дані
+├── scripts/
+│   └── migrate-product-images.mjs  # Контрольоване перенесення фото у Storage
+├── supabase/
+│   ├── functions/import-product-image/ # Edge Function для фото з CRM
+│   ├── migrations/                 # SQL-міграції Supabase
+│   └── rollback/                   # Ручні SQL-відкати
 ├── src/
 │   ├── lib/
-│   │   ├── supabase.js             # Supabase клієнт
+│   │   ├── supabase.js             # Supabase API та Realtime
+│   │   ├── productImageOptimizer.js # Web Worker-оптимізація фото
 │   │   └── useTelegram.js          # Hook для Telegram WebApp API
 │   ├── components/
-│   │   └── CartDrawer.jsx          # Sliding cart drawer
+│   │   ├── CartDrawer.jsx          # Кошик
+│   │   └── VirtualProductGrid.jsx  # Віртуалізований каталог
 │   ├── pages/
-│   │   ├── GatePage.jsx            # Вхідна сторінка (телефон + прізвище)
-│   │   ├── CatalogPage.jsx         # Сітка товарів 2×N + фільтри
+│   │   ├── GatePage.jsx            # Вхід за телефоном / ПІБ
+│   │   ├── CatalogPage.jsx         # Каталог + фільтри
+│   │   ├── AdminPage.jsx           # Адмін-панель
 │   │   └── ProductPage.jsx         # Детальна сторінка товару
 │   ├── App.jsx                     # Головний компонент
 │   ├── styles.css                  # Глобальні стилі
@@ -69,9 +76,9 @@
 
 | Функція | Опис |
 |---------|------|
-| **Гейт-сторінка** | Телефон + прізвище для доступу; поточний статус зберігається в `catalog_users` |
-| **Схвалення доступу** | Нові відвідувачі потрапляють у `catalog_users`; адміністратор схвалює доступ у розділі «Користувачі» |
-| **Каталог 2×N** | Сітка карток з фото, ціною, бейджами |
+| **Гейт-сторінка** | Новий користувач входить за телефоном і ПІБ; після наступного запуску не схвалений номер знову бачить форму |
+| **Схвалення доступу** | Адміністратор схвалює номер у розділі «Користувачі»; схвалений номер автоматично відкриває каталог навіть на новому пристрої після введення телефону |
+| **Каталог** | Віртуалізована сітка: 2 колонки на мобільному, 5 — у браузері; фото, ціна, бейджі |
 | **Фільтри** | Горизонтальний скрол по категоріях + живий пошук |
 | **Кошик** | Sliding drawer знизу, FAB-кнопка з сумою |
 | **Замовлення** | Зберігається в таблицю `orders` Supabase |
@@ -100,6 +107,22 @@
 | `image_storage_path` | text | Шлях картинки в Supabase Storage |
 | `image_status` | text | `pending`, `ok` або `broken` |
 | `image_checked_at` | timestamptz | Остання перевірка картинки |
+
+---
+
+## 👤 Таблиця `catalog_users` в Supabase
+
+У таблиці один актуальний запис на номер телефону; вона не росте з кожним входом, як історичний `access_log`.
+
+| Колонка | Тип | Опис |
+|---------|-----|------|
+| `phone` | text, PK | Номер у форматі `+380…` |
+| `last_name` | text | Ім’я та прізвище |
+| `tg_user_id` | bigint | Telegram ID, якщо доступний |
+| `is_approved` | boolean | Ознака схвалення адміністратором |
+| `last_access_at` | timestamptz | Остання заявка або вхід |
+
+`access_log` збережено лише як історію та fallback для старих інсталяцій без міграції `catalog_users`.
 
 ---
 
@@ -187,5 +210,3 @@ npm run dev
 ## 📝 Ліцензія
 
 MIT
-# telegram-shop
-# telegram-shop

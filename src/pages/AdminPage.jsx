@@ -42,6 +42,11 @@ const adminSections = [
 ];
 
 const DEFAULT_ADMIN_SECTION = 'details';
+const accessTabs = [
+  { id: 'all', label: 'Користувачі' },
+  { id: 'approved', label: 'Схвалено' },
+  { id: 'pending', label: 'Очікує' },
+];
 
 function normalizeAdminSection(section) {
   return adminSections.some((item) => item.id === section) ? section : DEFAULT_ADMIN_SECTION;
@@ -122,6 +127,8 @@ export function AdminPage({
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
   const [catalogUsers, setCatalogUsers] = useState([]);
+  const [accessSearch, setAccessSearch] = useState('');
+  const [accessTab, setAccessTab] = useState('all');
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState('');
   const [orders, setOrders] = useState([]);
@@ -223,6 +230,20 @@ export function AdminPage({
     () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
     [products]
   );
+
+  const filteredCatalogUsers = useMemo(() => {
+    const query = accessSearch.trim().toLocaleLowerCase('uk-UA');
+
+    return catalogUsers.filter((entry) => {
+      if (accessTab === 'approved' && !entry.is_approved) return false;
+      if (accessTab === 'pending' && entry.is_approved) return false;
+      if (!query) return true;
+
+      return [entry.last_name, entry.phone, entry.tg_user_id]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query));
+    });
+  }, [accessSearch, accessTab, catalogUsers]);
 
   useEffect(() => {
     if (categoryOptions.length === 0) {
@@ -910,10 +931,42 @@ export function AdminPage({
       )}
 
       {activeSection === 'access' && (
-        <div className="admin-activity-list">
+        <>
+          <div className="admin-access-toolbar">
+            <div className="admin-access-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="search"
+                inputMode="search"
+                value={accessSearch}
+                placeholder="Пошук за ПІБ, телефоном або TG ID"
+                onChange={(event) => setAccessSearch(event.target.value)}
+              />
+              {accessSearch && (
+                <button type="button" aria-label="Очистити пошук" onClick={() => setAccessSearch('')}>×</button>
+              )}
+            </div>
+            <div className="admin-access-tabs" role="tablist" aria-label="Статус користувачів">
+              {accessTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={accessTab === tab.id}
+                  className={accessTab === tab.id ? 'active' : ''}
+                  onClick={() => setAccessTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="admin-activity-list">
           {accessLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {accessError && <div className="admin-activity-error">{accessError}</div>}
-          {!accessLoading && !accessError && catalogUsers.map((entry) => (
+          {!accessLoading && !accessError && filteredCatalogUsers.map((entry) => (
             <article
               key={entry.phone}
               className={`admin-access-card ${entry.is_approved ? 'admin-access-card--approved' : 'admin-access-card--pending'}`}
@@ -936,7 +989,11 @@ export function AdminPage({
               </div>
             </article>
           ))}
-        </div>
+          {!accessLoading && !accessError && filteredCatalogUsers.length === 0 && (
+            <div className="admin-activity-loading">Користувачів не знайдено</div>
+          )}
+          </div>
+        </>
       )}
 
       {activeSection === 'orders' && (

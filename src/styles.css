@@ -770,28 +770,6 @@ body {
   color: var(--text-tertiary);
 }
 
-.product-add-btn {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-  color: white;
-  font-size: 18px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: var(--transition);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
-  line-height: 1;
-}
-
-.product-add-btn:active {
-  opacity: 0.7;
-}
-
 .catalog-qty-controls {
   display: flex;
   align-items: center;
@@ -1511,7 +1489,6 @@ select {
 button,
 a,
 .category-chip,
-.product-add-btn,
 .catalog-qty-btn,
 .header-cart-btn,
 .back-btn,
@@ -2019,6 +1996,47 @@ body {
     margin: 0 auto;
     padding: 16px 24px 120px;
   }
+
+  .admin-content--visibility .admin-card--visibility {
+    min-height: 286px;
+    padding: 12px;
+  }
+
+  .admin-content--visibility .admin-card--visibility .admin-card-top {
+    height: 100%;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .admin-content--visibility .admin-card--visibility .admin-card-img {
+    width: 100%;
+    height: 132px;
+    border-radius: 12px;
+    object-fit: contain;
+    background: rgba(248, 250, 252, 0.86);
+  }
+
+  .admin-content--visibility .admin-card--visibility .admin-card-info {
+    width: 100%;
+  }
+
+  .admin-content--visibility .admin-card--visibility .admin-card-name {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .admin-content--visibility .admin-card--visibility .admin-card-actions {
+    width: 100%;
+    margin-top: auto;
+    align-items: stretch;
+  }
+
+  .admin-content--visibility .admin-card--visibility .admin-toggle {
+    width: 100%;
+    min-height: 34px;
+  }
 }
 
 .admin-back-btn {
@@ -2390,6 +2408,88 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.admin-access-toolbar {
+  padding: 10px 12px 0;
+}
+
+.admin-access-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(14, 165, 233, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.admin-access-search svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.admin-access-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+
+.admin-access-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.admin-access-search button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-access-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.admin-access-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-access-tabs button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(14, 165, 233, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-access-tabs button.active {
+  border-color: rgba(var(--brand-rgb), 0.28);
+  background: rgba(var(--brand-rgb), 0.14);
+  color: var(--brand-price-color);
 }
 
 .admin-activity-loading,
@@ -3072,11 +3172,6 @@ body {
 .admin-user-approval:active {
   transform: translateY(1px) scale(0.98);
   filter: brightness(0.96);
-}
-
-.gate-pending-note {
-  margin: 0;
-  color: var(--brand-price-color);
 }
 
 @media (max-width: 420px) {
