@@ -19,7 +19,8 @@ function getRowHeight(width, columns) {
   const horizontalPadding = desktop ? DESKTOP_HORIZONTAL_PADDING : MOBILE_HORIZONTAL_PADDING;
   const cardWidth = Math.max(120, (width - horizontalPadding - gap * (columns - 1)) / columns);
   // Image height + two lines of name/SKU/category + fixed quantity control.
-  return Math.ceil(cardWidth / 1.22 + 158);
+  const footerHeightAllowance = desktop ? 164 : 168;
+  return Math.ceil(cardWidth / 1.22 + footerHeightAllowance);
 }
 
 function splitIntoRows(products, columns) {

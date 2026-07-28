@@ -737,7 +737,8 @@ body {
   --qty-btn-size: 44px;
   --qty-control-height: 60px;
   --qty-control-width: clamp(116px, 64%, 136px);
-  min-height: calc(var(--qty-control-height) + 2px);
+  --qty-footer-vertical-space: 12px;
+  min-height: calc(var(--qty-control-height) + var(--qty-footer-vertical-space));
   padding: 6px 6px 6px 12px;
   position: relative;
   z-index: 3;
@@ -1890,6 +1891,11 @@ body {
     --qty-control-height: 44px;
     align-items: center;
     padding: 6px 6px 6px 10px;
+  }
+
+  .catalog-qty-controls {
+    border-radius: 22px;
+    padding: 3px 4px;
   }
 
   .product-card-price {
