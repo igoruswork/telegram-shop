@@ -56,9 +56,22 @@ async function copyToClipboard(value) {
   input.remove();
 }
 
-function CatalogInfoCard({ details, iban }) {
+function getPaymentCardStyle(color) {
+  const value = /^#[0-9a-fA-F]{6}$/.test(color || '') ? color : '#B8A477';
+  const channels = [1, 3, 5].map((index) => parseInt(value.slice(index, index + 2), 16));
+  const luminance = (channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722) / 255;
+
+  return {
+    '--payment-card-color': value,
+    '--payment-card-rgb': channels.join(', '),
+    '--payment-card-ink': luminance < 0.55 ? '#ffffff' : '#0f1b33',
+  };
+}
+
+function CatalogInfoCard({ details, iban, color }) {
   const [copied, setCopied] = useState(false);
   const hasDetails = Boolean(details || iban);
+  const cardStyle = useMemo(() => getPaymentCardStyle(color), [color]);
 
   const handleCopy = async () => {
     if (!iban) return;
@@ -73,7 +86,10 @@ function CatalogInfoCard({ details, iban }) {
   };
 
   return (
-    <aside className={`catalog-info-card ${hasDetails ? 'catalog-info-card--filled' : ''}`}>
+    <aside
+      className={`catalog-info-card ${hasDetails ? 'catalog-info-card--filled' : ''}`}
+      style={cardStyle}
+    >
       {details && <div className="catalog-info-card-text">{details}</div>}
       {iban && (
         <button type="button" className="catalog-info-card-iban" onClick={handleCopy}>
@@ -95,6 +111,7 @@ export function VirtualProductGrid({
   defaultBrandColor,
   paymentDetails,
   paymentIban,
+  paymentCardColor,
 }) {
   const gridRef = useRef(null);
   const frameRef = useRef(0);
@@ -194,7 +211,11 @@ export function VirtualProductGrid({
       {mobileLayout && (
         <>
           <div className="virtual-product-grid-mobile-column virtual-product-grid-mobile-column--left">
-            <CatalogInfoCard details={paymentDetails} iban={paymentIban} />
+            <CatalogInfoCard
+              details={paymentDetails}
+              iban={paymentIban}
+              color={paymentCardColor}
+            />
             {mobileColumns.left.slice(mobileLeftRange.start, mobileLeftRange.end).map((product, index) => {
               const productIndex = mobileLeftRange.start + index;
 

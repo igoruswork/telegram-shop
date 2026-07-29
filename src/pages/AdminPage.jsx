@@ -107,8 +107,10 @@ export function AdminPage({
   defaultCatalogTitle,
   paymentDetails,
   paymentIban,
+  paymentCardColor,
   onPaymentDetailsChange,
   onPaymentIbanChange,
+  onPaymentCardColorChange,
   initialSection = DEFAULT_ADMIN_SECTION,
   adminPhones = [],
   onAdminPhonesChange,
@@ -133,6 +135,7 @@ export function AdminPage({
   const [newProductImageFile, setNewProductImageFile] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
+  const [paymentCardColorDraft, setPaymentCardColorDraft] = useState(paymentCardColor);
   const [catalogUsers, setCatalogUsers] = useState([]);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessTab, setAccessTab] = useState('all');
@@ -250,6 +253,10 @@ export function AdminPage({
   useEffect(() => {
     setCatalogTitleDraft(catalogTitle);
   }, [catalogTitle]);
+
+  useEffect(() => {
+    setPaymentCardColorDraft(paymentCardColor);
+  }, [paymentCardColor]);
 
   const allCategories = useMemo(() => {
     const unique = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
@@ -370,6 +377,13 @@ export function AdminPage({
   const handleCatalogTitleInput = (value) => {
     setCatalogTitleDraft(value);
     onCatalogTitleChange(value.trim() || defaultCatalogTitle);
+  };
+
+  const handlePaymentCardColorInput = (value) => {
+    setPaymentCardColorDraft(value);
+    if (isHexColor(value)) {
+      onPaymentCardColorChange?.(value);
+    }
   };
 
   const handleAdminPhoneInput = (value) => {
@@ -817,8 +831,28 @@ export function AdminPage({
               value={paymentIban}
               placeholder="UA123456789012345678901234567"
               onChange={(event) => onPaymentIbanChange?.(event.target.value)}
-              maxLength={34}
+              maxLength={42}
             />
+          </label>
+          <label className="admin-label admin-label--stacked">
+            <span>Колір картки</span>
+            <div className="admin-payment-color-row">
+              <input
+                className="admin-payment-color-picker"
+                type="color"
+                value={isHexColor(paymentCardColorDraft) ? paymentCardColorDraft : paymentCardColor}
+                aria-label="Колір картки реквізитів"
+                onChange={(event) => handlePaymentCardColorInput(event.target.value)}
+              />
+              <input
+                className="admin-input"
+                type="text"
+                value={paymentCardColorDraft}
+                maxLength={7}
+                onChange={(event) => handlePaymentCardColorInput(event.target.value)}
+                placeholder="#B8A477"
+              />
+            </div>
           </label>
         </div>
       )}

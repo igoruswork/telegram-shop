@@ -150,6 +150,7 @@ export function CatalogPage({
   defaultBrandColor,
   paymentDetails,
   paymentIban,
+  paymentCardColor,
   userName,
   onLogout,
 }) {
@@ -410,6 +411,7 @@ export function CatalogPage({
               defaultBrandColor={defaultBrandColor}
               paymentDetails={paymentDetails}
               paymentIban={paymentIban}
+              paymentCardColor={paymentCardColor}
             />
           )}
         </>

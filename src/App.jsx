@@ -22,6 +22,7 @@ const ADMIN_PHONE = '+380111111111';
 const DEFAULT_ADMIN_PHONES = [ADMIN_PHONE];
 const DEFAULT_CATALOG_TITLE = 'Каталог';
 const DEFAULT_BRAND_COLOR = '#075985';
+const DEFAULT_PAYMENT_CARD_COLOR = '#B8A477';
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
 const USER_STORAGE_KEY = 'telegram-shop-user';
@@ -119,6 +120,9 @@ function normalizeAppSettings(value) {
     .toLocaleUpperCase('uk-UA')
     .replace(/\s+/g, '')
     .slice(0, 34);
+  const paymentCardColor = isHexColor(value?.paymentCardColor || value?.payment_card_color)
+    ? (value.paymentCardColor || value.payment_card_color).toUpperCase()
+    : DEFAULT_PAYMENT_CARD_COLOR;
 
   return {
     brandColors,
@@ -126,6 +130,7 @@ function normalizeAppSettings(value) {
     adminPhones,
     paymentDetails,
     paymentIban,
+    paymentCardColor,
   };
 }
 
@@ -148,6 +153,7 @@ export default function App() {
   const [adminPhones, setAdminPhones] = useState(DEFAULT_ADMIN_PHONES);
   const [paymentDetails, setPaymentDetails] = useState('');
   const [paymentIban, setPaymentIban] = useState('');
+  const [paymentCardColor, setPaymentCardColor] = useState(DEFAULT_PAYMENT_CARD_COLOR);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
@@ -279,6 +285,7 @@ export default function App() {
     setAdminPhones(normalized.adminPhones);
     setPaymentDetails(normalized.paymentDetails);
     setPaymentIban(normalized.paymentIban);
+    setPaymentCardColor(normalized.paymentCardColor);
     return true;
   }, []);
 
@@ -355,8 +362,9 @@ export default function App() {
       adminPhones,
       paymentDetails,
       paymentIban,
+      paymentCardColor,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings]);
 
   const setCatalogTitleSetting = useCallback((value) => {
     const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
@@ -368,8 +376,9 @@ export default function App() {
       adminPhones,
       paymentDetails,
       paymentIban,
+      paymentCardColor,
     });
-  }, [adminPhones, brandColors, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings]);
 
   const setAdminPhonesSetting = useCallback((phones) => {
     const nextAdminPhones = normalizeAdminPhones(phones);
@@ -381,8 +390,9 @@ export default function App() {
       adminPhones: nextAdminPhones,
       paymentDetails,
       paymentIban,
+      paymentCardColor,
     });
-  }, [brandColors, catalogTitle, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [brandColors, catalogTitle, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings]);
 
   const setPaymentDetailsSetting = useCallback((value) => {
     const nextPaymentDetails = String(value || '').slice(0, 180);
@@ -394,8 +404,9 @@ export default function App() {
       adminPhones,
       paymentDetails: nextPaymentDetails,
       paymentIban,
+      paymentCardColor,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentIban, queueSaveSettings]);
 
   const setPaymentIbanSetting = useCallback((value) => {
     const nextPaymentIban = String(value || '')
@@ -410,8 +421,24 @@ export default function App() {
       adminPhones,
       paymentDetails,
       paymentIban: nextPaymentIban,
+      paymentCardColor,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentDetails, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentDetails, queueSaveSettings]);
+
+  const setPaymentCardColorSetting = useCallback((value) => {
+    if (!isHexColor(value)) return;
+
+    const nextPaymentCardColor = value.toUpperCase();
+    setPaymentCardColor(nextPaymentCardColor);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones,
+      paymentDetails,
+      paymentIban,
+      paymentCardColor: nextPaymentCardColor,
+    });
+  }, [adminPhones, brandColors, catalogTitle, paymentDetails, paymentIban, queueSaveSettings]);
 
   useEffect(() => {
     if (
@@ -437,8 +464,9 @@ export default function App() {
       adminPhones,
       paymentDetails,
       paymentIban,
+      paymentCardColor,
     });
-  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentDetails, paymentIban, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
+  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async () => {
@@ -644,6 +672,7 @@ export default function App() {
           catalogTitle={catalogTitle}
           paymentDetails={paymentDetails}
           paymentIban={paymentIban}
+          paymentCardColor={paymentCardColor}
           userName={gateData.lastName}
           onLogout={handleLogout}
         />
@@ -670,6 +699,8 @@ export default function App() {
           paymentIban={paymentIban}
           onPaymentDetailsChange={setPaymentDetailsSetting}
           onPaymentIbanChange={setPaymentIbanSetting}
+          paymentCardColor={paymentCardColor}
+          onPaymentCardColorChange={setPaymentCardColorSetting}
           initialSection={initialAdminSection}
           adminPhones={adminPhones}
           onAdminPhonesChange={setAdminPhonesSetting}

@@ -3377,33 +3377,38 @@ body {
 
 .catalog-info-card {
   height: 96px;
-  padding: 12px;
-  border: 1px solid rgba(14, 165, 233, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.44);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  padding: 11px;
+  border: 1px solid rgba(var(--payment-card-rgb, 184, 164, 119), 0.28);
+  border-radius: 18px;
+  background: rgba(var(--payment-card-rgb, 184, 164, 119), 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
 }
 
 .catalog-info-card--filled {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 7px;
+  gap: 8px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(var(--brand-rgb), 0.08)),
-    #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.22), transparent 48%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 52%),
+    var(--payment-card-color, #B8A477);
+  box-shadow:
+    0 12px 26px rgba(var(--payment-card-rgb, 184, 164, 119), 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
 .catalog-info-card-text {
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 850;
-  line-height: 1.22;
+  color: var(--payment-card-ink, #0f1b33);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 0.86;
+  letter-spacing: -0.045em;
   white-space: pre-line;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -3413,12 +3418,12 @@ body {
   justify-content: space-between;
   gap: 6px;
   width: 100%;
-  min-height: 27px;
-  padding: 4px 5px 4px 7px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(var(--brand-rgb), 0.1);
-  color: var(--brand-price-color);
+  min-height: 29px;
+  padding: 5px 6px 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--payment-card-ink, #0f1b33);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -3429,16 +3434,34 @@ body {
   min-width: 0;
   overflow: hidden;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .catalog-info-card-iban strong {
   flex: 0 0 auto;
-  color: var(--brand-price-color);
+  color: var(--payment-card-ink, #0f1b33);
   font-size: 10px;
   font-weight: 900;
+}
+
+.admin-payment-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.admin-payment-color-picker {
+  width: 42px;
+  height: 34px;
+  flex: 0 0 auto;
+  padding: 3px;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
 }
 
 @media (min-width: 900px) {
