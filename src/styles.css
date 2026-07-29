@@ -3383,6 +3383,8 @@ body {
   border-radius: 18px;
   background: rgba(var(--payment-card-rgb, 184, 164, 119), 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  transform: translateZ(0);
+  transition: transform 180ms cubic-bezier(0.22, 0.8, 0.25, 1), box-shadow 220ms ease;
 }
 
 .catalog-info-card--filled {
@@ -3394,13 +3396,49 @@ body {
   box-shadow:
     0 12px 26px rgba(var(--payment-card-rgb, 184, 164, 119), 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  isolation: isolate;
+}
+
+.catalog-info-card--filled::before,
+.catalog-info-card--filled::after {
+  position: absolute;
+  z-index: 0;
+  content: '';
+  pointer-events: none;
+}
+
+.catalog-info-card--filled::before {
+  top: -48%;
+  right: -30%;
+  width: 126%;
+  height: 138%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 46% 54% 44% 56% / 52% 44% 56% 48%;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.23), transparent 42%),
+    rgba(255, 255, 255, 0.05);
+  box-shadow: -18px 20px 0 rgba(255, 255, 255, 0.07);
+  transform: rotate(-13deg);
+}
+
+.catalog-info-card--filled::after {
+  bottom: -42px;
+  left: -30px;
+  width: 122px;
+  height: 92px;
+  border-radius: 48% 52% 58% 42%;
+  background: rgba(255, 255, 255, 0.14);
+  filter: blur(1px);
+  transform: rotate(21deg);
 }
 
 .catalog-info-card-toggle {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 16px;
+  position: relative;
+  z-index: 1;
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
   height: 100%;
   padding: 12px;
@@ -3411,17 +3449,29 @@ body {
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
+  transition: background 180ms ease, transform 140ms ease;
+}
+
+.catalog-info-card-toggle:active {
+  transform: scale(0.975);
+}
+
+.catalog-info-card:has(.catalog-info-card-toggle:active) {
+  transform: translateY(2px) scale(0.985);
+  box-shadow:
+    0 6px 14px rgba(var(--payment-card-rgb, 184, 164, 119), 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .catalog-info-card-mark {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.62);
-  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.76);
   color: var(--payment-card-color, #B8A477);
 }
 
@@ -3439,11 +3489,11 @@ body {
 
 .catalog-info-card-text {
   color: var(--payment-card-ink, #0f1b33);
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 20px;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 0.88;
-  letter-spacing: -0.045em;
+  line-height: 0.94;
+  letter-spacing: -0.035em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3459,25 +3509,6 @@ body {
   opacity: 0.78;
 }
 
-.catalog-info-card-chevron {
-  align-self: center;
-  font-size: 21px;
-  font-weight: 900;
-  line-height: 1;
-  opacity: 0.7;
-  transform: translateY(-2px);
-}
-
-.catalog-info-card-compact-hint {
-  position: absolute;
-  right: 13px;
-  bottom: 9px;
-  color: var(--payment-card-ink, #0f1b33);
-  font-size: 9px;
-  font-weight: 800;
-  opacity: 0.68;
-}
-
 .catalog-info-card--expanded {
   position: absolute;
   top: 0;
@@ -3486,6 +3517,7 @@ body {
   z-index: 3;
   height: 240px;
   border-radius: 22px;
+  animation: paymentCardExpand 220ms cubic-bezier(0.22, 0.8, 0.25, 1) both;
 }
 
 .catalog-info-card--expanded .catalog-info-card-toggle {
@@ -3493,11 +3525,21 @@ body {
   padding: 13px 15px;
 }
 
-.catalog-info-card--expanded .catalog-info-card-chevron {
-  transform: rotate(180deg) translateY(2px);
+@keyframes paymentCardExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .catalog-info-card-expanded-body {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 6px;
   padding: 0 14px 13px;
@@ -3514,6 +3556,8 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(14px) saturate(145%);
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
   color: var(--payment-card-ink, #0f1b33);
   font: inherit;
   text-align: left;

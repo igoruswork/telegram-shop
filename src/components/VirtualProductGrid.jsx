@@ -128,7 +128,6 @@ function CatalogInfoCard({
           <span className="catalog-info-card-text">{compactTitle}</span>
           {showIban && <span className="catalog-info-card-compact-iban">{iban}</span>}
         </span>
-        <span className="catalog-info-card-chevron" aria-hidden="true">⌄</span>
       </button>
 
       {expanded && (
@@ -158,9 +157,6 @@ function CatalogInfoCard({
             </div>
           )}
         </div>
-      )}
-      {!expanded && !showIban && (
-        <span className="catalog-info-card-compact-hint">Натисніть</span>
       )}
     </aside>
   );
