@@ -23,6 +23,14 @@ const DEFAULT_ADMIN_PHONES = [ADMIN_PHONE];
 const DEFAULT_CATALOG_TITLE = 'Каталог';
 const DEFAULT_BRAND_COLOR = '#075985';
 const DEFAULT_PAYMENT_CARD_COLOR = '#B8A477';
+const DEFAULT_PAYMENT_TAX_ID = '3830010811';
+const DEFAULT_PAYMENT_CARD_VISIBILITY = {
+  enabled: true,
+  name: true,
+  iban: true,
+  taxId: true,
+  extraDetails: true,
+};
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
 const USER_STORAGE_KEY = 'telegram-shop-user';
@@ -106,6 +114,17 @@ function normalizeBrandColors(value) {
   );
 }
 
+function normalizePaymentCardVisibility(value) {
+  const source = value && typeof value === 'object' ? value : {};
+
+  return Object.fromEntries(
+    Object.entries(DEFAULT_PAYMENT_CARD_VISIBILITY).map(([key, defaultValue]) => [
+      key,
+      typeof source[key] === 'boolean' ? source[key] : defaultValue,
+    ])
+  );
+}
+
 function normalizeAppSettings(value) {
   const brandColors = normalizeBrandColors(value?.brandColors || value?.brand_colors || {});
   const adminPhones = normalizeAdminPhones(value?.adminPhones || value?.admin_phones || []);
@@ -123,6 +142,15 @@ function normalizeAppSettings(value) {
   const paymentCardColor = isHexColor(value?.paymentCardColor || value?.payment_card_color)
     ? (value.paymentCardColor || value.payment_card_color).toUpperCase()
     : DEFAULT_PAYMENT_CARD_COLOR;
+  const paymentTaxId = String(value?.paymentTaxId || value?.payment_tax_id || DEFAULT_PAYMENT_TAX_ID)
+    .replace(/\s+/g, '')
+    .slice(0, 16);
+  const paymentExtraDetails = String(value?.paymentExtraDetails || value?.payment_extra_details || '')
+    .trim()
+    .slice(0, 280);
+  const paymentCardVisibility = normalizePaymentCardVisibility(
+    value?.paymentCardVisibility || value?.payment_card_visibility
+  );
 
   return {
     brandColors,
@@ -131,6 +159,9 @@ function normalizeAppSettings(value) {
     paymentDetails,
     paymentIban,
     paymentCardColor,
+    paymentTaxId,
+    paymentExtraDetails,
+    paymentCardVisibility,
   };
 }
 
@@ -154,6 +185,9 @@ export default function App() {
   const [paymentDetails, setPaymentDetails] = useState('');
   const [paymentIban, setPaymentIban] = useState('');
   const [paymentCardColor, setPaymentCardColor] = useState(DEFAULT_PAYMENT_CARD_COLOR);
+  const [paymentTaxId, setPaymentTaxId] = useState(DEFAULT_PAYMENT_TAX_ID);
+  const [paymentExtraDetails, setPaymentExtraDetails] = useState('');
+  const [paymentCardVisibility, setPaymentCardVisibility] = useState(DEFAULT_PAYMENT_CARD_VISIBILITY);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
@@ -286,6 +320,9 @@ export default function App() {
     setPaymentDetails(normalized.paymentDetails);
     setPaymentIban(normalized.paymentIban);
     setPaymentCardColor(normalized.paymentCardColor);
+    setPaymentTaxId(normalized.paymentTaxId);
+    setPaymentExtraDetails(normalized.paymentExtraDetails);
+    setPaymentCardVisibility(normalized.paymentCardVisibility);
     return true;
   }, []);
 
@@ -363,8 +400,11 @@ export default function App() {
       paymentDetails,
       paymentIban,
       paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setCatalogTitleSetting = useCallback((value) => {
     const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
@@ -377,8 +417,11 @@ export default function App() {
       paymentDetails,
       paymentIban,
       paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setAdminPhonesSetting = useCallback((phones) => {
     const nextAdminPhones = normalizeAdminPhones(phones);
@@ -391,8 +434,11 @@ export default function App() {
       paymentDetails,
       paymentIban,
       paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [brandColors, catalogTitle, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setPaymentDetailsSetting = useCallback((value) => {
     const nextPaymentDetails = String(value || '').slice(0, 180);
@@ -405,8 +451,11 @@ export default function App() {
       paymentDetails: nextPaymentDetails,
       paymentIban,
       paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setPaymentIbanSetting = useCallback((value) => {
     const nextPaymentIban = String(value || '')
@@ -422,8 +471,11 @@ export default function App() {
       paymentDetails,
       paymentIban: nextPaymentIban,
       paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentDetails, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentTaxId, queueSaveSettings]);
 
   const setPaymentCardColorSetting = useCallback((value) => {
     if (!isHexColor(value)) return;
@@ -437,8 +489,67 @@ export default function App() {
       paymentDetails,
       paymentIban,
       paymentCardColor: nextPaymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentDetails, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+
+  const setPaymentTaxIdSetting = useCallback((value) => {
+    const nextPaymentTaxId = String(value || '').replace(/\s+/g, '').slice(0, 16);
+
+    setPaymentTaxId(nextPaymentTaxId);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones,
+      paymentDetails,
+      paymentIban,
+      paymentCardColor,
+      paymentTaxId: nextPaymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
+    });
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, queueSaveSettings]);
+
+  const setPaymentExtraDetailsSetting = useCallback((value) => {
+    const nextPaymentExtraDetails = String(value || '').slice(0, 280);
+
+    setPaymentExtraDetails(nextPaymentExtraDetails);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones,
+      paymentDetails,
+      paymentIban,
+      paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails: nextPaymentExtraDetails,
+      paymentCardVisibility,
+    });
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+
+  const setPaymentCardVisibilitySetting = useCallback((key, visible) => {
+    if (!(key in DEFAULT_PAYMENT_CARD_VISIBILITY)) return;
+
+    const nextPaymentCardVisibility = {
+      ...paymentCardVisibility,
+      [key]: Boolean(visible),
+    };
+
+    setPaymentCardVisibility(nextPaymentCardVisibility);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones,
+      paymentDetails,
+      paymentIban,
+      paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility: nextPaymentCardVisibility,
+    });
+  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   useEffect(() => {
     if (
@@ -465,8 +576,11 @@ export default function App() {
       paymentDetails,
       paymentIban,
       paymentCardColor,
+      paymentTaxId,
+      paymentExtraDetails,
+      paymentCardVisibility,
     });
-  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentCardColor, paymentDetails, paymentIban, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
+  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async () => {
@@ -673,6 +787,9 @@ export default function App() {
           paymentDetails={paymentDetails}
           paymentIban={paymentIban}
           paymentCardColor={paymentCardColor}
+          paymentTaxId={paymentTaxId}
+          paymentExtraDetails={paymentExtraDetails}
+          paymentCardVisibility={paymentCardVisibility}
           userName={gateData.lastName}
           onLogout={handleLogout}
         />
@@ -701,6 +818,12 @@ export default function App() {
           onPaymentIbanChange={setPaymentIbanSetting}
           paymentCardColor={paymentCardColor}
           onPaymentCardColorChange={setPaymentCardColorSetting}
+          paymentTaxId={paymentTaxId}
+          paymentExtraDetails={paymentExtraDetails}
+          paymentCardVisibility={paymentCardVisibility}
+          onPaymentTaxIdChange={setPaymentTaxIdSetting}
+          onPaymentExtraDetailsChange={setPaymentExtraDetailsSetting}
+          onPaymentCardVisibilityChange={setPaymentCardVisibilitySetting}
           initialSection={initialAdminSection}
           adminPhones={adminPhones}
           onAdminPhonesChange={setAdminPhonesSetting}

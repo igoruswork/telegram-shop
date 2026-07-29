@@ -108,9 +108,15 @@ export function AdminPage({
   paymentDetails,
   paymentIban,
   paymentCardColor,
+  paymentTaxId,
+  paymentExtraDetails,
+  paymentCardVisibility,
   onPaymentDetailsChange,
   onPaymentIbanChange,
   onPaymentCardColorChange,
+  onPaymentTaxIdChange,
+  onPaymentExtraDetailsChange,
+  onPaymentCardVisibilityChange,
   initialSection = DEFAULT_ADMIN_SECTION,
   adminPhones = [],
   onAdminPhonesChange,
@@ -835,6 +841,29 @@ export function AdminPage({
             />
           </label>
           <label className="admin-label admin-label--stacked">
+            <span>ІПН/ЄДРПОУ</span>
+            <input
+              className="admin-input"
+              type="text"
+              inputMode="numeric"
+              value={paymentTaxId}
+              placeholder="3830010811"
+              onChange={(event) => onPaymentTaxIdChange?.(event.target.value)}
+              maxLength={16}
+            />
+          </label>
+          <label className="admin-label admin-label--stacked">
+            <span>Додатково</span>
+            <textarea
+              className="admin-input admin-settings-textarea"
+              value={paymentExtraDetails}
+              placeholder="Банк, призначення платежу або інші реквізити"
+              onChange={(event) => onPaymentExtraDetailsChange?.(event.target.value)}
+              maxLength={280}
+              rows={3}
+            />
+          </label>
+          <label className="admin-label admin-label--stacked">
             <span>Колір картки</span>
             <div className="admin-payment-color-row">
               <input
@@ -854,6 +883,25 @@ export function AdminPage({
               />
             </div>
           </label>
+          <div className="admin-payment-visibility" role="group" aria-label="Видимість реквізитів">
+            <div className="admin-settings-subtitle">Що показувати покупцеві</div>
+            {[
+              ['enabled', 'Показувати картку'],
+              ['name', 'ПІБ / назву'],
+              ['iban', 'IBAN'],
+              ['taxId', 'ІПН / ЄДРПОУ'],
+              ['extraDetails', 'Додаткову інформацію'],
+            ].map(([key, label]) => (
+              <label key={key} className="admin-payment-visibility-row">
+                <span>{label}</span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(paymentCardVisibility?.[key])}
+                  onChange={(event) => onPaymentCardVisibilityChange?.(key, event.target.checked)}
+                />
+              </label>
+            ))}
+          </div>
         </div>
       )}
 

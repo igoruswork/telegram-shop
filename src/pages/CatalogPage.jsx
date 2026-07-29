@@ -151,6 +151,9 @@ export function CatalogPage({
   paymentDetails,
   paymentIban,
   paymentCardColor,
+  paymentTaxId,
+  paymentExtraDetails,
+  paymentCardVisibility,
   userName,
   onLogout,
 }) {
@@ -412,6 +415,9 @@ export function CatalogPage({
               paymentDetails={paymentDetails}
               paymentIban={paymentIban}
               paymentCardColor={paymentCardColor}
+              paymentTaxId={paymentTaxId}
+              paymentExtraDetails={paymentExtraDetails}
+              paymentCardVisibility={paymentCardVisibility}
             />
           )}
         </>

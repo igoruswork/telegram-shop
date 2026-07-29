@@ -3376,8 +3376,9 @@ body {
 }
 
 .catalog-info-card {
+  position: relative;
   height: 96px;
-  padding: 11px;
+  overflow: hidden;
   border: 1px solid rgba(var(--payment-card-rgb, 184, 164, 119), 0.28);
   border-radius: 18px;
   background: rgba(var(--payment-card-rgb, 184, 164, 119), 0.08);
@@ -3385,44 +3386,26 @@ body {
 }
 
 .catalog-info-card--filled {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.22), transparent 48%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 52%),
+    radial-gradient(circle at 105% -10%, rgba(255, 255, 255, 0.34), transparent 45%),
+    radial-gradient(circle at 4% 112%, rgba(255, 255, 255, 0.2), transparent 44%),
+    linear-gradient(138deg, rgba(255, 255, 255, 0.16), transparent 54%),
     var(--payment-card-color, #B8A477);
   box-shadow:
     0 12px 26px rgba(var(--payment-card-rgb, 184, 164, 119), 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
-.catalog-info-card-text {
-  color: var(--payment-card-ink, #0f1b33);
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 0.86;
-  letter-spacing: -0.045em;
-  white-space: pre-line;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.catalog-info-card-iban {
-  display: flex;
+.catalog-info-card-toggle {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 16px;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  min-height: 29px;
-  padding: 5px 6px 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.2);
+  height: 100%;
+  padding: 12px;
+  border: 0;
+  background: transparent;
   color: var(--payment-card-ink, #0f1b33);
   font: inherit;
   text-align: left;
@@ -3430,20 +3413,157 @@ body {
   touch-action: manipulation;
 }
 
-.catalog-info-card-iban span {
+.catalog-info-card-mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: var(--payment-card-color, #B8A477);
+}
+
+.catalog-info-card-mark svg {
+  width: 27px;
+  height: 27px;
+}
+
+.catalog-info-card-head-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.catalog-info-card-text {
+  color: var(--payment-card-ink, #0f1b33);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-info-card-compact-iban {
   min-width: 0;
   overflow: hidden;
   font-size: 10px;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.78;
 }
 
-.catalog-info-card-iban strong {
-  flex: 0 0 auto;
-  color: var(--payment-card-ink, #0f1b33);
-  font-size: 10px;
+.catalog-info-card-chevron {
+  align-self: center;
+  font-size: 21px;
   font-weight: 900;
+  line-height: 1;
+  opacity: 0.7;
+  transform: translateY(-2px);
+}
+
+.catalog-info-card-compact-hint {
+  position: absolute;
+  right: 13px;
+  bottom: 9px;
+  color: var(--payment-card-ink, #0f1b33);
+  font-size: 9px;
+  font-weight: 800;
+  opacity: 0.68;
+}
+
+.catalog-info-card--expanded {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  left: 16px;
+  z-index: 3;
+  height: 240px;
+  border-radius: 22px;
+}
+
+.catalog-info-card--expanded .catalog-info-card-toggle {
+  height: 66px;
+  padding: 13px 15px;
+}
+
+.catalog-info-card--expanded .catalog-info-card-chevron {
+  transform: rotate(180deg) translateY(2px);
+}
+
+.catalog-info-card-expanded-body {
+  display: grid;
+  gap: 6px;
+  padding: 0 14px 13px;
+}
+
+.catalog-info-card-detail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--payment-card-ink, #0f1b33);
+  font: inherit;
+  text-align: left;
+}
+
+.catalog-info-card-detail > span {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 800;
+  opacity: 0.72;
+}
+
+.catalog-info-card-detail strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-info-card-detail--copy {
+  width: 100%;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.catalog-info-card-detail--copy strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.catalog-info-card-detail--copy em {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.26);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.catalog-info-card-detail--extra {
+  align-items: flex-start;
+}
+
+.catalog-info-card-detail--extra strong {
+  line-height: 1.2;
+  white-space: normal;
 }
 
 .admin-payment-color-row {
@@ -3462,6 +3582,33 @@ body {
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.72);
   cursor: pointer;
+}
+
+.admin-payment-visibility {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(14, 165, 233, 0.12);
+}
+
+.admin-payment-visibility-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.44);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.admin-payment-visibility-row input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--brand-price-color);
 }
 
 @media (min-width: 900px) {

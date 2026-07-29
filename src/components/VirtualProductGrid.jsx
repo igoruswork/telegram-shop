@@ -9,6 +9,7 @@ const MOBILE_HORIZONTAL_PADDING = 32;
 const DESKTOP_HORIZONTAL_PADDING = 48;
 const OVERSCAN_ROWS = 4;
 const MOBILE_INFO_CARD_HEIGHT = 108;
+const MOBILE_INFO_CARD_EXPANDED_HEIGHT = 252;
 
 function getColumns() {
   return window.matchMedia('(min-width: 900px)').matches ? DESKTOP_COLUMNS : MOBILE_COLUMNS;
@@ -68,10 +69,36 @@ function getPaymentCardStyle(color) {
   };
 }
 
-function CatalogInfoCard({ details, iban, color }) {
+function PaymentCardMark() {
+  return (
+    <span className="catalog-info-card-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none">
+        <path d="M16 26.5V14.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M15.8 18.2C9.4 18.2 6.2 14 6.2 7.1c5.8 0 9.6 3.5 9.6 11.1Z" fill="currentColor" opacity=".82" />
+        <path d="M16.2 18.2c6.4 0 9.6-4.2 9.6-11.1-5.8 0-9.6 3.5-9.6 11.1Z" fill="currentColor" opacity=".6" />
+        <path d="M8.4 23.8h15.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+function CatalogInfoCard({
+  details,
+  iban,
+  color,
+  taxId,
+  extraDetails,
+  visibility,
+  expanded,
+  onToggle,
+}) {
   const [copied, setCopied] = useState(false);
-  const hasDetails = Boolean(details || iban);
   const cardStyle = useMemo(() => getPaymentCardStyle(color), [color]);
+  const showName = visibility?.name !== false && Boolean(details);
+  const showIban = visibility?.iban !== false && Boolean(iban);
+  const showTaxId = visibility?.taxId !== false && Boolean(taxId);
+  const showExtraDetails = visibility?.extraDetails !== false && Boolean(extraDetails);
+  const compactTitle = showName ? details : 'Реквізити';
 
   const handleCopy = async () => {
     if (!iban) return;
@@ -87,15 +114,53 @@ function CatalogInfoCard({ details, iban, color }) {
 
   return (
     <aside
-      className={`catalog-info-card ${hasDetails ? 'catalog-info-card--filled' : ''}`}
+      className={`catalog-info-card catalog-info-card--filled ${expanded ? 'catalog-info-card--expanded' : ''}`}
       style={cardStyle}
     >
-      {details && <div className="catalog-info-card-text">{details}</div>}
-      {iban && (
-        <button type="button" className="catalog-info-card-iban" onClick={handleCopy}>
-          <span>{iban}</span>
-          <strong>{copied ? 'Готово' : 'Copy'}</strong>
-        </button>
+      <button
+        type="button"
+        className="catalog-info-card-toggle"
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        <PaymentCardMark />
+        <span className="catalog-info-card-head-copy">
+          <span className="catalog-info-card-text">{compactTitle}</span>
+          {showIban && <span className="catalog-info-card-compact-iban">{iban}</span>}
+        </span>
+        <span className="catalog-info-card-chevron" aria-hidden="true">⌄</span>
+      </button>
+
+      {expanded && (
+        <div className="catalog-info-card-expanded-body">
+          {showName && (
+            <div className="catalog-info-card-detail">
+              <span>Одержувач</span>
+              <strong>{details}</strong>
+            </div>
+          )}
+          {showIban && (
+            <button type="button" className="catalog-info-card-detail catalog-info-card-detail--copy" onClick={handleCopy}>
+              <span>IBAN</span>
+              <strong>{iban}<em>{copied ? 'Готово' : 'Copy'}</em></strong>
+            </button>
+          )}
+          {showTaxId && (
+            <div className="catalog-info-card-detail">
+              <span>ІПН / ЄДРПОУ</span>
+              <strong>{taxId}</strong>
+            </div>
+          )}
+          {showExtraDetails && (
+            <div className="catalog-info-card-detail catalog-info-card-detail--extra">
+              <span>Додатково</span>
+              <strong>{extraDetails}</strong>
+            </div>
+          )}
+        </div>
+      )}
+      {!expanded && !showIban && (
+        <span className="catalog-info-card-compact-hint">Натисніть</span>
       )}
     </aside>
   );
@@ -112,12 +177,16 @@ export function VirtualProductGrid({
   paymentDetails,
   paymentIban,
   paymentCardColor,
+  paymentTaxId,
+  paymentExtraDetails,
+  paymentCardVisibility,
 }) {
   const gridRef = useRef(null);
   const frameRef = useRef(0);
   const [columns, setColumns] = useState(() => getColumns());
   const [gridMetrics, setGridMetrics] = useState(() => ({ top: 0, width: window.innerWidth }));
   const [scrollY, setScrollY] = useState(() => window.scrollY);
+  const [paymentCardExpanded, setPaymentCardExpanded] = useState(false);
 
   const rows = useMemo(() => splitIntoRows(products, columns), [products, columns]);
   const mobileColumns = useMemo(() => ({
@@ -129,17 +198,23 @@ export function VirtualProductGrid({
   const relativeTop = Math.max(0, scrollY - gridMetrics.top);
   const relativeBottom = Math.max(0, viewportBottom - gridMetrics.top);
   const mobileLayout = columns === MOBILE_COLUMNS;
+  const paymentCardEnabled = paymentCardVisibility?.enabled !== false;
+  const paymentCardIsExpanded = paymentCardEnabled && paymentCardExpanded;
+  const mobileLeftOffset = paymentCardEnabled
+    ? (paymentCardIsExpanded ? MOBILE_INFO_CARD_EXPANDED_HEIGHT : MOBILE_INFO_CARD_HEIGHT)
+    : 0;
+  const mobileRightOffset = paymentCardIsExpanded ? MOBILE_INFO_CARD_EXPANDED_HEIGHT : 0;
   const mobileLeftRange = getVisibleRange(
     mobileColumns.left.length,
     rowHeight,
-    MOBILE_INFO_CARD_HEIGHT,
+    mobileLeftOffset,
     relativeTop,
     relativeBottom
   );
   const mobileRightRange = getVisibleRange(
     mobileColumns.right.length,
     rowHeight,
-    0,
+    mobileRightOffset,
     relativeTop,
     relativeBottom
   );
@@ -148,8 +223,8 @@ export function VirtualProductGrid({
   const visibleRows = rows.slice(startIndex, endIndex);
   const totalHeight = mobileLayout
     ? Math.max(
-      MOBILE_INFO_CARD_HEIGHT + mobileColumns.left.length * rowHeight,
-      mobileColumns.right.length * rowHeight
+      mobileLeftOffset + mobileColumns.left.length * rowHeight,
+      mobileRightOffset + mobileColumns.right.length * rowHeight
     )
     : rows.length * rowHeight;
 
@@ -210,12 +285,31 @@ export function VirtualProductGrid({
     >
       {mobileLayout && (
         <>
-          <div className="virtual-product-grid-mobile-column virtual-product-grid-mobile-column--left">
+          {paymentCardIsExpanded && (
             <CatalogInfoCard
               details={paymentDetails}
               iban={paymentIban}
               color={paymentCardColor}
+              taxId={paymentTaxId}
+              extraDetails={paymentExtraDetails}
+              visibility={paymentCardVisibility}
+              expanded
+              onToggle={() => setPaymentCardExpanded(false)}
             />
+          )}
+          <div className="virtual-product-grid-mobile-column virtual-product-grid-mobile-column--left">
+            {paymentCardEnabled && !paymentCardIsExpanded && (
+              <CatalogInfoCard
+                details={paymentDetails}
+                iban={paymentIban}
+                color={paymentCardColor}
+                taxId={paymentTaxId}
+                extraDetails={paymentExtraDetails}
+                visibility={paymentCardVisibility}
+                expanded={false}
+                onToggle={() => setPaymentCardExpanded(true)}
+              />
+            )}
             {mobileColumns.left.slice(mobileLeftRange.start, mobileLeftRange.end).map((product, index) => {
               const productIndex = mobileLeftRange.start + index;
 
@@ -230,7 +324,7 @@ export function VirtualProductGrid({
                   brandColors={brandColors}
                   defaultBrandColor={defaultBrandColor}
                   imagePriority={productIndex < 3 ? 'high' : 'auto'}
-                  cardStyle={{ transform: `translateY(${MOBILE_INFO_CARD_HEIGHT + productIndex * rowHeight}px)` }}
+                  cardStyle={{ transform: `translateY(${mobileLeftOffset + productIndex * rowHeight}px)` }}
                 />
               );
             })}
@@ -250,7 +344,7 @@ export function VirtualProductGrid({
                   brandColors={brandColors}
                   defaultBrandColor={defaultBrandColor}
                   imagePriority={productIndex < 3 ? 'high' : 'auto'}
-                  cardStyle={{ transform: `translateY(${productIndex * rowHeight}px)` }}
+                  cardStyle={{ transform: `translateY(${mobileRightOffset + productIndex * rowHeight}px)` }}
                 />
               );
             })}
