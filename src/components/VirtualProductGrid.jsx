@@ -165,7 +165,12 @@ function CatalogInfoCard({
               <span>IBAN</span>
               <strong>
                 {iban}
-                <em title={copied ? 'Скопійовано' : 'Скопіювати'}><CopyIcon copied={copied} /></em>
+                <em
+                  className={`catalog-info-card-copy-icon ${copied ? 'is-copied' : ''}`}
+                  title={copied ? 'Скопійовано' : 'Скопіювати'}
+                >
+                  <CopyIcon copied={copied} />
+                </em>
               </strong>
             </button>
           )}
