@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchCatalogUserAccess, requestCatalogAccess } from '../lib/supabase';
+import { fetchCatalogUserAccess, logAccess, requestCatalogAccess } from '../lib/supabase';
 import { PHONE_PREFIX, isPhoneComplete, normalizePhoneInput } from '../lib/phone';
 
 export function GatePage({ onAuthorized, tgUserId }) {
@@ -23,9 +23,22 @@ export function GatePage({ onAuthorized, tgUserId }) {
     setPhoneChecking(true);
 
     fetchCatalogUserAccess(normalizedPhone)
-      .then((catalogUser) => {
+      .then(async (catalogUser) => {
         if (cancelled || !catalogUser?.is_approved) return;
 
+        try {
+          await logAccess({
+            phone: catalogUser.phone,
+            lastName: catalogUser.last_name,
+            tgUserId,
+          });
+        } catch (logError) {
+          // The access check has already succeeded, so do not lock a user out
+          // only because the non-critical audit write is temporarily unavailable.
+          console.warn('approved phone access log error:', logError);
+        }
+
+        if (cancelled) return;
         onAuthorized({
           phone: catalogUser.phone,
           lastName: catalogUser.last_name,
@@ -43,7 +56,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
     return () => {
       cancelled = true;
     };
-  }, [onAuthorized, phone]);
+  }, [onAuthorized, phone, tgUserId]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

@@ -2542,6 +2542,33 @@ body {
   border-color: rgba(34, 197, 94, 0.18);
 }
 
+.admin-access-card--log {
+  position: relative;
+  padding-right: 52px;
+}
+
+.admin-access-delete {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.07);
+  color: #dc2626;
+  font: inherit;
+  font-size: 24px;
+  line-height: 24px;
+  cursor: pointer;
+}
+
+.admin-access-delete:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .admin-access-person {
   min-width: 0;
 }

@@ -226,6 +226,23 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
 }
 
 async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
+  await logAccess({ phone, lastName, tgUserId });
+
+  return {
+    phone,
+    last_name: lastName,
+    // Compatibility path for the short period between frontend and SQL deploy.
+    // The new approval flow is enforced as soon as catalog_users exists.
+    is_approved: true,
+  };
+}
+
+/**
+ * Keep event history separately from the current catalog user.
+ */
+export async function logAccess({ phone, lastName, tgUserId }) {
+  ensureSupabaseConfigured();
+
   const { error } = await supabase
     .from('access_log')
     .insert({
@@ -235,16 +252,9 @@ async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
     });
 
   if (error) {
-    throw new Error(toReadableError(error, 'Не вдалося надіслати запит на доступ.'));
+    console.error('logAccess error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося записати вхід у журнал.'));
   }
-
-  return {
-    phone,
-    last_name: lastName,
-    // Compatibility path for the short period between frontend and SQL deploy.
-    // The new approval flow is enforced as soon as catalog_users exists.
-    is_approved: true,
-  };
 }
 
 /**
@@ -277,6 +287,12 @@ export async function requestCatalogAccess({ phone, lastName, tgUserId }) {
     console.error('requestCatalogAccess error:', error);
     throw new Error(toReadableError(error, 'Не вдалося надіслати запит на доступ.'));
   }
+
+  await logAccess({
+    phone: data.phone,
+    lastName: data.last_name || lastName,
+    tgUserId,
+  });
 
   return data;
 }
@@ -336,6 +352,37 @@ export async function updateCatalogUserApproval(phone, isApproved) {
   }
 
   return data;
+}
+
+export async function fetchAccessLogEntries(limit = 300) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('access_log')
+    .select('id, phone, last_name, tg_user_id, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('fetchAccessLogEntries error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити журнал входів.'));
+  }
+
+  return data || [];
+}
+
+export async function deleteAccessLogEntry(id) {
+  ensureSupabaseConfigured();
+
+  const { error } = await supabase
+    .from('access_log')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('deleteAccessLogEntry error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося видалити запис журналу.'));
+  }
 }
 
 /**

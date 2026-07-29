@@ -4,6 +4,7 @@ import {
   fetchAppSettings,
   fetchCatalogUserAccess,
   fetchProducts,
+  logAccess,
   saveAppSettings,
   subscribeToAppSettings,
   subscribeToProducts,
@@ -141,6 +142,7 @@ export default function App() {
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
   const saveSettingsTimeoutRef = useRef(null);
   const localSettingsMigrationRef = useRef(false);
+  const storedAccessLoggedRef = useRef(false);
 
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
@@ -230,6 +232,14 @@ export default function App() {
         if (cancelled) return;
         if (catalogUser?.is_approved) {
           setAuthorized(true);
+          if (!storedAccessLoggedRef.current) {
+            storedAccessLoggedRef.current = true;
+            logAccess({
+              phone: catalogUser.phone,
+              lastName: catalogUser.last_name || storedUser.lastName,
+              tgUserId: user?.id,
+            }).catch((error) => console.warn('stored user access log error:', error));
+          }
           return;
         }
         // Keep only a local identity hint for the next launch. It does not
@@ -247,7 +257,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [storedUser]);
+  }, [storedUser, user?.id]);
 
   const applyRemoteSettings = useCallback((settings) => {
     if (!settings || typeof settings !== 'object') return false;

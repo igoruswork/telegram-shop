@@ -122,7 +122,7 @@ Telegram Mini App з каталогом товарів, кошиком, адмі
 | `is_approved` | boolean | Ознака схвалення адміністратором |
 | `last_access_at` | timestamptz | Остання заявка або вхід |
 
-`access_log` збережено лише як історію та fallback для старих інсталяцій без міграції `catalog_users`.
+`access_log` — окремий журнал: він отримує один новий запис для кожного фактичного входу, не впливає на схвалення і не використовується для пошуку доступу. В адмінці він доступний у вкладці **«Журнал входів»**; хрестик видаляє запис одразу з інтерфейсу та БД.
 
 ---
 
@@ -162,6 +162,7 @@ npm run images:migrate
 ```sql
 supabase/migrations/20260709000000_products_admin_policies.sql
 supabase/migrations/20260728000000_catalog_users_approval.sql
+supabase/migrations/20260729000000_access_log_audit.sql
 ```
 
 Для кнопки `↻ Фото` також потрібно задеплоїти Edge Function:

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   createProduct,
+  deleteAccessLogEntry,
   fetchAdminOrders,
+  fetchAccessLogEntries,
   fetchAllProducts,
   fetchCatalogUsers,
   fetchProductImageSource,
@@ -38,6 +40,7 @@ const adminSections = [
   { id: 'details', label: 'Деталі картки' },
   { id: 'visibility', label: 'Видимість' },
   { id: 'access', label: 'Користувачі' },
+  { id: 'access-log', label: 'Журнал входів' },
   { id: 'orders', label: 'Замовлення' },
 ];
 
@@ -131,6 +134,10 @@ export function AdminPage({
   const [accessTab, setAccessTab] = useState('all');
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState('');
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [accessLogsLoading, setAccessLogsLoading] = useState(false);
+  const [accessLogsError, setAccessLogsError] = useState('');
+  const [deletingAccessLogIds, setDeletingAccessLogIds] = useState({});
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
@@ -195,15 +202,34 @@ export function AdminPage({
     }
   }, []);
 
+  const loadAccessLogs = useCallback(async () => {
+    setAccessLogsLoading(true);
+    setAccessLogsError('');
+
+    try {
+      const data = await fetchAccessLogEntries();
+      setAccessLogs(data);
+    } catch (e) {
+      setAccessLogs([]);
+      setAccessLogsError(e.message);
+    } finally {
+      setAccessLogsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeSection === 'access') {
       loadCatalogUsers();
     }
 
+    if (activeSection === 'access-log') {
+      loadAccessLogs();
+    }
+
     if (activeSection === 'orders') {
       loadOrders();
     }
-  }, [activeSection, loadCatalogUsers, loadOrders]);
+  }, [activeSection, loadAccessLogs, loadCatalogUsers, loadOrders]);
 
   useEffect(() => {
     const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors'].includes(activeSection);
@@ -384,6 +410,11 @@ export function AdminPage({
       return;
     }
 
+    if (activeSection === 'access-log') {
+      loadAccessLogs();
+      return;
+    }
+
     if (activeSection === 'orders') {
       loadOrders();
       return;
@@ -408,6 +439,28 @@ export function AdminPage({
         item.phone === catalogUser.phone ? { ...item, is_approved: previous } : item
       )));
       alert('Помилка: ' + error.message);
+    }
+  };
+
+  const handleDeleteAccessLog = async (entry) => {
+    if (deletingAccessLogIds[entry.id]) return;
+
+    setDeletingAccessLogIds((current) => ({ ...current, [entry.id]: true }));
+    setAccessLogs((current) => current.filter((item) => item.id !== entry.id));
+
+    try {
+      await deleteAccessLogEntry(entry.id);
+    } catch (error) {
+      setAccessLogs((current) => [...current, entry].sort((left, right) => (
+        new Date(right.created_at) - new Date(left.created_at)
+      )));
+      alert('Помилка: ' + error.message);
+    } finally {
+      setDeletingAccessLogIds((current) => {
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      });
     }
   };
 
@@ -994,6 +1047,38 @@ export function AdminPage({
           )}
           </div>
         </>
+      )}
+
+      {activeSection === 'access-log' && (
+        <div className="admin-activity-list admin-access-log-list">
+          {accessLogsLoading && <div className="admin-activity-loading">Завантаження…</div>}
+          {accessLogsError && <div className="admin-activity-error">{accessLogsError}</div>}
+          {!accessLogsLoading && !accessLogsError && accessLogs.map((entry) => (
+            <article key={entry.id} className="admin-access-card admin-access-card--log">
+              <div className="admin-access-person">
+                <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
+                <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
+              </div>
+              <div className="admin-access-meta">
+                {entry.tg_user_id && <span>TG {entry.tg_user_id}</span>}
+                <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+              </div>
+              <button
+                type="button"
+                className="admin-access-delete"
+                aria-label={`Видалити запис входу ${entry.phone || ''}`}
+                title="Видалити запис"
+                disabled={Boolean(deletingAccessLogIds[entry.id])}
+                onClick={() => handleDeleteAccessLog(entry)}
+              >
+                ×
+              </button>
+            </article>
+          ))}
+          {!accessLogsLoading && !accessLogsError && accessLogs.length === 0 && (
+            <div className="admin-activity-loading">Записів входу ще немає</div>
+          )}
+        </div>
       )}
 
       {activeSection === 'orders' && (
