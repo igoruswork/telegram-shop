@@ -3389,9 +3389,8 @@ body {
 
 .catalog-info-card--filled {
   background:
-    radial-gradient(circle at 105% -10%, rgba(255, 255, 255, 0.34), transparent 45%),
-    radial-gradient(circle at 4% 112%, rgba(255, 255, 255, 0.2), transparent 44%),
-    linear-gradient(138deg, rgba(255, 255, 255, 0.16), transparent 54%),
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.42), transparent 35%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.17), transparent 58%),
     var(--payment-card-color, #B8A477);
   box-shadow:
     0 12px 26px rgba(var(--payment-card-rgb, 184, 164, 119), 0.24),
@@ -3408,37 +3407,40 @@ body {
 }
 
 .catalog-info-card--filled::before {
-  top: -48%;
-  right: -30%;
-  width: 126%;
-  height: 138%;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 46% 54% 44% 56% / 52% 44% 56% 48%;
+  top: -42%;
+  right: -10%;
+  width: 116%;
+  height: 134%;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 58% 42% 38% 62% / 48% 58% 42% 52%;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.23), transparent 42%),
-    rgba(255, 255, 255, 0.05);
-  box-shadow: -18px 20px 0 rgba(255, 255, 255, 0.07);
-  transform: rotate(-13deg);
+    linear-gradient(136deg, rgba(108, 92, 231, 0.34), rgba(255, 255, 255, 0.08) 55%, rgba(45, 212, 191, 0.24)),
+    rgba(255, 255, 255, 0.04);
+  box-shadow:
+    -36px 29px 0 rgba(79, 70, 229, 0.18),
+    -74px 51px 0 rgba(255, 255, 255, 0.12);
+  transform: rotate(-15deg);
 }
 
 .catalog-info-card--filled::after {
-  bottom: -42px;
-  left: -30px;
-  width: 122px;
-  height: 92px;
-  border-radius: 48% 52% 58% 42%;
-  background: rgba(255, 255, 255, 0.14);
-  filter: blur(1px);
-  transform: rotate(21deg);
+  right: -31px;
+  bottom: -52px;
+  width: 128px;
+  height: 112px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 42% 58% 52% 48%;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: -26px -18px 0 rgba(255, 255, 255, 0.11);
+  transform: rotate(23deg);
 }
 
 .catalog-info-card-toggle {
   display: grid;
   position: relative;
   z-index: 1;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
   height: 100%;
   padding: 12px;
@@ -3470,8 +3472,10 @@ body {
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 9px 18px rgba(15, 23, 42, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
   color: var(--payment-card-color, #B8A477);
 }
 
@@ -3484,16 +3488,23 @@ body {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
 }
 
 .catalog-info-card-text {
   color: var(--payment-card-ink, #0f1b33);
-  font-family: 'Playfair Display', Georgia, serif;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 0.94;
-  letter-spacing: -0.035em;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3502,8 +3513,8 @@ body {
 .catalog-info-card-compact-iban {
   min-width: 0;
   overflow: hidden;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.78;
@@ -3523,6 +3534,10 @@ body {
 .catalog-info-card--expanded .catalog-info-card-toggle {
   height: 66px;
   padding: 13px 15px;
+}
+
+.catalog-info-card--expanded .catalog-info-card-head-copy {
+  padding: 8px 10px;
 }
 
 @keyframes paymentCardExpand {
