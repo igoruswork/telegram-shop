@@ -129,23 +129,45 @@ function CatalogInfoCard({
     }
   };
 
+  const handleToggleKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    onToggle?.();
+  };
+
   return (
     <aside
       className={`catalog-info-card catalog-info-card--filled ${expanded ? 'catalog-info-card--expanded' : ''}`}
       style={cardStyle}
     >
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className="catalog-info-card-toggle"
         aria-expanded={expanded}
         onClick={onToggle}
+        onKeyDown={handleToggleKeyDown}
       >
         <PaymentCardMark />
         <span className="catalog-info-card-head-copy">
           <span className="catalog-info-card-text">{compactTitle}</span>
           {showIban && <span className="catalog-info-card-compact-iban">{iban}</span>}
         </span>
-      </button>
+        {!expanded && showIban && (
+          <button
+            type="button"
+            className={`catalog-info-card-compact-copy catalog-info-card-copy-icon ${copied ? 'is-copied' : ''}`}
+            aria-label="Скопіювати IBAN"
+            title="Скопіювати IBAN"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleCopy();
+            }}
+          >
+            <CopyIcon copied={copied} />
+          </button>
+        )}
+      </div>
 
       {expanded && (
         <div className="catalog-info-card-expanded-body">

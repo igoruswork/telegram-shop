@@ -3455,6 +3455,7 @@ body {
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
+  outline: none;
   transition: background 180ms ease, transform 140ms ease;
 }
 
@@ -3536,11 +3537,14 @@ body {
 }
 
 .catalog-info-card--expanded .catalog-info-card-toggle {
-  height: 66px;
-  padding: 13px 15px;
+  grid-template-columns: minmax(0, 1fr);
+  height: auto;
+  min-height: 56px;
+  padding: 14px 14px 0;
 }
 
 .catalog-info-card--expanded .catalog-info-card-head-copy {
+  min-height: 42px;
   padding: 8px 10px;
 }
 
@@ -3560,8 +3564,8 @@ body {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 7px;
-  padding: 0 14px 14px;
+  gap: 10px;
+  padding: 10px 14px 14px;
 }
 
 .catalog-info-card-detail {
@@ -3654,6 +3658,10 @@ body {
   white-space: normal;
 }
 
+.catalog-info-card--expanded .catalog-info-card-mark {
+  display: none;
+}
+
 .catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-toggle {
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
@@ -3668,7 +3676,7 @@ body {
   height: 100%;
   justify-content: center;
   gap: 5px;
-  padding: 15px 18px;
+  padding: 15px 52px 15px 18px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -3684,6 +3692,27 @@ body {
 
 .catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-compact-iban {
   font-size: 14px;
+}
+
+.catalog-info-card-compact-copy {
+  position: absolute;
+  right: 14px;
+  bottom: 17px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.24);
+  color: var(--payment-card-ink, #0f1b33);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.catalog-info-card-compact-copy svg {
+  width: 16px;
+  height: 16px;
 }
 
 .admin-payment-color-row {
