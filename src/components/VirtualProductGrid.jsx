@@ -9,7 +9,7 @@ const MOBILE_HORIZONTAL_PADDING = 32;
 const DESKTOP_HORIZONTAL_PADDING = 48;
 const OVERSCAN_ROWS = 4;
 const MOBILE_INFO_CARD_HEIGHT = 108;
-const MOBILE_INFO_CARD_EXPANDED_HEIGHT = 252;
+const MOBILE_INFO_CARD_EXPANDED_HEIGHT = 276;
 
 function getColumns() {
   return window.matchMedia('(min-width: 900px)').matches ? DESKTOP_COLUMNS : MOBILE_COLUMNS;
@@ -82,6 +82,23 @@ function PaymentCardMark() {
   );
 }
 
+function CopyIcon({ copied }) {
+  if (copied) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="m5 12 4.2 4.2L19 6.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="8" y="8" width="10" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M15.5 8V6.3A2.3 2.3 0 0 0 13.2 4H6.3A2.3 2.3 0 0 0 4 6.3v8.9a2.3 2.3 0 0 0 2.3 2.3H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CatalogInfoCard({
   details,
   iban,
@@ -139,9 +156,17 @@ function CatalogInfoCard({
             </div>
           )}
           {showIban && (
-            <button type="button" className="catalog-info-card-detail catalog-info-card-detail--copy" onClick={handleCopy}>
+            <button
+              type="button"
+              className="catalog-info-card-detail catalog-info-card-detail--copy"
+              aria-label={copied ? 'IBAN скопійовано' : 'Скопіювати IBAN'}
+              onClick={handleCopy}
+            >
               <span>IBAN</span>
-              <strong>{iban}<em>{copied ? 'Готово' : 'Copy'}</em></strong>
+              <strong>
+                {iban}
+                <em title={copied ? 'Скопійовано' : 'Скопіювати'}><CopyIcon copied={copied} /></em>
+              </strong>
             </button>
           )}
           {showTaxId && (

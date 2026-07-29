@@ -3526,7 +3526,7 @@ body {
   right: 16px;
   left: 16px;
   z-index: 3;
-  height: 240px;
+  height: 264px;
   border-radius: 22px;
   animation: paymentCardExpand 220ms cubic-bezier(0.22, 0.8, 0.25, 1) both;
 }
@@ -3556,8 +3556,8 @@ body {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 6px;
-  padding: 0 14px 13px;
+  gap: 7px;
+  padding: 0 14px 14px;
 }
 
 .catalog-info-card-detail {
@@ -3566,8 +3566,8 @@ body {
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
-  min-height: 28px;
-  padding: 5px 8px;
+  min-height: 36px;
+  padding: 7px 10px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.18);
@@ -3580,7 +3580,7 @@ body {
 
 .catalog-info-card-detail > span {
   flex: 0 0 auto;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   opacity: 0.72;
 }
@@ -3588,7 +3588,7 @@ body {
 .catalog-info-card-detail strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 900;
   text-align: right;
   text-overflow: ellipsis;
@@ -3609,11 +3609,20 @@ body {
 
 .catalog-info-card-detail--copy em {
   flex: 0 0 auto;
-  padding: 2px 5px;
-  border-radius: 6px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 9px;
   background: rgba(255, 255, 255, 0.26);
-  font-size: 9px;
   font-style: normal;
+}
+
+.catalog-info-card-detail--copy em svg {
+  width: 15px;
+  height: 15px;
 }
 
 .catalog-info-card-detail--extra {
@@ -3623,6 +3632,38 @@ body {
 .catalog-info-card-detail--extra strong {
   line-height: 1.2;
   white-space: normal;
+}
+
+.catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-toggle {
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  padding: 0;
+}
+
+.catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-mark {
+  display: none;
+}
+
+.catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-head-copy {
+  height: 100%;
+  justify-content: center;
+  gap: 5px;
+  padding: 15px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-text {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.catalog-info-card:not(.catalog-info-card--expanded) .catalog-info-card-compact-iban {
+  font-size: 14px;
 }
 
 .admin-payment-color-row {
