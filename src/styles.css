@@ -2183,6 +2183,24 @@ body {
   align-items: flex-start;
 }
 
+.admin-label--stacked {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.admin-label--stacked span {
+  width: auto;
+}
+
+.admin-settings-textarea {
+  width: 100%;
+  min-height: 74px;
+  resize: vertical;
+  line-height: 1.35;
+}
+
 .admin-create-submit {
   width: 100%;
   align-self: stretch;
@@ -3328,6 +3346,99 @@ body {
 .virtual-product-grid-row .catalog-qty-plus {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.virtual-product-grid--mobile {
+  padding: 0;
+}
+
+.virtual-product-grid-mobile-column {
+  position: absolute;
+  top: 0;
+  width: calc((100% - 44px) / 2);
+  height: 100%;
+}
+
+.virtual-product-grid-mobile-column--left {
+  left: 16px;
+}
+
+.virtual-product-grid-mobile-column--right {
+  right: 16px;
+}
+
+.virtual-product-grid-mobile-column > .product-card {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: calc(var(--virtual-row-height) - 12px);
+  animation: none;
+}
+
+.catalog-info-card {
+  height: 96px;
+  padding: 12px;
+  border: 1px solid rgba(14, 165, 233, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.44);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
+}
+
+.catalog-info-card--filled {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 7px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(var(--brand-rgb), 0.08)),
+    #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.catalog-info-card-text {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.22;
+  white-space: pre-line;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.catalog-info-card-iban {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 27px;
+  padding: 4px 5px 4px 7px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(var(--brand-rgb), 0.1);
+  color: var(--brand-price-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.catalog-info-card-iban span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-info-card-iban strong {
+  flex: 0 0 auto;
+  color: var(--brand-price-color);
+  font-size: 10px;
+  font-weight: 900;
 }
 
 @media (min-width: 900px) {

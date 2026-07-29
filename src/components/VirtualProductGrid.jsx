@@ -8,6 +8,7 @@ const DESKTOP_GAP = 16;
 const MOBILE_HORIZONTAL_PADDING = 32;
 const DESKTOP_HORIZONTAL_PADDING = 48;
 const OVERSCAN_ROWS = 4;
+const MOBILE_INFO_CARD_HEIGHT = 108;
 
 function getColumns() {
   return window.matchMedia('(min-width: 900px)').matches ? DESKTOP_COLUMNS : MOBILE_COLUMNS;
@@ -31,6 +32,59 @@ function splitIntoRows(products, columns) {
   return rows;
 }
 
+function getVisibleRange(length, rowHeight, offset, relativeTop, relativeBottom) {
+  const start = Math.max(0, Math.floor((relativeTop - offset) / rowHeight) - OVERSCAN_ROWS);
+  const end = Math.min(length, Math.ceil((relativeBottom - offset) / rowHeight) + OVERSCAN_ROWS);
+
+  return { start, end };
+}
+
+async function copyToClipboard(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const input = document.createElement('textarea');
+  input.value = value;
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  input.remove();
+}
+
+function CatalogInfoCard({ details, iban }) {
+  const [copied, setCopied] = useState(false);
+  const hasDetails = Boolean(details || iban);
+
+  const handleCopy = async () => {
+    if (!iban) return;
+
+    try {
+      await copyToClipboard(iban);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch (error) {
+      console.warn('IBAN copy error:', error);
+    }
+  };
+
+  return (
+    <aside className={`catalog-info-card ${hasDetails ? 'catalog-info-card--filled' : ''}`}>
+      {details && <div className="catalog-info-card-text">{details}</div>}
+      {iban && (
+        <button type="button" className="catalog-info-card-iban" onClick={handleCopy}>
+          <span>{iban}</span>
+          <strong>{copied ? 'Готово' : 'Copy'}</strong>
+        </button>
+      )}
+    </aside>
+  );
+}
+
 export function VirtualProductGrid({
   products,
   cartQtyByProductId,
@@ -39,6 +93,8 @@ export function VirtualProductGrid({
   onUpdateQty,
   brandColors,
   defaultBrandColor,
+  paymentDetails,
+  paymentIban,
 }) {
   const gridRef = useRef(null);
   const frameRef = useRef(0);
@@ -47,14 +103,38 @@ export function VirtualProductGrid({
   const [scrollY, setScrollY] = useState(() => window.scrollY);
 
   const rows = useMemo(() => splitIntoRows(products, columns), [products, columns]);
+  const mobileColumns = useMemo(() => ({
+    left: products.filter((_, index) => index % MOBILE_COLUMNS === 1),
+    right: products.filter((_, index) => index % MOBILE_COLUMNS === 0),
+  }), [products]);
   const rowHeight = useMemo(() => getRowHeight(gridMetrics.width, columns), [gridMetrics.width, columns]);
-  const totalHeight = rows.length * rowHeight;
   const viewportBottom = scrollY + window.innerHeight;
   const relativeTop = Math.max(0, scrollY - gridMetrics.top);
   const relativeBottom = Math.max(0, viewportBottom - gridMetrics.top);
+  const mobileLayout = columns === MOBILE_COLUMNS;
+  const mobileLeftRange = getVisibleRange(
+    mobileColumns.left.length,
+    rowHeight,
+    MOBILE_INFO_CARD_HEIGHT,
+    relativeTop,
+    relativeBottom
+  );
+  const mobileRightRange = getVisibleRange(
+    mobileColumns.right.length,
+    rowHeight,
+    0,
+    relativeTop,
+    relativeBottom
+  );
   const startIndex = Math.max(0, Math.floor(relativeTop / rowHeight) - OVERSCAN_ROWS);
   const endIndex = Math.min(rows.length, Math.ceil(relativeBottom / rowHeight) + OVERSCAN_ROWS);
   const visibleRows = rows.slice(startIndex, endIndex);
+  const totalHeight = mobileLayout
+    ? Math.max(
+      MOBILE_INFO_CARD_HEIGHT + mobileColumns.left.length * rowHeight,
+      mobileColumns.right.length * rowHeight
+    )
+    : rows.length * rowHeight;
 
   useLayoutEffect(() => {
     const updateMetrics = () => {
@@ -108,10 +188,56 @@ export function VirtualProductGrid({
   return (
     <div
       ref={gridRef}
-      className="virtual-product-grid"
+      className={`virtual-product-grid ${mobileLayout ? 'virtual-product-grid--mobile' : ''}`}
       style={{ '--virtual-row-height': `${rowHeight}px`, height: totalHeight }}
     >
-      {visibleRows.map((row, visibleIndex) => {
+      {mobileLayout && (
+        <>
+          <div className="virtual-product-grid-mobile-column virtual-product-grid-mobile-column--left">
+            <CatalogInfoCard details={paymentDetails} iban={paymentIban} />
+            {mobileColumns.left.slice(mobileLeftRange.start, mobileLeftRange.end).map((product, index) => {
+              const productIndex = mobileLeftRange.start + index;
+
+              return (
+                <CatalogProductCard
+                  key={product.id}
+                  product={product}
+                  qty={cartQtyByProductId.get(product.id) || 0}
+                  onProductClick={onProductClick}
+                  onAddToCart={onAddToCart}
+                  onUpdateQty={onUpdateQty}
+                  brandColors={brandColors}
+                  defaultBrandColor={defaultBrandColor}
+                  imagePriority={productIndex < 3 ? 'high' : 'auto'}
+                  cardStyle={{ transform: `translateY(${MOBILE_INFO_CARD_HEIGHT + productIndex * rowHeight}px)` }}
+                />
+              );
+            })}
+          </div>
+          <div className="virtual-product-grid-mobile-column virtual-product-grid-mobile-column--right">
+            {mobileColumns.right.slice(mobileRightRange.start, mobileRightRange.end).map((product, index) => {
+              const productIndex = mobileRightRange.start + index;
+
+              return (
+                <CatalogProductCard
+                  key={product.id}
+                  product={product}
+                  qty={cartQtyByProductId.get(product.id) || 0}
+                  onProductClick={onProductClick}
+                  onAddToCart={onAddToCart}
+                  onUpdateQty={onUpdateQty}
+                  brandColors={brandColors}
+                  defaultBrandColor={defaultBrandColor}
+                  imagePriority={productIndex < 3 ? 'high' : 'auto'}
+                  cardStyle={{ transform: `translateY(${productIndex * rowHeight}px)` }}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {!mobileLayout && visibleRows.map((row, visibleIndex) => {
         const rowIndex = startIndex + visibleIndex;
         return (
           <div

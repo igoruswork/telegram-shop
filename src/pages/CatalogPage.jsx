@@ -148,6 +148,8 @@ export function CatalogPage({
   onSaveState,
   brandColors,
   defaultBrandColor,
+  paymentDetails,
+  paymentIban,
   userName,
   onLogout,
 }) {
@@ -406,6 +408,8 @@ export function CatalogPage({
               onUpdateQty={onUpdateQty}
               brandColors={brandColors}
               defaultBrandColor={defaultBrandColor}
+              paymentDetails={paymentDetails}
+              paymentIban={paymentIban}
             />
           )}
         </>

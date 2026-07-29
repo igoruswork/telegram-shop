@@ -112,11 +112,20 @@ function normalizeAppSettings(value) {
   const catalogTitle = typeof rawTitle === 'string' && rawTitle.trim()
     ? rawTitle.trim()
     : DEFAULT_CATALOG_TITLE;
+  const paymentDetails = String(value?.paymentDetails || value?.payment_details || '')
+    .trim()
+    .slice(0, 180);
+  const paymentIban = String(value?.paymentIban || value?.payment_iban || '')
+    .toLocaleUpperCase('uk-UA')
+    .replace(/\s+/g, '')
+    .slice(0, 34);
 
   return {
     brandColors,
     catalogTitle,
     adminPhones,
+    paymentDetails,
+    paymentIban,
   };
 }
 
@@ -137,6 +146,8 @@ export default function App() {
   });
   const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
   const [adminPhones, setAdminPhones] = useState(DEFAULT_ADMIN_PHONES);
+  const [paymentDetails, setPaymentDetails] = useState('');
+  const [paymentIban, setPaymentIban] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
@@ -266,6 +277,8 @@ export default function App() {
     setBrandColors(normalized.brandColors);
     setCatalogTitle(normalized.catalogTitle);
     setAdminPhones(normalized.adminPhones);
+    setPaymentDetails(normalized.paymentDetails);
+    setPaymentIban(normalized.paymentIban);
     return true;
   }, []);
 
@@ -340,8 +353,10 @@ export default function App() {
       brandColors: nextBrandColors,
       catalogTitle,
       adminPhones,
+      paymentDetails,
+      paymentIban,
     });
-  }, [adminPhones, brandColors, catalogTitle, queueSaveSettings]);
+  }, [adminPhones, brandColors, catalogTitle, paymentDetails, paymentIban, queueSaveSettings]);
 
   const setCatalogTitleSetting = useCallback((value) => {
     const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
@@ -351,8 +366,10 @@ export default function App() {
       brandColors,
       catalogTitle: nextCatalogTitle,
       adminPhones,
+      paymentDetails,
+      paymentIban,
     });
-  }, [adminPhones, brandColors, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentDetails, paymentIban, queueSaveSettings]);
 
   const setAdminPhonesSetting = useCallback((phones) => {
     const nextAdminPhones = normalizeAdminPhones(phones);
@@ -362,8 +379,39 @@ export default function App() {
       brandColors,
       catalogTitle,
       adminPhones: nextAdminPhones,
+      paymentDetails,
+      paymentIban,
     });
-  }, [brandColors, catalogTitle, queueSaveSettings]);
+  }, [brandColors, catalogTitle, paymentDetails, paymentIban, queueSaveSettings]);
+
+  const setPaymentDetailsSetting = useCallback((value) => {
+    const nextPaymentDetails = String(value || '').slice(0, 180);
+
+    setPaymentDetails(nextPaymentDetails);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones,
+      paymentDetails: nextPaymentDetails,
+      paymentIban,
+    });
+  }, [adminPhones, brandColors, catalogTitle, paymentIban, queueSaveSettings]);
+
+  const setPaymentIbanSetting = useCallback((value) => {
+    const nextPaymentIban = String(value || '')
+      .toLocaleUpperCase('uk-UA')
+      .replace(/\s+/g, '')
+      .slice(0, 34);
+
+    setPaymentIban(nextPaymentIban);
+    queueSaveSettings({
+      brandColors,
+      catalogTitle,
+      adminPhones,
+      paymentDetails,
+      paymentIban: nextPaymentIban,
+    });
+  }, [adminPhones, brandColors, catalogTitle, paymentDetails, queueSaveSettings]);
 
   useEffect(() => {
     if (
@@ -387,8 +435,10 @@ export default function App() {
       brandColors,
       catalogTitle,
       adminPhones,
+      paymentDetails,
+      paymentIban,
     });
-  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
+  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentDetails, paymentIban, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async () => {
@@ -592,6 +642,8 @@ export default function App() {
           brandColors={brandColors}
           defaultBrandColor={defaultBrandColor}
           catalogTitle={catalogTitle}
+          paymentDetails={paymentDetails}
+          paymentIban={paymentIban}
           userName={gateData.lastName}
           onLogout={handleLogout}
         />
@@ -614,6 +666,10 @@ export default function App() {
           catalogTitle={catalogTitle}
           onCatalogTitleChange={setCatalogTitleSetting}
           defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
+          paymentDetails={paymentDetails}
+          paymentIban={paymentIban}
+          onPaymentDetailsChange={setPaymentDetailsSetting}
+          onPaymentIbanChange={setPaymentIbanSetting}
           initialSection={initialAdminSection}
           adminPhones={adminPhones}
           onAdminPhonesChange={setAdminPhonesSetting}

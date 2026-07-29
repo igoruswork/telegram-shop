@@ -44,6 +44,7 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
   brandColors,
   defaultBrandColor,
   imagePriority = 'auto',
+  cardStyle,
 }) {
   const brandStyle = useMemo(() => {
     const color = brandColors?.[product.category] || defaultBrandColor;
@@ -67,7 +68,10 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
   }, [onAddToCart, onUpdateQty, product, qty]);
 
   return (
-    <article className={`product-card ${qty > 0 ? 'product-card--in-cart' : ''}`} style={brandStyle}>
+    <article
+      className={`product-card ${qty > 0 ? 'product-card--in-cart' : ''}`}
+      style={{ ...brandStyle, ...cardStyle }}
+    >
       {qty > 0 && <div className="product-card-cart-mark" aria-label={`У кошику ${qty}`}>{qty}</div>}
 
       <div

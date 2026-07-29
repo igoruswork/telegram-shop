@@ -105,6 +105,10 @@ export function AdminPage({
   catalogTitle,
   onCatalogTitleChange,
   defaultCatalogTitle,
+  paymentDetails,
+  paymentIban,
+  onPaymentDetailsChange,
+  onPaymentIbanChange,
   initialSection = DEFAULT_ADMIN_SECTION,
   adminPhones = [],
   onAdminPhonesChange,
@@ -776,6 +780,44 @@ export function AdminPage({
               placeholder={defaultCatalogTitle}
               onChange={(e) => handleCatalogTitleInput(e.target.value)}
               maxLength={28}
+            />
+          </label>
+        </div>
+      )}
+
+      {activeSection === 'title' && (
+        <div className="admin-settings-card admin-section-card">
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Картка реквізитів</div>
+              <div className="admin-settings-subtitle">
+                На мобільному вона розміщується першою зліва над товарами.
+              </div>
+            </div>
+          </div>
+
+          <label className="admin-label admin-label--stacked">
+            <span>Текст</span>
+            <textarea
+              className="admin-input admin-settings-textarea"
+              value={paymentDetails}
+              placeholder="ФОП Прізвище Ім’я"
+              onChange={(event) => onPaymentDetailsChange?.(event.target.value)}
+              maxLength={180}
+              rows={3}
+            />
+          </label>
+          <label className="admin-label admin-label--stacked">
+            <span>IBAN</span>
+            <input
+              className="admin-input"
+              type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              value={paymentIban}
+              placeholder="UA123456789012345678901234567"
+              onChange={(event) => onPaymentIbanChange?.(event.target.value)}
+              maxLength={34}
             />
           </label>
         </div>
