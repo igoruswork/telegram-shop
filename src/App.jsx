@@ -34,6 +34,7 @@ const DEFAULT_PAYMENT_CARD_VISIBILITY = {
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
 const USER_STORAGE_KEY = 'telegram-shop-user';
+const CART_STORAGE_PREFIX = 'telegram-shop-cart:';
 
 function isHexColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(value || '');
@@ -103,6 +104,33 @@ function loadStoredUser() {
     };
   } catch {
     return null;
+  }
+}
+
+function cartStorageKey(phone) {
+  const normalizedPhone = normalizePhoneInput(phone);
+  return isPhoneComplete(normalizedPhone) ? `${CART_STORAGE_PREFIX}${normalizedPhone}` : '';
+}
+
+function loadStoredCart(storageKey) {
+  if (!storageKey) return [];
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item) => item && item.id && item.name && Number(item.price) >= 0 && Number(item.qty) > 0)
+      .map((item) => ({
+        id: item.id,
+        name: String(item.name),
+        price: Number(item.price),
+        sku: String(item.sku || ''),
+        thumbnail_url: String(item.thumbnail_url || ''),
+        qty: Math.max(1, Math.floor(Number(item.qty))),
+      }));
+  } catch {
+    return [];
   }
 }
 
@@ -214,9 +242,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(supabaseConfigError);
 
-  // ─── Кошик (тимчасовий, в пам'яті) ──────────────────
+  // ─── Кошик (зберігається на пристрої до оформлення або очищення) ──
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartStorageReadyKey, setCartStorageReadyKey] = useState('');
+  const activeCartStorageKey = useMemo(
+    () => (authorized ? cartStorageKey(gateData.phone) : ''),
+    [authorized, gateData.phone]
+  );
 
   const categories = useMemo(() => (
     [...new Set(products.map((product) => product.category).filter(Boolean))].sort()
@@ -236,6 +269,31 @@ export default function App() {
     () => cart.reduce((sum, item) => sum + item.qty, 0),
     [cart]
   );
+
+  useEffect(() => {
+    if (!activeCartStorageKey) {
+      setCart([]);
+      setCartStorageReadyKey('');
+      return;
+    }
+
+    setCart(loadStoredCart(activeCartStorageKey));
+    setCartStorageReadyKey(activeCartStorageKey);
+  }, [activeCartStorageKey]);
+
+  useEffect(() => {
+    if (!activeCartStorageKey || cartStorageReadyKey !== activeCartStorageKey) return;
+
+    try {
+      if (cart.length) {
+        localStorage.setItem(activeCartStorageKey, JSON.stringify(cart));
+      } else {
+        localStorage.removeItem(activeCartStorageKey);
+      }
+    } catch {
+      // The basket still works during this visit when browser storage is unavailable.
+    }
+  }, [activeCartStorageKey, cart, cartStorageReadyKey]);
 
   useEffect(() => {
     let frame = 0;
@@ -687,6 +745,12 @@ export default function App() {
     setCart([]);
   }, [hapticNotification]);
 
+  const clearCart = useCallback(() => {
+    haptic('medium');
+    setCart([]);
+    setCartOpen(false);
+  }, [haptic]);
+
   // ─── Навігація ───────────────────────────────────────
   const openProduct = useCallback(
     (product) => {
@@ -775,6 +839,7 @@ export default function App() {
           cartCount={cartCount}
           cartTotal={cartTotal}
           onCartClick={openCart}
+          onClearCart={clearCart}
           cartQtyByProductId={cartQtyByProductId}
           onUpdateQty={updateQty}
           isAdmin={isAdmin}
@@ -836,6 +901,7 @@ export default function App() {
         onClose={() => setCartOpen(false)}
         cart={cart}
         onUpdateQty={updateQty}
+        onClearCart={clearCart}
         total={cartTotal}
         phone={gateData.phone}
         lastName={gateData.lastName}

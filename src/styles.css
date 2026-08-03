@@ -1022,11 +1022,20 @@ body {
 }
 
 /* ---- Cart FAB ---- */
-.cart-fab {
+.cart-fab-bar {
   position: fixed;
   bottom: 20px;
   left: 16px;
   right: 16px;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  z-index: 40;
+  animation: slideUp 0.4s ease-out;
+}
+
+.cart-fab {
+  flex: 1;
   padding: 14px 20px;
   background: linear-gradient(135deg, var(--accent), var(--accent-dark), #38bdf8, var(--accent));
   background-size: 300% 300%;
@@ -1041,9 +1050,8 @@ body {
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 8px 32px rgba(14, 165, 233, 0.35);
-  z-index: 40;
   transition: var(--transition);
-  animation: slideUp 0.4s ease-out, gradientShift 4s ease infinite 0.4s;
+  animation: gradientShift 4s ease infinite 0.4s;
 }
 
 .cart-fab:active {
@@ -1066,6 +1074,35 @@ body {
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
+}
+
+.cart-clear-btn {
+  min-width: 58px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--accent-dark);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.cart-clear-btn svg {
+  width: 19px;
+  height: 19px;
+}
+
+.cart-clear-btn:active {
+  transform: scale(0.96);
 }
 
 /* ---- Cart Drawer ---- */
@@ -1253,6 +1290,23 @@ body {
 }
 
 .cart-submit-btn:disabled {
+  opacity: 0.5;
+}
+
+.cart-clear-drawer-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cart-clear-drawer-btn:disabled {
   opacity: 0.5;
 }
 
@@ -2591,6 +2645,52 @@ body {
   min-width: 0;
 }
 
+.admin-access-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.admin-user-name-edit,
+.admin-user-name-cancel {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(var(--brand-rgb), 0.18);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--brand-color);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-user-name-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-user-name-editor .admin-input {
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.admin-user-name-save {
+  min-height: 34px;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 9px;
+  background: var(--brand-color);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .admin-access-name {
   font-size: 14px;
   font-weight: 850;
@@ -2959,18 +3059,23 @@ body {
 
 .scroll-top-fab {
   position: fixed;
-  top: calc(8px + var(--safe-top));
-  left: 14px;
+  top: calc(60px + var(--safe-top));
+  right: 14px;
   z-index: 90;
-  width: 44px;
-  height: 44px;
+  min-width: 96px;
+  height: 42px;
+  padding: 0 13px;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.68);
   color: var(--brand-color);
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(16px) saturate(165%);
   -webkit-backdrop-filter: blur(16px) saturate(165%);
@@ -2984,8 +3089,8 @@ body {
 }
 
 .scroll-top-fab svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .scroll-top-fab.is-active {
@@ -3088,13 +3193,13 @@ body {
 }
 
 .scroll-top-fab.is-active {
-  width: 36px;
-  height: 36px;
+  min-width: 96px;
+  height: 42px;
 }
 
 .scroll-top-fab.is-active svg {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
 }
 
 .catalog-header--compact .cart-badge {

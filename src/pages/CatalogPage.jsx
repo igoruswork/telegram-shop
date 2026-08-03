@@ -140,6 +140,7 @@ export function CatalogPage({
   cartCount,
   cartTotal,
   onCartClick,
+  onClearCart,
   cartQtyByProductId,
   onUpdateQty,
   isAdmin,
@@ -330,7 +331,8 @@ export function CatalogPage({
       <button
         type="button"
         className={`scroll-top-fab ${headerCompact ? 'is-active' : ''}`}
-        aria-label="Повернутися на початок"
+        aria-label="Повернутися на початок каталогу"
+        title="Повернутися на початок"
         aria-hidden={!headerCompact}
         tabIndex={headerCompact ? 0 : -1}
         onClick={scrollToTop}
@@ -339,6 +341,7 @@ export function CatalogPage({
           <path d="M12 19V5" />
           <path d="M5 12l7-7 7 7" />
         </svg>
+        <span>Вгору</span>
       </button>
 
       {/* Категорії */}
@@ -425,18 +428,35 @@ export function CatalogPage({
 
       {/* FAB кошика */}
       {cartCount > 0 && (
-        <button
-          type="button"
-          className="cart-fab"
-          aria-label="Відкрити кошик"
-          onClick={onCartClick}
-        >
-          <div className="cart-fab-left">
-            <span className="cart-fab-count">{cartCount}</span>
-            <span>Кошик</span>
-          </div>
-          <div>{formatPrice(cartTotal)} ₴</div>
-        </button>
+        <div className="cart-fab-bar">
+          <button
+            type="button"
+            className="cart-clear-btn"
+            aria-label="Скинути кошик"
+            title="Скинути кошик"
+            onClick={onClearCart}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18" />
+              <path d="M8 6V4h8v2" />
+              <path d="M19 6l-1 14H6L5 6" />
+              <path d="M10 11v5M14 11v5" />
+            </svg>
+            <span>Скинути</span>
+          </button>
+          <button
+            type="button"
+            className="cart-fab"
+            aria-label="Відкрити кошик"
+            onClick={onCartClick}
+          >
+            <div className="cart-fab-left">
+              <span className="cart-fab-count">{cartCount}</span>
+              <span>Кошик</span>
+            </div>
+            <div>{formatPrice(cartTotal)} ₴</div>
+          </button>
+        </div>
       )}
     </div>
   );

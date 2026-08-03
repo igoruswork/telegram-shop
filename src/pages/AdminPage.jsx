@@ -10,6 +10,7 @@ import {
   importProductImage,
   updateProduct,
   updateCatalogUserApproval,
+  updateCatalogUserName,
   uploadProductImageFile,
 } from '../lib/supabase';
 import { isPhoneComplete, normalizePhoneInput } from '../lib/phone';
@@ -147,6 +148,9 @@ export function AdminPage({
   const [accessTab, setAccessTab] = useState('all');
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState('');
+  const [editingCatalogUserPhone, setEditingCatalogUserPhone] = useState('');
+  const [catalogUserNameDraft, setCatalogUserNameDraft] = useState('');
+  const [savingCatalogUserName, setSavingCatalogUserName] = useState(false);
   const [accessLogs, setAccessLogs] = useState([]);
   const [accessLogsLoading, setAccessLogsLoading] = useState(false);
   const [accessLogsError, setAccessLogsError] = useState('');
@@ -463,6 +467,37 @@ export function AdminPage({
         item.phone === catalogUser.phone ? { ...item, is_approved: previous } : item
       )));
       alert('Помилка: ' + error.message);
+    }
+  };
+
+  const startCatalogUserNameEdit = (catalogUser) => {
+    setEditingCatalogUserPhone(catalogUser.phone);
+    setCatalogUserNameDraft(catalogUser.last_name || '');
+  };
+
+  const cancelCatalogUserNameEdit = () => {
+    setEditingCatalogUserPhone('');
+    setCatalogUserNameDraft('');
+  };
+
+  const saveCatalogUserName = async (catalogUser) => {
+    const lastName = catalogUserNameDraft.trim().replace(/\s+/g, ' ').slice(0, 120);
+    if (!lastName) {
+      alert('Введіть ім’я користувача.');
+      return;
+    }
+
+    setSavingCatalogUserName(true);
+    try {
+      const updated = await updateCatalogUserName(catalogUser.phone, lastName);
+      setCatalogUsers((current) => current.map((item) => (
+        item.phone === updated.phone ? updated : item
+      )));
+      cancelCatalogUserNameEdit();
+    } catch (error) {
+      alert('Помилка: ' + error.message);
+    } finally {
+      setSavingCatalogUserName(false);
     }
   };
 
@@ -1149,7 +1184,32 @@ export function AdminPage({
               className={`admin-access-card ${entry.is_approved ? 'admin-access-card--approved' : 'admin-access-card--pending'}`}
             >
               <div className="admin-access-person">
-                <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
+                {editingCatalogUserPhone === entry.phone ? (
+                  <div className="admin-user-name-editor">
+                    <input
+                      className="admin-input"
+                      type="text"
+                      value={catalogUserNameDraft}
+                      onChange={(event) => setCatalogUserNameDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') saveCatalogUserName(entry);
+                        if (event.key === 'Escape') cancelCatalogUserNameEdit();
+                      }}
+                      maxLength={120}
+                      autoFocus
+                      aria-label="Ім’я користувача"
+                    />
+                    <button type="button" className="admin-user-name-save" disabled={savingCatalogUserName} onClick={() => saveCatalogUserName(entry)}>
+                      {savingCatalogUserName ? '…' : 'Зберегти'}
+                    </button>
+                    <button type="button" className="admin-user-name-cancel" disabled={savingCatalogUserName} onClick={cancelCatalogUserNameEdit} aria-label="Скасувати редагування">×</button>
+                  </div>
+                ) : (
+                  <div className="admin-access-name-row">
+                    <div className="admin-access-name">{entry.last_name || 'Без імені'}</div>
+                    <button type="button" className="admin-user-name-edit" onClick={() => startCatalogUserNameEdit(entry)} aria-label={`Редагувати ім’я ${entry.last_name || 'користувача'}`}>✎</button>
+                  </div>
+                )}
                 <div className="admin-access-phone">{entry.phone || 'Без телефону'}</div>
               </div>
               <div className="admin-access-meta">

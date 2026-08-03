@@ -12,6 +12,7 @@ export function CartDrawer({
   onClose,
   cart,
   onUpdateQty,
+  onClearCart,
   total,
   phone,
   lastName,
@@ -161,6 +162,14 @@ export function CartDrawer({
               })}
             >
               {submitting ? 'Надсилання…' : 'Оформити замовлення'}
+            </button>
+            <button
+              type="button"
+              className="cart-clear-drawer-btn"
+              disabled={submitting}
+              {...bindSingleTap(onClearCart, { preventDefault: true })}
+            >
+              Скинути кошик
             </button>
           </div>
         )}

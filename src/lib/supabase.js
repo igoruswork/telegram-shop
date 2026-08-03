@@ -354,6 +354,24 @@ export async function updateCatalogUserApproval(phone, isApproved) {
   return data;
 }
 
+export async function updateCatalogUserName(phone, lastName) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('catalog_users')
+    .update({ last_name: String(lastName || '').trim() })
+    .eq('phone', phone)
+    .select('phone, last_name, tg_user_id, is_approved, created_at, updated_at, last_access_at')
+    .single();
+
+  if (error) {
+    console.error('updateCatalogUserName error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося змінити ім’я користувача.'));
+  }
+
+  return data;
+}
+
 export async function fetchAccessLogEntries(limit = 300) {
   ensureSupabaseConfigured();
 
