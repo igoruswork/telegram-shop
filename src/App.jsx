@@ -5,6 +5,7 @@ import {
   fetchCatalogUserAccess,
   fetchProducts,
   logAccess,
+  recordLoveCareEvent,
   saveAppSettings,
   subscribeToAppSettings,
   subscribeToProducts,
@@ -14,6 +15,7 @@ import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductPage } from './pages/ProductPage';
 import { AdminPage } from './pages/AdminPage';
+import { LoveCarePage } from './pages/LoveCarePage';
 import { CartDrawer } from './components/CartDrawer';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
 import './styles.css';
@@ -222,6 +224,7 @@ export default function App() {
   const saveSettingsTimeoutRef = useRef(null);
   const localSettingsMigrationRef = useRef(false);
   const storedAccessLoggedRef = useRef(false);
+  const loveCareEventQueueRef = useRef(Promise.resolve());
 
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
@@ -230,7 +233,7 @@ export default function App() {
   const isAdmin = adminPhones.includes(normalizePhoneInput(gateData.phone));
 
   // ─── Навігація ────────────────────────────────────────
-  const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
+  const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin' | 'lovecare'
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [initialAdminSection, setInitialAdminSection] = useState('details');
 
@@ -778,6 +781,48 @@ export default function App() {
     setPage('catalog');
   }, [haptic]);
 
+  const enqueueLoveCareEvent = useCallback((event) => {
+    const eventWithUser = {
+      ...event,
+      phone: normalizePhoneInput(gateData.phone),
+      last_name: String(gateData.lastName || '').trim(),
+      tg_user_id: user?.id || null,
+    };
+
+    const queuedEvent = loveCareEventQueueRef.current
+      .catch(() => undefined)
+      .then(() => recordLoveCareEvent(eventWithUser));
+
+    loveCareEventQueueRef.current = queuedEvent;
+    queuedEvent.catch((error) => console.warn('LoveCare activity save error:', error));
+    return queuedEvent;
+  }, [gateData.lastName, gateData.phone, user?.id]);
+
+  const openLoveCare = useCallback(() => {
+    if (!isAdmin) return;
+    hapticNotification('success');
+    setPage('lovecare');
+    enqueueLoveCareEvent({ type: 'session_open' });
+  }, [enqueueLoveCareEvent, hapticNotification, isAdmin]);
+
+  const closeLoveCare = useCallback(() => {
+    haptic('light');
+    setPage('catalog');
+  }, [haptic]);
+
+  const handleLoveCareReaction = useCallback((product, reaction) => {
+    hapticNotification(reaction === 'like' ? 'success' : 'warning');
+    enqueueLoveCareEvent({
+      type: 'product_reaction',
+      reaction,
+      product_id: product.id,
+      product_name: product.name,
+      product_sku: product.sku || '',
+      product_category: product.category || '',
+      product_price: Number(product.price || 0),
+    });
+  }, [enqueueLoveCareEvent, hapticNotification]);
+
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {
     const userData = {
@@ -844,6 +889,7 @@ export default function App() {
           onUpdateQty={updateQty}
           isAdmin={isAdmin}
           onAdminClick={openAdmin}
+          onLoveCareClick={openLoveCare}
           savedState={catalogState}
           onSaveState={setCatalogState}
           brandColors={brandColors}
@@ -893,6 +939,15 @@ export default function App() {
           adminPhones={adminPhones}
           onAdminPhonesChange={setAdminPhonesSetting}
           currentAdminPhone={gateData.phone}
+        />
+      )}
+
+      {page === 'lovecare' && isAdmin && (
+        <LoveCarePage
+          products={products}
+          userName={gateData.lastName}
+          onBack={closeLoveCare}
+          onReaction={handleLoveCareReaction}
         />
       )}
 

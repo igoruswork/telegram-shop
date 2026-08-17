@@ -144,12 +144,18 @@ export async function fetchAppSettings() {
 export async function saveAppSettings(value) {
   ensureSupabaseConfigured();
 
+  const currentValue = await fetchAppSettings().catch(() => null);
+  const mergedValue = {
+    ...(currentValue && typeof currentValue === 'object' ? currentValue : {}),
+    ...(value && typeof value === 'object' ? value : {}),
+  };
+
   const { error } = await supabase
     .from('app_settings')
     .upsert(
       {
         key: APP_SETTINGS_KEY,
-        value,
+        value: mergedValue,
       },
       { onConflict: 'key' }
     );
@@ -158,6 +164,26 @@ export async function saveAppSettings(value) {
     console.error('saveAppSettings error:', error);
     throw new Error(toReadableError(error, 'Не вдалося зберегти налаштування каталогу.'));
   }
+
+  return mergedValue;
+}
+
+export async function recordLoveCareEvent(event) {
+  ensureSupabaseConfigured();
+
+  const settings = await fetchAppSettings() || {};
+  const activity = Array.isArray(settings.loveCareActivity)
+    ? settings.loveCareActivity
+    : [];
+  const nextEvent = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    created_at: new Date().toISOString(),
+    ...event,
+  };
+
+  const loveCareActivity = [...activity, nextEvent].slice(-1000);
+  await saveAppSettings({ loveCareActivity });
+  return nextEvent;
 }
 
 /**

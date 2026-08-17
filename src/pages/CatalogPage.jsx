@@ -145,6 +145,7 @@ export function CatalogPage({
   onUpdateQty,
   isAdmin,
   onAdminClick,
+  onLoveCareClick,
   savedState,
   onSaveState,
   brandColors,
@@ -285,6 +286,15 @@ export function CatalogPage({
           )}
           {isAdmin && (
             <div className="catalog-admin-shortcuts" aria-label="Швидкі дії адміна">
+              <button
+                type="button"
+                className="catalog-search-admin-btn catalog-love-btn"
+                aria-label="Відкрити LoveCare"
+                title="LoveCare"
+                onClick={onLoveCareClick}
+              >
+                <span aria-hidden="true">♥</span>
+              </button>
               {adminShortcuts.map((shortcut) => (
                 <button
                   key={shortcut.section}

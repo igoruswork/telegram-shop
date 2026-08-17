@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { SafeImage } from './SafeImage';
+import { productDisplayText } from '../lib/productDisplay';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -46,6 +47,9 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
   imagePriority = 'auto',
   cardStyle,
 }) {
+  const badge = productDisplayText(product.badge);
+  const sku = productDisplayText(product.sku);
+  const category = productDisplayText(product.p_category) || productDisplayText(product.category);
   const brandStyle = useMemo(() => {
     const color = brandColors?.[product.category] || defaultBrandColor;
     const validColor = isHexColor(color) ? color : defaultBrandColor;
@@ -85,8 +89,8 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
         }}
       >
         <div className="product-card-imgwrap">
-          {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
-            <span className={`product-badge ${getBadgeClass(product.badge)}`}>{product.badge}</span>
+          {badge && (
+            <span className={`product-badge ${getBadgeClass(badge)}`}>{badge}</span>
           )}
           <SafeImage
             className="product-card-img"
@@ -99,11 +103,11 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
         </div>
 
         <div className="product-card-body">
-          <div className="product-card-name">{product.name}</div>
-          {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
-            <div className="product-card-category product-card-sku">{product.sku}</div>
+          <div className="product-card-name">{productDisplayText(product.name, 'Товар')}</div>
+          {sku && (
+            <div className="product-card-category product-card-sku">{sku}</div>
           )}
-          <div className="product-card-category">{product.p_category || product.category}</div>
+          {category && <div className="product-card-category">{category}</div>}
         </div>
       </div>
 

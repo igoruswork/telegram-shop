@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
+import { productDisplayText } from '../lib/productDisplay';
 import { SafeImage } from '../components/SafeImage';
 
 function formatPrice(price) {
@@ -96,6 +97,11 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
     );
   }
 
+  const badge = productDisplayText(product.badge);
+  const sku = productDisplayText(product.sku);
+  const category = productDisplayText(product.category);
+  const subCategory = productDisplayText(product.p_category);
+
   return (
     <div className="product-page">
       <div className="product-page-header">
@@ -107,7 +113,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
         >
           ←
         </button>
-        <div className="product-page-title">{product.name}</div>
+        <div className="product-page-title">{productDisplayText(product.name, 'Товар')}</div>
       </div>
 
       <SafeImage
@@ -121,21 +127,24 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
       />
 
       <div className="product-page-body">
-        {product.badge && String(product.badge).trim().toUpperCase() !== 'NULL' && (
-          <span className={`product-page-badge ${getBadgeClass(product.badge)}`}>
-            {product.badge}
+        {badge && (
+          <span className={`product-page-badge ${getBadgeClass(badge)}`}>
+            {badge}
           </span>
         )}
 
-        <h1 className="product-page-name">{product.name}</h1>
+        <h1 className="product-page-name">{productDisplayText(product.name, 'Товар')}</h1>
 
-        <div className="product-page-cat">
-          {product.category}
-          {product.p_category ? ` → ${product.p_category}` : ''}
-        </div>
+        {(category || subCategory) && (
+          <div className="product-page-cat">
+            {category}
+            {category && subCategory ? ' → ' : ''}
+            {subCategory}
+          </div>
+        )}
 
-        {product.sku && String(product.sku).trim().toUpperCase() !== 'NULL' && (
-          <div className="product-page-sku">Штрихкод: {product.sku}</div>
+        {sku && (
+          <div className="product-page-sku">Штрихкод: {sku}</div>
         )}
 
         <div className="product-page-price-row">
