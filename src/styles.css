@@ -4394,6 +4394,48 @@ body {
   opacity: 0.58;
 }
 
+.lovecare-admin-delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(225, 29, 72, 0.11);
+  background: #fff7f8;
+  color: #9f1239;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.lovecare-admin-delete-confirm > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.lovecare-admin-delete-confirm button {
+  min-height: 30px;
+  border-radius: 9px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.lovecare-admin-delete-confirm-action {
+  border: 1px solid #e11d48;
+  background: #e11d48;
+  color: #fff;
+}
+
+.lovecare-admin-delete-cancel {
+  border: 1px solid rgba(190, 24, 93, 0.18);
+  background: #fff;
+  color: #9f1239;
+}
+
 .lovecare-admin-reactions {
   display: grid;
   gap: 10px;
@@ -4635,6 +4677,15 @@ body {
   .lovecare-admin-delete {
     grid-column: 3;
     grid-row: 1;
+  }
+
+  .lovecare-admin-delete-confirm {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lovecare-admin-delete-confirm > div {
+    justify-content: flex-start;
   }
 
   .lovecare-admin-reaction time {

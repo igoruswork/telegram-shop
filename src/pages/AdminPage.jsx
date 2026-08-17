@@ -187,6 +187,7 @@ export function AdminPage({
   const [loveCareError, setLoveCareError] = useState('');
   const [loveCareSearch, setLoveCareSearch] = useState('');
   const [deletingLoveCareSessionIds, setDeletingLoveCareSessionIds] = useState({});
+  const [confirmingLoveCareSessionId, setConfirmingLoveCareSessionId] = useState('');
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
@@ -415,8 +416,6 @@ export function AdminPage({
       return;
     }
 
-    if (!window.confirm('Видалити цей вхід LoveCare разом з усіма реакціями? Цю дію не можна скасувати.')) return;
-
     const previousActivity = loveCareActivity;
     const idsToDelete = new Set(eventIds);
     setLoveCareError('');
@@ -429,6 +428,7 @@ export function AdminPage({
       setLoveCareActivity(previousActivity);
       setLoveCareError(error.message || 'Не вдалося видалити вхід LoveCare.');
     } finally {
+      setConfirmingLoveCareSessionId((current) => (current === session.id ? '' : current));
       setDeletingLoveCareSessionIds((current) => {
         const next = { ...current };
         delete next[session.id];
@@ -1449,6 +1449,7 @@ export function AdminPage({
               const likedProducts = session.reactions.filter((entry) => entry.reaction === 'like');
               const dislikedProducts = session.reactions.filter((entry) => entry.reaction !== 'like');
               const isDeleting = Boolean(deletingLoveCareSessionIds[session.id]);
+              const isConfirmingDelete = confirmingLoveCareSessionId === session.id;
 
               return (
                 <article key={session.id} className="lovecare-admin-session">
@@ -1469,7 +1470,7 @@ export function AdminPage({
                       className="lovecare-admin-delete"
                       aria-label="Видалити цей вхід LoveCare та реакції"
                       title="Видалити вхід і реакції"
-                      onClick={() => handleDeleteLoveCareSession(session)}
+                      onClick={() => setConfirmingLoveCareSessionId(session.id)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? '…' : (
@@ -1479,6 +1480,30 @@ export function AdminPage({
                       )}
                     </button>
                   </header>
+
+                  {isConfirmingDelete && (
+                    <div className="lovecare-admin-delete-confirm" role="alert">
+                      <span>Видалити цей вхід і всі реакції?</span>
+                      <div>
+                        <button
+                          type="button"
+                          className="lovecare-admin-delete-confirm-action"
+                          onClick={() => handleDeleteLoveCareSession(session)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Видаляємо…' : 'Так, видалити'}
+                        </button>
+                        <button
+                          type="button"
+                          className="lovecare-admin-delete-cancel"
+                          onClick={() => setConfirmingLoveCareSessionId('')}
+                          disabled={isDeleting}
+                        >
+                          Скасувати
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="lovecare-admin-reactions">
                     {session.reactions.length ? (
