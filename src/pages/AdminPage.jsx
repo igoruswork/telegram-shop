@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   createProduct,
   deleteAccessLogEntry,
+  deleteLoveCareActivityEvents,
   fetchAdminOrders,
   fetchAccessLogEntries,
   fetchAllProducts,
@@ -185,6 +186,7 @@ export function AdminPage({
   const [loveCareLoading, setLoveCareLoading] = useState(false);
   const [loveCareError, setLoveCareError] = useState('');
   const [loveCareSearch, setLoveCareSearch] = useState('');
+  const [deletingLoveCareSessionIds, setDeletingLoveCareSessionIds] = useState({});
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
@@ -348,7 +350,7 @@ export function AdminPage({
         const current = sessions.get(id);
         if (current) return;
 
-        sessions.set(id, { id, opened: entry, closed: null, reactions: [] });
+        sessions.set(id, { id, opened: entry, closed: null, reactions: [], eventIds: [entry.id] });
       });
 
     loveCareActivity
@@ -363,9 +365,12 @@ export function AdminPage({
             opened: entry,
             closed: null,
             reactions: [],
+            eventIds: [],
           };
           sessions.set(id, session);
         }
+
+        if (entry.id) session.eventIds.push(entry.id);
 
         if (entry.type === 'session_close') {
           session.closed = entry;
@@ -400,6 +405,37 @@ export function AdminPage({
       ]),
     ].filter(Boolean).some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query)));
   }, [loveCareSearch, loveCareSessions]);
+
+  const handleDeleteLoveCareSession = async (session) => {
+    if (deletingLoveCareSessionIds[session.id]) return;
+
+    const eventIds = session.eventIds.filter(Boolean);
+    if (eventIds.length === 0) {
+      alert('Не вдалося визначити записи для видалення. Оновіть сторінку та спробуйте ще раз.');
+      return;
+    }
+
+    if (!window.confirm('Видалити цей вхід LoveCare разом з усіма реакціями? Цю дію не можна скасувати.')) return;
+
+    const previousActivity = loveCareActivity;
+    const idsToDelete = new Set(eventIds);
+    setLoveCareError('');
+    setDeletingLoveCareSessionIds((current) => ({ ...current, [session.id]: true }));
+    setLoveCareActivity((current) => current.filter((entry) => !idsToDelete.has(entry.id)));
+
+    try {
+      await deleteLoveCareActivityEvents(eventIds);
+    } catch (error) {
+      setLoveCareActivity(previousActivity);
+      setLoveCareError(error.message || 'Не вдалося видалити вхід LoveCare.');
+    } finally {
+      setDeletingLoveCareSessionIds((current) => {
+        const next = { ...current };
+        delete next[session.id];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     if (categoryOptions.length === 0) {
@@ -1412,6 +1448,7 @@ export function AdminPage({
               const opened = session.opened || {};
               const likedProducts = session.reactions.filter((entry) => entry.reaction === 'like');
               const dislikedProducts = session.reactions.filter((entry) => entry.reaction !== 'like');
+              const isDeleting = Boolean(deletingLoveCareSessionIds[session.id]);
 
               return (
                 <article key={session.id} className="lovecare-admin-session">
@@ -1427,6 +1464,20 @@ export function AdminPage({
                       <time dateTime={opened.created_at}>{formatKyivDateTime(opened.created_at)}</time>
                       {session.closed?.created_at && <span>Вийшов(ла) {formatKyivDateTime(session.closed.created_at)}</span>}
                     </div>
+                    <button
+                      type="button"
+                      className="lovecare-admin-delete"
+                      aria-label="Видалити цей вхід LoveCare та реакції"
+                      title="Видалити вхід і реакції"
+                      onClick={() => handleDeleteLoveCareSession(session)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? '…' : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" />
+                        </svg>
+                      )}
+                    </button>
                   </header>
 
                   <div className="lovecare-admin-reactions">

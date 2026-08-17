@@ -198,6 +198,22 @@ export async function fetchLoveCareActivity(limit = 1000) {
     .slice(0, limit);
 }
 
+export async function deleteLoveCareActivityEvents(eventIds) {
+  ensureSupabaseConfigured();
+
+  const idsToDelete = new Set((Array.isArray(eventIds) ? eventIds : []).filter(Boolean));
+  if (idsToDelete.size === 0) return [];
+
+  const settings = await fetchAppSettings() || {};
+  const activity = Array.isArray(settings.loveCareActivity)
+    ? settings.loveCareActivity
+    : [];
+  const loveCareActivity = activity.filter((entry) => !idsToDelete.has(entry?.id));
+
+  await saveAppSettings({ loveCareActivity });
+  return loveCareActivity;
+}
+
 /**
  * Отримати всі видимі товари (view = true), відсортовані по number_sites
  */

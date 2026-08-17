@@ -4345,7 +4345,7 @@ body {
 
 .lovecare-admin-session-head {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto 34px;
   align-items: center;
   gap: 10px;
   padding: 12px;
@@ -4363,6 +4363,35 @@ body {
   font-size: 23px;
   font-weight: 900;
   box-shadow: 0 8px 16px rgba(225, 29, 72, 0.22);
+}
+
+.lovecare-admin-delete {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(225, 29, 72, 0.18);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #e11d48;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.lovecare-admin-delete svg {
+  width: 16px;
+  height: 16px;
+}
+
+.lovecare-admin-delete:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #fff1f2;
+  box-shadow: 0 5px 12px rgba(225, 29, 72, 0.13);
+}
+
+.lovecare-admin-delete:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .lovecare-admin-reactions {
@@ -4584,7 +4613,7 @@ body {
   }
 
   .lovecare-admin-session-head {
-    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr) 34px;
   }
 
   .lovecare-admin-session-icon {
@@ -4601,6 +4630,11 @@ body {
     grid-auto-flow: column;
     justify-content: start;
     text-align: left;
+  }
+
+  .lovecare-admin-delete {
+    grid-column: 3;
+    grid-row: 1;
   }
 
   .lovecare-admin-reaction time {
