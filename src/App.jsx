@@ -962,6 +962,7 @@ export default function App() {
         <LoveCarePage
           products={products}
           userName={gateData.lastName}
+          isAdmin={isAdmin}
           onBack={closeLoveCare}
           onReaction={handleLoveCareReaction}
         />

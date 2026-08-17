@@ -3947,6 +3947,53 @@ body {
   gap: 10px;
 }
 
+.lovecare-game-notice {
+  position: fixed;
+  z-index: 20;
+  top: calc(var(--safe-top) + 76px);
+  left: 50%;
+  width: min(calc(100% - 32px), 420px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 16px;
+  background: rgba(78, 29, 70, 0.9);
+  box-shadow: 0 12px 30px rgba(64, 16, 54, 0.25);
+  color: #fff;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: loveCareNoticeIn 280ms ease-out both;
+}
+
+.lovecare-game-notice > span {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fb7185, #a855f7);
+  font-size: 17px;
+}
+
+.lovecare-game-notice p {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.lovecare-game-notice b {
+  font-weight: 950;
+}
+
+@keyframes loveCareNoticeIn {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 .lovecare-back {
   width: 44px;
   height: 44px;

@@ -15,8 +15,9 @@ function shuffleProducts(products) {
   return next;
 }
 
-export function LoveCarePage({ products, userName, onBack, onReaction }) {
+export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }) {
   const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [showGameNotice, setShowGameNotice] = useState(!isAdmin);
   const shuffledProducts = useMemo(
     () => shuffleProducts(products.filter((product) => product?.view !== false)),
     [products, shuffleSeed] // eslint-disable-line react-hooks/exhaustive-deps
@@ -39,6 +40,13 @@ export function LoveCarePage({ products, userName, onBack, onReaction }) {
   useEffect(() => () => {
     if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!showGameNotice) return undefined;
+
+    const timer = window.setTimeout(() => setShowGameNotice(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [showGameNotice]);
 
   const chooseProduct = useCallback((reaction) => {
     if (!currentProduct || isAnimating) return;
@@ -131,6 +139,13 @@ export function LoveCarePage({ products, userName, onBack, onReaction }) {
           {Math.min(currentIndex + 1, shuffledProducts.length)}<span>/</span>{shuffledProducts.length}
         </div>
       </header>
+
+      {showGameNotice && (
+        <div className="lovecare-game-notice" role="status">
+          <span aria-hidden="true">♥</span>
+          <p><b>LoveCare — це гра!</b> Свайпай товари: праворуч — подобається, ліворуч — не моє.</p>
+        </div>
+      )}
 
       <section className="lovecare-stage" aria-live="polite">
         {nextProduct && (
