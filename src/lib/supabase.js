@@ -186,6 +186,18 @@ export async function recordLoveCareEvent(event) {
   return nextEvent;
 }
 
+export async function fetchLoveCareActivity(limit = 1000) {
+  const settings = await fetchAppSettings();
+  const activity = Array.isArray(settings?.loveCareActivity)
+    ? settings.loveCareActivity
+    : [];
+
+  return activity
+    .filter((entry) => entry && typeof entry === 'object')
+    .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0))
+    .slice(0, limit);
+}
+
 /**
  * Отримати всі видимі товари (view = true), відсортовані по number_sites
  */

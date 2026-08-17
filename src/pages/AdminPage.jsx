@@ -6,6 +6,7 @@ import {
   fetchAccessLogEntries,
   fetchAllProducts,
   fetchCatalogUsers,
+  fetchLoveCareActivity,
   fetchProductImageSource,
   importProductImage,
   updateProduct,
@@ -42,6 +43,7 @@ const adminSections = [
   { id: 'visibility', label: 'Видимість' },
   { id: 'access', label: 'Користувачі' },
   { id: 'access-log', label: 'Журнал входів' },
+  { id: 'lovecare', label: 'LoveCare' },
   { id: 'orders', label: 'Замовлення' },
 ];
 
@@ -96,6 +98,27 @@ function normalizeOrderItems(items) {
   }
 
   return [];
+}
+
+function cleanActivityText(value, fallback = '') {
+  const text = String(value ?? '').trim();
+  return !text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined'
+    ? fallback
+    : text;
+}
+
+function loveCareSessionKey(entry) {
+  if (entry.session_id) return entry.session_id;
+
+  // Early LoveCare entries did not have a session_id. Group those records by
+  // phone and entry minute so the existing history appears as one session.
+  const phone = cleanActivityText(entry.phone, 'unknown');
+  const date = new Date(entry.created_at || 0);
+  const minute = Number.isNaN(date.getTime())
+    ? String(entry.id || 'unknown')
+    : date.toISOString().slice(0, 16);
+
+  return `legacy-${phone}-${minute}`;
 }
 
 export function AdminPage({
@@ -158,6 +181,10 @@ export function AdminPage({
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+  const [loveCareActivity, setLoveCareActivity] = useState([]);
+  const [loveCareLoading, setLoveCareLoading] = useState(false);
+  const [loveCareError, setLoveCareError] = useState('');
+  const [loveCareSearch, setLoveCareSearch] = useState('');
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
@@ -234,6 +261,21 @@ export function AdminPage({
     }
   }, []);
 
+  const loadLoveCareActivity = useCallback(async () => {
+    setLoveCareLoading(true);
+    setLoveCareError('');
+
+    try {
+      const data = await fetchLoveCareActivity();
+      setLoveCareActivity(data);
+    } catch (error) {
+      setLoveCareActivity([]);
+      setLoveCareError(error.message || 'Не вдалося завантажити реакції LoveCare.');
+    } finally {
+      setLoveCareLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeSection === 'access') {
       loadCatalogUsers();
@@ -246,7 +288,11 @@ export function AdminPage({
     if (activeSection === 'orders') {
       loadOrders();
     }
-  }, [activeSection, loadAccessLogs, loadCatalogUsers, loadOrders]);
+
+    if (activeSection === 'lovecare') {
+      loadLoveCareActivity();
+    }
+  }, [activeSection, loadAccessLogs, loadCatalogUsers, loadLoveCareActivity, loadOrders]);
 
   useEffect(() => {
     const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors'].includes(activeSection);
@@ -291,6 +337,69 @@ export function AdminPage({
         .some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query));
     });
   }, [accessSearch, accessTab, catalogUsers]);
+
+  const loveCareSessions = useMemo(() => {
+    const sessions = new Map();
+
+    loveCareActivity
+      .filter((entry) => entry.type === 'session_open')
+      .forEach((entry) => {
+        const id = loveCareSessionKey(entry);
+        const current = sessions.get(id);
+        if (current) return;
+
+        sessions.set(id, { id, opened: entry, closed: null, reactions: [] });
+      });
+
+    loveCareActivity
+      .filter((entry) => entry.type !== 'session_open')
+      .forEach((entry) => {
+        const id = loveCareSessionKey(entry);
+        let session = sessions.get(id);
+
+        if (!session) {
+          session = {
+            id,
+            opened: entry,
+            closed: null,
+            reactions: [],
+          };
+          sessions.set(id, session);
+        }
+
+        if (entry.type === 'session_close') {
+          session.closed = entry;
+        } else if (entry.type === 'product_reaction') {
+          session.reactions.push(entry);
+        }
+      });
+
+    return [...sessions.values()]
+      .map((session) => ({
+        ...session,
+        reactions: session.reactions.sort((left, right) => (
+          new Date(right.created_at || 0) - new Date(left.created_at || 0)
+        )),
+      }))
+      .sort((left, right) => new Date(right.opened?.created_at || 0) - new Date(left.opened?.created_at || 0));
+  }, [loveCareActivity]);
+
+  const filteredLoveCareSessions = useMemo(() => {
+    const query = loveCareSearch.trim().toLocaleLowerCase('uk-UA');
+    if (!query) return loveCareSessions;
+
+    return loveCareSessions.filter((session) => [
+      session.opened?.last_name,
+      session.opened?.phone,
+      session.opened?.tg_user_id,
+      ...session.reactions.flatMap((entry) => [
+        entry.product_name,
+        entry.product_sku,
+        entry.product_category,
+        entry.reaction,
+      ]),
+    ].filter(Boolean).some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query)));
+  }, [loveCareSearch, loveCareSessions]);
 
   useEffect(() => {
     if (categoryOptions.length === 0) {
@@ -445,6 +554,11 @@ export function AdminPage({
 
     if (activeSection === 'orders') {
       loadOrders();
+      return;
+    }
+
+    if (activeSection === 'lovecare') {
+      loadLoveCareActivity();
       return;
     }
 
@@ -1263,6 +1377,112 @@ export function AdminPage({
             <div className="admin-activity-loading">Записів входу ще немає</div>
           )}
         </div>
+      )}
+
+      {activeSection === 'lovecare' && (
+        <section className="lovecare-admin-section">
+          <div className="lovecare-admin-head">
+            <div>
+              <div className="admin-create-title">Реакції LoveCare</div>
+              <div className="admin-settings-subtitle">Один вхід — одна картка з усіма реакціями цього сеансу.</div>
+            </div>
+            <div className="lovecare-admin-count">{loveCareSessions.length}</div>
+          </div>
+
+          <div className="admin-access-search lovecare-admin-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="search"
+              inputMode="search"
+              value={loveCareSearch}
+              placeholder="Пошук за ПІБ, товаром або номером"
+              onChange={(event) => setLoveCareSearch(event.target.value)}
+            />
+            {loveCareSearch && (
+              <button type="button" aria-label="Очистити пошук" onClick={() => setLoveCareSearch('')}>×</button>
+            )}
+          </div>
+
+          <div className="lovecare-admin-list">
+            {loveCareLoading && <div className="admin-activity-loading">Завантаження реакцій…</div>}
+            {loveCareError && <div className="admin-activity-error">{loveCareError}</div>}
+            {!loveCareLoading && !loveCareError && filteredLoveCareSessions.map((session) => {
+              const opened = session.opened || {};
+              const likedProducts = session.reactions.filter((entry) => entry.reaction === 'like');
+              const dislikedProducts = session.reactions.filter((entry) => entry.reaction !== 'like');
+
+              return (
+                <article key={session.id} className="lovecare-admin-session">
+                  <header className="lovecare-admin-session-head">
+                    <div className="lovecare-admin-session-icon" aria-hidden="true">♥</div>
+                    <div className="lovecare-admin-main">
+                      <div className="lovecare-admin-user">{cleanActivityText(opened.last_name, 'Без імені')}</div>
+                      <div className="lovecare-admin-phone">{cleanActivityText(opened.phone, 'Без телефону')}</div>
+                    </div>
+                    <div className="lovecare-admin-meta">
+                      <span className="lovecare-admin-label">Зайшов(ла)</span>
+                      {opened.tg_user_id && <span>TG {opened.tg_user_id}</span>}
+                      <time dateTime={opened.created_at}>{formatKyivDateTime(opened.created_at)}</time>
+                      {session.closed?.created_at && <span>Вийшов(ла) {formatKyivDateTime(session.closed.created_at)}</span>}
+                    </div>
+                  </header>
+
+                  <div className="lovecare-admin-reactions">
+                    {session.reactions.length ? (
+                      <>
+                        {likedProducts.length > 0 && (
+                          <div className="lovecare-admin-reaction-group lovecare-admin-reaction-group--like">
+                            <div className="lovecare-admin-reaction-group-title"><span>♥</span> Подобається <b>{likedProducts.length}</b></div>
+                            {likedProducts.map((entry, index) => {
+                              const productName = cleanActivityText(entry.product_name, 'Товар');
+                              const productCategory = cleanActivityText(entry.product_category);
+                              return (
+                                <div key={entry.id || `${entry.created_at}-${index}`} className="lovecare-admin-reaction">
+                                  <div>
+                                    <strong>{productName}</strong>
+                                    {productCategory && <span>{productCategory}</span>}
+                                  </div>
+                                  <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {dislikedProducts.length > 0 && (
+                          <div className="lovecare-admin-reaction-group lovecare-admin-reaction-group--dislike">
+                            <div className="lovecare-admin-reaction-group-title"><span>×</span> Не подобається <b>{dislikedProducts.length}</b></div>
+                            {dislikedProducts.map((entry, index) => {
+                              const productName = cleanActivityText(entry.product_name, 'Товар');
+                              const productCategory = cleanActivityText(entry.product_category);
+                              return (
+                                <div key={entry.id || `${entry.created_at}-${index}`} className="lovecare-admin-reaction">
+                                  <div>
+                                    <strong>{productName}</strong>
+                                    {productCategory && <span>{productCategory}</span>}
+                                  </div>
+                                  <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="lovecare-admin-empty-session">Реакцій у цьому вході ще немає</div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            {!loveCareLoading && !loveCareError && filteredLoveCareSessions.length === 0 && (
+              <div className="admin-activity-loading">
+                {loveCareActivity.length ? 'За цим пошуком входів немає' : 'LoveCare ще ніхто не відкривав'}
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       {activeSection === 'orders' && (

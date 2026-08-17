@@ -225,6 +225,7 @@ export default function App() {
   const localSettingsMigrationRef = useRef(false);
   const storedAccessLoggedRef = useRef(false);
   const loveCareEventQueueRef = useRef(Promise.resolve());
+  const loveCareSessionIdRef = useRef('');
 
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
@@ -799,11 +800,9 @@ export default function App() {
   }, [gateData.lastName, gateData.phone, user?.id]);
 
   const openLoveCare = useCallback(() => {
-    if (!isAdmin) return;
     hapticNotification('success');
     setPage('lovecare');
-    enqueueLoveCareEvent({ type: 'session_open' });
-  }, [enqueueLoveCareEvent, hapticNotification, isAdmin]);
+  }, [hapticNotification]);
 
   const closeLoveCare = useCallback(() => {
     haptic('light');
@@ -814,6 +813,7 @@ export default function App() {
     hapticNotification(reaction === 'like' ? 'success' : 'warning');
     enqueueLoveCareEvent({
       type: 'product_reaction',
+      session_id: loveCareSessionIdRef.current,
       reaction,
       product_id: product.id,
       product_name: product.name,
@@ -822,6 +822,19 @@ export default function App() {
       product_price: Number(product.price || 0),
     });
   }, [enqueueLoveCareEvent, hapticNotification]);
+
+  useEffect(() => {
+    if (!authorized) {
+      loveCareSessionIdRef.current = '';
+      return;
+    }
+
+    if (loveCareSessionIdRef.current) return;
+
+    const sessionId = `lovecare-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    loveCareSessionIdRef.current = sessionId;
+    enqueueLoveCareEvent({ type: 'session_open', session_id: sessionId });
+  }, [authorized, enqueueLoveCareEvent]);
 
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {
@@ -845,6 +858,9 @@ export default function App() {
 
   const handleLogout = useCallback(() => {
     haptic('light');
+    if (loveCareSessionIdRef.current) {
+      enqueueLoveCareEvent({ type: 'session_close', session_id: loveCareSessionIdRef.current });
+    }
     localStorage.removeItem(USER_STORAGE_KEY);
     setAuthorized(false);
     setAccessChecked(true);
@@ -854,7 +870,7 @@ export default function App() {
     setCartOpen(false);
     setCart([]);
     setCatalogState(null);
-  }, [haptic]);
+  }, [enqueueLoveCareEvent, haptic]);
 
   // ─── Рендер ──────────────────────────────────────────
 
@@ -914,7 +930,7 @@ export default function App() {
         />
       )}
 
-      {page === 'admin' && (
+      {page === 'admin' && isAdmin && (
         <AdminPage
           onBack={closeAdmin}
           brandColors={brandColors}
@@ -942,7 +958,7 @@ export default function App() {
         />
       )}
 
-      {page === 'lovecare' && isAdmin && (
+      {page === 'lovecare' && (
         <LoveCarePage
           products={products}
           userName={gateData.lastName}
