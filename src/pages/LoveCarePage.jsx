@@ -27,8 +27,10 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const [exitReaction, setExitReaction] = useState('');
   const [reactionCount, setReactionCount] = useState({ like: 0, dislike: 0 });
+  const [sharedLike, setSharedLike] = useState(null);
   const pointerStartRef = useRef(null);
   const transitionTimerRef = useRef(null);
+  const sharedLikeTimerRef = useRef(null);
 
   const currentProduct = shuffledProducts[currentIndex];
   const nextProduct = shuffledProducts[currentIndex + 1];
@@ -40,6 +42,7 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
 
   useEffect(() => () => {
     if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    if (sharedLikeTimerRef.current) window.clearTimeout(sharedLikeTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -56,6 +59,12 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
 
   const stopSwipeDemo = useCallback(() => setShowSwipeDemo(false), []);
 
+  const showSharedLike = useCallback((product) => {
+    if (sharedLikeTimerRef.current) window.clearTimeout(sharedLikeTimerRef.current);
+    setSharedLike({ name: productDisplayText(product?.name, 'цей товар') });
+    sharedLikeTimerRef.current = window.setTimeout(() => setSharedLike(null), 2400);
+  }, []);
+
   const chooseProduct = useCallback((reaction) => {
     if (!currentProduct || isAnimating) return;
 
@@ -69,7 +78,14 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
       ...current,
       [reaction]: current[reaction] + 1,
     }));
-    onReaction?.(currentProduct, reaction);
+    const reactionResult = onReaction?.(currentProduct, reaction);
+    if (reaction === 'like') {
+      Promise.resolve(reactionResult)
+        .then((result) => {
+          if (result?.hasOtherUserLike) showSharedLike(currentProduct);
+        })
+        .catch(() => undefined);
+    }
 
     transitionTimerRef.current = window.setTimeout(() => {
       setCurrentIndex((index) => index + 1);
@@ -77,7 +93,7 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
       setExitReaction('');
       pointerStartRef.current = null;
     }, 320);
-  }, [currentProduct, isAnimating, onReaction, stopSwipeDemo]);
+  }, [currentProduct, isAnimating, onReaction, showSharedLike, stopSwipeDemo]);
 
   const handlePointerDown = (event) => {
     if (!currentProduct || isAnimating) return;
@@ -207,6 +223,16 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
               <span>× {reactionCount.dislike} не моє</span>
             </div>
             <button type="button" onClick={restart}>Спробувати ще раз</button>
+          </div>
+        )}
+
+        {sharedLike && (
+          <div className="lovecare-mutual-match" role="status">
+            <div>
+              <div className="lovecare-mutual-match-hearts" aria-hidden="true"><span>♥</span><span>♥</span><span>♥</span></div>
+              <strong>Вам обом подобається!</strong>
+              <small>{sharedLike.name}</small>
+            </div>
           </div>
         )}
       </section>

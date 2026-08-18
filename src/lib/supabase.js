@@ -175,6 +175,19 @@ export async function recordLoveCareEvent(event) {
   const activity = Array.isArray(settings.loveCareActivity)
     ? settings.loveCareActivity
     : [];
+  const currentTgUserId = String(event?.tg_user_id || '').trim();
+  const currentPhone = String(event?.phone || '').trim();
+  const hasOtherUserLike = event?.type === 'product_reaction'
+    && event?.reaction === 'like'
+    && activity.some((entry) => {
+      if (entry?.type !== 'product_reaction' || entry?.reaction !== 'like') return false;
+      if (String(entry.product_id || '') !== String(event.product_id || '')) return false;
+
+      const entryTgUserId = String(entry.tg_user_id || '').trim();
+      const entryPhone = String(entry.phone || '').trim();
+      if (currentTgUserId && entryTgUserId) return currentTgUserId !== entryTgUserId;
+      return Boolean(currentPhone && entryPhone && currentPhone !== entryPhone);
+    });
   const nextEvent = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     created_at: new Date().toISOString(),
@@ -183,7 +196,7 @@ export async function recordLoveCareEvent(event) {
 
   const loveCareActivity = [...activity, nextEvent].slice(-1000);
   await saveAppSettings({ loveCareActivity });
-  return nextEvent;
+  return { ...nextEvent, hasOtherUserLike };
 }
 
 export async function fetchLoveCareActivity(limit = 1000) {

@@ -4231,6 +4231,72 @@ body {
   animation: loveCareDemoNope 2.15s ease-in-out both;
 }
 
+.lovecare-mutual-match {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.lovecare-mutual-match > div {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 20px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(249, 61, 115, 0.94), rgba(147, 51, 234, 0.94));
+  box-shadow: 0 16px 38px rgba(147, 51, 234, 0.29);
+  color: #fff;
+  text-align: center;
+  animation: loveCareMatchPop 2.4s cubic-bezier(0.2, 0.8, 0.24, 1) both;
+}
+
+.lovecare-mutual-match-hearts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+}
+
+.lovecare-mutual-match-hearts span {
+  margin: 0 -3px;
+  color: #fff;
+  font-size: 31px;
+  line-height: 1;
+  text-shadow: 0 3px 9px rgba(104, 20, 82, 0.26);
+  animation: loveCareMatchHeart 620ms ease-in-out infinite alternate;
+}
+
+.lovecare-mutual-match-hearts span:nth-child(2) {
+  transform: translateY(-5px) scale(1.13);
+  animation-delay: 130ms;
+}
+
+.lovecare-mutual-match-hearts span:nth-child(3) {
+  animation-delay: 260ms;
+}
+
+.lovecare-mutual-match strong {
+  font-size: 19px;
+  font-weight: 950;
+  letter-spacing: -0.3px;
+}
+
+.lovecare-mutual-match small {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @keyframes loveCareSwipeDemo {
   0%, 8%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
   25% { transform: translate3d(42px, -3px, 0) rotate(2.2deg); }
@@ -4247,6 +4313,17 @@ body {
 @keyframes loveCareDemoNope {
   0%, 48%, 79%, 100% { opacity: 0; }
   60%, 71% { opacity: 1; }
+}
+
+@keyframes loveCareMatchPop {
+  0% { opacity: 0; transform: scale(0.76) translateY(14px); }
+  14%, 80% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.94) translateY(-7px); }
+}
+
+@keyframes loveCareMatchHeart {
+  from { transform: translateY(0) scale(0.94); }
+  to { transform: translateY(-4px) scale(1.08); }
 }
 
 .lovecare-actions {
@@ -4804,7 +4881,9 @@ body {
   .lovecare-finished-heart,
   .catalog-love-btn,
   .lovecare-card--active.is-swipe-demo,
-  .lovecare-card--active.is-swipe-demo .lovecare-stamp {
+  .lovecare-card--active.is-swipe-demo .lovecare-stamp,
+  .lovecare-mutual-match > div,
+  .lovecare-mutual-match-hearts span {
     animation: none;
   }
 }

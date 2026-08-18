@@ -811,7 +811,7 @@ export default function App() {
 
   const handleLoveCareReaction = useCallback((product, reaction) => {
     hapticNotification(reaction === 'like' ? 'success' : 'warning');
-    enqueueLoveCareEvent({
+    return enqueueLoveCareEvent({
       type: 'product_reaction',
       session_id: loveCareSessionIdRef.current,
       reaction,
