@@ -18,6 +18,7 @@ function shuffleProducts(products) {
 export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }) {
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [showGameNotice, setShowGameNotice] = useState(!isAdmin);
+  const [showSwipeDemo, setShowSwipeDemo] = useState(true);
   const shuffledProducts = useMemo(
     () => shuffleProducts(products.filter((product) => product?.view !== false)),
     [products, shuffleSeed] // eslint-disable-line react-hooks/exhaustive-deps
@@ -48,9 +49,17 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
     return () => window.clearTimeout(timer);
   }, [showGameNotice]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowSwipeDemo(false), 2300);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const stopSwipeDemo = useCallback(() => setShowSwipeDemo(false), []);
+
   const chooseProduct = useCallback((reaction) => {
     if (!currentProduct || isAnimating) return;
 
+    stopSwipeDemo();
     setExitReaction(reaction);
     setDrag({
       x: reaction === 'like' ? window.innerWidth * 1.15 : -window.innerWidth * 1.15,
@@ -68,10 +77,11 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
       setExitReaction('');
       pointerStartRef.current = null;
     }, 320);
-  }, [currentProduct, isAnimating, onReaction]);
+  }, [currentProduct, isAnimating, onReaction, stopSwipeDemo]);
 
   const handlePointerDown = (event) => {
     if (!currentProduct || isAnimating) return;
+    stopSwipeDemo();
     pointerStartRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -156,7 +166,7 @@ export function LoveCarePage({ products, userName, isAdmin, onBack, onReaction }
 
         {currentProduct ? (
           <article
-            className={`lovecare-card lovecare-card--active ${isAnimating ? 'is-exiting' : ''}`}
+            className={`lovecare-card lovecare-card--active ${isAnimating ? 'is-exiting' : ''} ${showSwipeDemo ? 'is-swipe-demo' : ''}`}
             style={{
               transform: `translate3d(${drag.x}px, ${drag.y}px, 0) rotate(${drag.x / 19}deg)`,
             }}

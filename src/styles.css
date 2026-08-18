@@ -4114,6 +4114,10 @@ body {
   transition: transform 320ms cubic-bezier(0.32, 0.72, 0.25, 1);
 }
 
+.lovecare-card--active.is-swipe-demo {
+  animation: loveCareSwipeDemo 2.15s cubic-bezier(0.38, 0.02, 0.24, 1) both;
+}
+
 .lovecare-card-image,
 .lovecare-card-image[data-image-placeholder="true"] {
   width: 100%;
@@ -4218,6 +4222,32 @@ body {
 .lovecare-stamp.is-visible { opacity: 1; }
 .lovecare-stamp--like { left: 18px; color: #16a34a; transform: rotate(-8deg); }
 .lovecare-stamp--nope { right: 18px; color: #e11d48; transform: rotate(8deg); }
+
+.lovecare-card--active.is-swipe-demo .lovecare-stamp--like {
+  animation: loveCareDemoLike 2.15s ease-in-out both;
+}
+
+.lovecare-card--active.is-swipe-demo .lovecare-stamp--nope {
+  animation: loveCareDemoNope 2.15s ease-in-out both;
+}
+
+@keyframes loveCareSwipeDemo {
+  0%, 8%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  25% { transform: translate3d(42px, -3px, 0) rotate(2.2deg); }
+  43% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  66% { transform: translate3d(-42px, -3px, 0) rotate(-2.2deg); }
+  84% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+
+@keyframes loveCareDemoLike {
+  0%, 12%, 39%, 100% { opacity: 0; }
+  20%, 31% { opacity: 1; }
+}
+
+@keyframes loveCareDemoNope {
+  0%, 48%, 79%, 100% { opacity: 0; }
+  60%, 71% { opacity: 1; }
+}
 
 .lovecare-actions {
   position: relative;
@@ -4772,7 +4802,9 @@ body {
   .lovecare-orb,
   .lovecare-brand-heart,
   .lovecare-finished-heart,
-  .catalog-love-btn {
+  .catalog-love-btn,
+  .lovecare-card--active.is-swipe-demo,
+  .lovecare-card--active.is-swipe-demo .lovecare-stamp {
     animation: none;
   }
 }
