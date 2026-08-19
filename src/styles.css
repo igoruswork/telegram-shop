@@ -5238,7 +5238,7 @@ body {
 .beauty-lov-admin-user-head,
 .beauty-lov-admin-session-head {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto 34px;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 12px;
@@ -5334,7 +5334,7 @@ body {
 @media (max-width: 420px) {
   .beauty-lov-admin-section { margin: 12px 8px 20px; padding: 12px; }
   .beauty-lov-admin-user-head,
-  .beauty-lov-admin-session-head { grid-template-columns: 38px minmax(0, 1fr) 32px; }
+  .beauty-lov-admin-session-head { grid-template-columns: 38px minmax(0, 1fr); }
   .beauty-lov-admin-icon { width: 38px; height: 38px; border-radius: 13px; font-size: 21px; }
   .beauty-lov-admin-counts,
   .beauty-lov-admin-session-meta { grid-column: 2; justify-items: start; grid-auto-flow: column; justify-content: start; text-align: left; }

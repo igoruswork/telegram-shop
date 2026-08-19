@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   createProduct,
   deleteAccessLogEntry,
-  deleteCatchGameSession,
   deleteLoveCareActivityEvents,
   fetchAdminOrders,
   fetchAccessLogEntries,
@@ -200,8 +199,6 @@ export function AdminPage({
   const [beautyLovLoading, setBeautyLovLoading] = useState(false);
   const [beautyLovError, setBeautyLovError] = useState('');
   const [beautyLovSearch, setBeautyLovSearch] = useState('');
-  const [deletingBeautyLovSessionIds, setDeletingBeautyLovSessionIds] = useState({});
-  const [confirmingBeautyLovSessionId, setConfirmingBeautyLovSessionId] = useState('');
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
@@ -496,33 +493,6 @@ export function AdminPage({
     } finally {
       setConfirmingLoveCareSessionId((current) => (current === session.id ? '' : current));
       setDeletingLoveCareSessionIds((current) => {
-        const next = { ...current };
-        delete next[session.id];
-        return next;
-      });
-    }
-  };
-
-  const handleDeleteBeautyLovSession = async (session) => {
-    const sessionId = String(session.session_id || '');
-    if (!sessionId || deletingBeautyLovSessionIds[session.id]) return;
-
-    const previousSessions = beautyLovSessions;
-    const previousResults = beautyLovResults;
-    setBeautyLovError('');
-    setDeletingBeautyLovSessionIds((current) => ({ ...current, [session.id]: true }));
-    setBeautyLovSessions((current) => current.filter((entry) => entry.id !== session.id));
-    setBeautyLovResults((current) => current.filter((entry) => entry.session_id !== sessionId));
-
-    try {
-      await deleteCatchGameSession(sessionId);
-    } catch (error) {
-      setBeautyLovSessions(previousSessions);
-      setBeautyLovResults(previousResults);
-      setBeautyLovError(error.message || 'Не вдалося видалити вхід Beauty лов.');
-    } finally {
-      setConfirmingBeautyLovSessionId((current) => (current === session.id ? '' : current));
-      setDeletingBeautyLovSessionIds((current) => {
         const next = { ...current };
         delete next[session.id];
         return next;
@@ -1718,9 +1688,6 @@ export function AdminPage({
             {beautyLovLoading && <div className="admin-activity-loading">Завантаження входів та результатів…</div>}
             {beautyLovError && <div className="admin-activity-error">{beautyLovError}</div>}
             {!beautyLovLoading && !beautyLovError && filteredBeautyLovHistory.map((session) => {
-              const isDeleting = Boolean(deletingBeautyLovSessionIds[session.id]);
-              const isConfirmingDelete = confirmingBeautyLovSessionId === session.id;
-
               return (
               <article key={session.id} className="beauty-lov-admin-session">
                 <header className="beauty-lov-admin-session-head">
@@ -1735,45 +1702,7 @@ export function AdminPage({
                     <time dateTime={session.created_at}>{formatKyivDateTime(session.created_at)}</time>
                     <b>{session.results.length} спроб</b>
                   </div>
-                  <button
-                    type="button"
-                    className="lovecare-admin-delete"
-                    aria-label="Видалити цей вхід Beauty лов і спроби"
-                    title="Видалити вхід і спроби"
-                    onClick={() => setConfirmingBeautyLovSessionId(session.id)}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? '…' : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" />
-                      </svg>
-                    )}
-                  </button>
                 </header>
-
-                {isConfirmingDelete && (
-                  <div className="lovecare-admin-delete-confirm" role="alert">
-                    <span>Видалити цей вхід і всі спроби в ньому?</span>
-                    <div>
-                      <button
-                        type="button"
-                        className="lovecare-admin-delete-confirm-action"
-                        onClick={() => handleDeleteBeautyLovSession(session)}
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? 'Видаляємо…' : 'Так, видалити'}
-                      </button>
-                      <button
-                        type="button"
-                        className="lovecare-admin-delete-cancel"
-                        onClick={() => setConfirmingBeautyLovSessionId('')}
-                        disabled={isDeleting}
-                      >
-                        Скасувати
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 <div className="beauty-lov-results">
                   {session.results.length ? session.results.map((result) => (
