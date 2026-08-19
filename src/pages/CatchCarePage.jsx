@@ -97,20 +97,21 @@ export function CatchCarePage({
   const [lives, setLives] = useState(STARTING_LIVES);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [items, setItems] = useState([]);
-  const [heroX, setHeroX] = useState(50);
   const [activeEffect, setActiveEffect] = useState('');
   const [effectLabel, setEffectLabel] = useState('');
   const [finishReason, setFinishReason] = useState('');
   const [saveState, setSaveState] = useState('idle');
 
   const stageRef = useRef(null);
+  const heroRef = useRef(null);
   const bagRef = useRef(null);
-  const itemNodesRef = useRef(new Map());
   const itemsRef = useRef([]);
   const spawnTimeoutRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const collisionFrameRef = useRef(null);
   const collisionLastCheckRef = useRef(0);
+  const collisionMetricsRef = useRef(null);
+  const caughtItemIdsRef = useRef(new Set());
   const effectTimeoutRef = useRef(null);
   const startedAtRef = useRef(0);
   const scoreRef = useRef(0);
@@ -119,6 +120,7 @@ export function CatchCarePage({
   const finishingRef = useRef(false);
   const itemSequenceRef = useRef(0);
   const sessionRecordedRef = useRef(false);
+  const heroXRef = useRef(50);
 
   const productNames = useMemo(
     () => new Map((products || []).map((product) => [String(product.sku || ''), product.name])),
@@ -126,7 +128,8 @@ export function CatchCarePage({
   );
   const isLowPowerDevice = useMemo(() => {
     const memory = Number(navigator.deviceMemory || 8);
-    return navigator.hardwareConcurrency <= 4 || memory <= 4;
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    return navigator.hardwareConcurrency <= 4 || memory <= 4 || prefersReducedMotion;
   }, []);
 
   const selectedBagDetails = selectedBag ? BAGS[selectedBag] : null;
@@ -135,6 +138,16 @@ export function CatchCarePage({
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    [...GAME_PRODUCTS.map((product) => product.image), ...Object.values(BAGS).map((bag) => bag.image)]
+      .forEach((source) => {
+        const image = new Image();
+        image.decoding = 'async';
+        image.src = source;
+        image.decode?.().catch(() => {});
+      });
+  }, []);
 
   useEffect(() => {
     if (sessionRecordedRef.current) return;
@@ -194,8 +207,16 @@ export function CatchCarePage({
   }, []);
 
   const removeItem = useCallback((itemId) => {
-    itemNodesRef.current.delete(itemId);
     setItems((current) => current.filter((item) => item.id !== itemId));
+  }, []);
+
+  const moveHero = useCallback((nextX) => {
+    const clampedX = clamp(nextX, 10, 90);
+    heroXRef.current = clampedX;
+    const stageWidth = stageRef.current?.clientWidth;
+    if (stageWidth && heroRef.current) {
+      heroRef.current.style.setProperty('--hero-x-px', `${stageWidth * clampedX / 100}px`);
+    }
   }, []);
 
   const catchItem = useCallback((item) => {
@@ -239,8 +260,9 @@ export function CatchCarePage({
       left: 8 + Math.random() * 84,
       duration: speed * (0.88 + Math.random() * 0.22),
       rotation: -14 + Math.random() * 28,
+      spawnedAt: performance.now(),
     };
-    setItems((current) => [...current, nextItem].slice(-10));
+    setItems((current) => [...current, nextItem].slice(-8));
 
     const nextDelay = Math.max(650, 1170 - scoreRef.current * 12);
     spawnTimeoutRef.current = window.setTimeout(spawnItem, nextDelay);
@@ -254,7 +276,7 @@ export function CatchCarePage({
       const nextElapsed = (performance.now() - startedAtRef.current) / 1000;
       setElapsedSeconds(nextElapsed);
       if (nextElapsed >= ROUND_SECONDS) finishGame('time');
-    }, 500);
+    }, 1000);
 
     const checkCollisions = () => {
       const now = performance.now();
@@ -263,19 +285,40 @@ export function CatchCarePage({
         return;
       }
       collisionLastCheckRef.current = now;
-      const bagRect = bagRef.current?.getBoundingClientRect();
-      if (bagRect) {
+      if (!collisionMetricsRef.current && stageRef.current && bagRef.current) {
+        const stageRect = stageRef.current.getBoundingClientRect();
+        const bagRect = bagRef.current.getBoundingClientRect();
+        collisionMetricsRef.current = {
+          width: stageRect.width,
+          height: stageRect.height,
+          bagTop: bagRect.top - stageRect.top,
+          bagBottom: bagRect.bottom - stageRect.top,
+        };
+      }
+
+      const metrics = collisionMetricsRef.current;
+      if (metrics) {
+        const bagCenter = metrics.width * heroXRef.current / 100;
+        const bagLeft = bagCenter - 72;
+        const bagRight = bagCenter + 72;
         for (const item of itemsRef.current) {
-          const node = itemNodesRef.current.get(item.id);
-          if (!node || node.dataset.caught === 'true') continue;
-          const itemRect = node.getBoundingClientRect();
-          const overlapsHorizontally = itemRect.right > bagRect.left + 12
-            && itemRect.left < bagRect.right - 12;
-          const entersBag = itemRect.bottom >= bagRect.top + 14
-            && itemRect.top < bagRect.bottom - 12;
+          if (caughtItemIdsRef.current.has(item.id)) continue;
+          const progress = (now - item.spawnedAt) / (item.duration * 1000);
+          if (progress < 0 || progress > 1) continue;
+          const itemSize = item.kind === 'hazard' ? 58 : 78;
+          const itemHeight = item.kind === 'hazard' ? 58 : 94;
+          const itemCenter = metrics.width * item.left / 100;
+          const itemLeft = itemCenter - itemSize / 2;
+          const itemRight = itemCenter + itemSize / 2;
+          const itemTop = -110 + progress * (metrics.height + 150);
+          const itemBottom = itemTop + itemHeight;
+          const overlapsHorizontally = itemRight > bagLeft + 12
+            && itemLeft < bagRight - 12;
+          const entersBag = itemBottom >= metrics.bagTop + 14
+            && itemTop < metrics.bagBottom - 12;
 
           if (overlapsHorizontally && entersBag) {
-            node.dataset.caught = 'true';
+            caughtItemIdsRef.current.add(item.id);
             catchItem(item);
           }
         }
@@ -287,17 +330,35 @@ export function CatchCarePage({
     return clearGameTimers;
   }, [catchItem, clearGameTimers, finishGame, phase, spawnItem]);
 
+  useEffect(() => {
+    if (phase !== 'playing' || !stageRef.current) return undefined;
+    const refreshStageMetrics = () => {
+      collisionMetricsRef.current = null;
+      moveHero(heroXRef.current);
+    };
+    refreshStageMetrics();
+    const observer = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(refreshStageMetrics)
+      : null;
+    observer?.observe(stageRef.current);
+    window.addEventListener('resize', refreshStageMetrics);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', refreshStageMetrics);
+    };
+  }, [moveHero, phase]);
+
   useEffect(() => clearGameTimers, [clearGameTimers]);
 
   useEffect(() => {
     if (phase !== 'playing') return undefined;
     const handleKeyDown = (event) => {
-      if (event.key === 'ArrowLeft') setHeroX((current) => clamp(current - 7, 10, 90));
-      if (event.key === 'ArrowRight') setHeroX((current) => clamp(current + 7, 10, 90));
+      if (event.key === 'ArrowLeft') moveHero(heroXRef.current - 7);
+      if (event.key === 'ArrowRight') moveHero(heroXRef.current + 7);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [phase]);
+  }, [moveHero, phase]);
 
   const startGame = () => {
     if (!selectedBag) return;
@@ -306,13 +367,14 @@ export function CatchCarePage({
     scoreRef.current = 0;
     livesRef.current = STARTING_LIVES;
     caughtProductsRef.current = {};
-    itemNodesRef.current.clear();
+    caughtItemIdsRef.current.clear();
     collisionLastCheckRef.current = 0;
+    collisionMetricsRef.current = null;
+    heroXRef.current = 50;
     startedAtRef.current = performance.now();
     setScore(0);
     setLives(STARTING_LIVES);
     setElapsedSeconds(0);
-    setHeroX(50);
     setItems([]);
     setActiveEffect('');
     setEffectLabel('');
@@ -326,7 +388,7 @@ export function CatchCarePage({
     if (phase !== 'playing' || !stageRef.current) return;
     const bounds = stageRef.current.getBoundingClientRect();
     const nextX = ((event.clientX - bounds.left) / bounds.width) * 100;
-    setHeroX(clamp(nextX, 10, 90));
+    moveHero(nextX);
   };
 
   const caughtSummary = Object.entries(caughtProductsRef.current)
@@ -407,10 +469,6 @@ export function CatchCarePage({
           {items.map((item) => (
             <div
               key={item.id}
-              ref={(node) => {
-                if (node) itemNodesRef.current.set(item.id, node);
-                else itemNodesRef.current.delete(item.id);
-              }}
               className={`catchcare-falling-item is-${item.kind}`}
               style={{
                 '--item-left': `${item.left}%`,
@@ -432,7 +490,7 @@ export function CatchCarePage({
           {activeEffect === 'calm' && <div className="catchcare-calm-waves" aria-hidden="true"><i />{!isLowPowerDevice && <i />}</div>}
           {effectLabel && <div className="catchcare-effect-label" role="status">{effectLabel}</div>}
 
-          <div className={`catchcare-hero is-${selectedBag}`} style={{ left: `${heroX}%` }}>
+          <div ref={heroRef} className={`catchcare-hero is-${selectedBag}`}>
             <div className="catchcare-avatar" aria-hidden="true">
               <span className="catchcare-hair" />
               <span className="catchcare-eye catchcare-eye--left" />

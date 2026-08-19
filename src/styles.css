@@ -4745,12 +4745,13 @@ body {
   position: absolute;
   z-index: 15;
   bottom: calc(18px + var(--safe-bottom));
+  left: 0;
   width: 144px;
   height: 170px;
-  transform: translateX(-50%);
-  transition: left 70ms linear;
+  transform: translate3d(calc(var(--hero-x-px, 50vw) - 50%), 0, 0);
+  transition: transform 55ms linear;
   pointer-events: none;
-  will-change: left;
+  will-change: transform;
 }
 
 .catchcare-avatar {
@@ -4871,9 +4872,9 @@ body {
 .catchcare-page.effect-hit .catchcare-hero { animation: catchCareHeroHit 440ms ease 2; }
 
 @keyframes catchCareHeroHit {
-  0%, 100% { transform: translateX(-50%); }
-  28% { transform: translateX(calc(-50% - 11px)) rotate(-4deg); }
-  66% { transform: translateX(calc(-50% + 11px)) rotate(4deg); }
+  0%, 100% { transform: translate3d(calc(var(--hero-x-px, 50vw) - 50%), 0, 0); }
+  28% { transform: translate3d(calc(var(--hero-x-px, 50vw) - 50% - 11px), 0, 0) rotate(-4deg); }
+  66% { transform: translate3d(calc(var(--hero-x-px, 50vw) - 50% + 11px), 0, 0) rotate(4deg); }
 }
 
 .catchcare-sun {
