@@ -4646,6 +4646,14 @@ body {
   pointer-events: none;
 }
 
+/* The game is intentionally paint-light: it runs on low-end mobile devices too. */
+.catchcare-stage { contain: layout paint; }
+.catchcare-lives,
+.catchcare-timer {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .catchcare-lives,
 .catchcare-timer {
   min-height: 36px;
@@ -4715,7 +4723,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 8px 8px rgba(55, 43, 4, 0.2));
+  filter: none;
 }
 
 .catchcare-falling-item.is-hazard {
@@ -4724,7 +4732,7 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.82);
   border-radius: 20px;
   background: linear-gradient(145deg, #fff, #fee2e2);
-  box-shadow: 0 10px 20px rgba(185, 28, 28, 0.17), inset 0 1px 0 #fff;
+  box-shadow: none;
   font-size: 31px;
 }
 
@@ -4812,7 +4820,7 @@ body {
   width: 144px;
   height: 104px;
   object-fit: contain;
-  filter: drop-shadow(0 12px 10px rgba(44, 32, 3, 0.24));
+  filter: none;
 }
 
 .catchcare-drag-hint {
@@ -4840,12 +4848,12 @@ body {
   border-radius: 999px;
   background: rgba(36, 30, 12, 0.84);
   color: #fff;
-  box-shadow: 0 13px 28px rgba(55, 43, 8, 0.18);
+  box-shadow: none;
   font-size: 11px;
   font-weight: 950;
   text-align: center;
   transform: translateX(-50%);
-  animation: catchCareEffectLabel 2.5s ease both;
+  animation: catchCareEffectLabel 1.8s ease both;
   pointer-events: none;
 }
 
@@ -4877,11 +4885,11 @@ body {
   font-size: 82px;
   opacity: 0;
   transform: scale(0.4) rotate(-30deg);
-  filter: drop-shadow(0 0 22px rgba(250, 204, 21, 0.72));
+  filter: none;
   pointer-events: none;
 }
 
-.effect-sun .catchcare-sun { animation: catchCareSun 2.5s ease both; }
+.effect-sun .catchcare-sun { animation: catchCareSun 1.8s ease both; }
 @keyframes catchCareSun {
   0% { opacity: 0; transform: scale(0.4) rotate(-30deg); }
   18%, 80% { opacity: 1; transform: scale(1) rotate(10deg); }
@@ -5113,9 +5121,9 @@ body {
 .catchcare-sun {
   top: 28px;
   right: 4px;
-  font-size: 174px;
+  font-size: 148px;
   color: #ffb300;
-  text-shadow: 0 0 22px #fff3a0, 0 0 52px rgba(255, 183, 0, 0.94);
+  text-shadow: 0 0 12px #fff3a0;
 }
 
 .effect-sun .catchcare-stage::after {
@@ -5124,7 +5132,7 @@ body {
   z-index: 2;
   inset: 0;
   background: radial-gradient(circle at 84% 18%, rgba(255, 214, 46, 0.55), rgba(255, 236, 137, 0.17) 24%, transparent 48%);
-  animation: catchCareSunshine 4.3s ease both;
+  animation: catchCareSunshine 1.9s ease both;
   pointer-events: none;
 }
 
@@ -5139,35 +5147,35 @@ body {
 .catchcare-calm-waves i { animation: none; }
 
 .effect-powder .catchcare-powder i {
-  width: 54px;
-  height: 54px;
+  width: 40px;
+  height: 40px;
   background: radial-gradient(circle, rgba(255, 255, 255, 1) 0 22%, rgba(255, 222, 240, 0.88) 47%, rgba(255, 255, 255, 0) 74%);
-  filter: blur(2px) drop-shadow(0 0 12px rgba(255, 168, 209, 0.8));
-  animation: catchCarePowderVivid 4.45s cubic-bezier(0.16, 0.75, 0.32, 1) both;
-  animation-delay: calc(var(--i) * 45ms);
+  filter: none;
+  animation: catchCarePowderVivid 1.8s ease-out both;
+  animation-delay: calc(var(--i) * 65ms);
 }
 
 @keyframes catchCarePowderVivid {
   0% { opacity: 0; transform: translate(0, 0) scale(0.1); }
   11% { opacity: 1; }
-  65% { opacity: 0.92; }
-  100% { opacity: 0; transform: translate(calc((var(--i) - 10) * 12px), -390px) scale(2.75); }
+  65% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(calc((var(--i) - 4) * 13px), -280px) scale(2); }
 }
 
 .effect-bubbles .catchcare-bubbles i {
-  border-width: 3px;
+  border-width: 2px;
   border-color: rgba(255, 255, 255, 0.98);
   background: radial-gradient(circle at 30% 25%, #fff 0 6%, rgba(255, 255, 255, 0.15) 26%, rgba(56, 189, 248, 0.2) 70%);
-  box-shadow: inset 4px 4px 6px rgba(255, 255, 255, 0.76), 0 0 16px rgba(56, 189, 248, 0.78);
-  animation: catchCareBubbleVivid 4.35s ease-in both;
-  animation-delay: calc(var(--i) * 82ms);
+  box-shadow: none;
+  animation: catchCareBubbleVivid 1.8s ease-in both;
+  animation-delay: calc(var(--i) * 90ms);
 }
 
 @keyframes catchCareBubbleVivid {
   0% { opacity: 0; transform: translateY(0) scale(0.35); }
   12% { opacity: 1; }
-  84% { opacity: 0.94; }
-  100% { opacity: 0; transform: translateY(-570px) translateX(calc((var(--i) - 8) * 10px)) scale(1.65); }
+  78% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateY(-360px) translateX(calc((var(--i) - 3) * 9px)) scale(1.4); }
 }
 
 .effect-calm .catchcare-stage::before {
@@ -5176,16 +5184,16 @@ body {
   z-index: 3;
   inset: 0;
   background: linear-gradient(180deg, rgba(167, 243, 208, 0.64), rgba(209, 250, 229, 0.18) 62%, rgba(255, 255, 255, 0.06));
-  animation: catchCareCalmTint 4.4s ease both;
+  animation: catchCareCalmTint 1.9s ease both;
   pointer-events: none;
 }
 
 .effect-calm .catchcare-calm-waves i {
-  width: 155px;
-  height: 155px;
-  border: 5px solid rgba(13, 148, 136, 0.66);
-  box-shadow: 0 0 28px rgba(45, 212, 191, 0.54);
-  animation: catchCareCalmVivid 4.3s ease-out both;
+  width: 125px;
+  height: 125px;
+  border: 3px solid rgba(13, 148, 136, 0.7);
+  box-shadow: none;
+  animation: catchCareCalmVivid 1.8s ease-out both;
 }
 
 @keyframes catchCareCalmTint {
@@ -5196,8 +5204,12 @@ body {
 
 @keyframes catchCareCalmVivid {
   from { opacity: 0.95; transform: scale(0.08); }
-  to { opacity: 0; transform: scale(5.5); }
+  to { opacity: 0; transform: scale(4.2); }
 }
+
+.catchcare-page.is-lightweight .catchcare-stage::before,
+.catchcare-page.is-lightweight .catchcare-stage::after { display: none; }
+.catchcare-page.is-lightweight.effect-lips .catchcare-avatar::after { filter: none; }
 
 /* ---- Beauty лов analytics ---- */
 .beauty-lov-admin-section {

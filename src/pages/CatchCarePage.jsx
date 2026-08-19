@@ -110,6 +110,7 @@ export function CatchCarePage({
   const spawnTimeoutRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const collisionFrameRef = useRef(null);
+  const collisionLastCheckRef = useRef(0);
   const effectTimeoutRef = useRef(null);
   const startedAtRef = useRef(0);
   const scoreRef = useRef(0);
@@ -123,6 +124,10 @@ export function CatchCarePage({
     () => new Map((products || []).map((product) => [String(product.sku || ''), product.name])),
     [products]
   );
+  const isLowPowerDevice = useMemo(() => {
+    const memory = Number(navigator.deviceMemory || 8);
+    return navigator.hardwareConcurrency <= 4 || memory <= 4;
+  }, []);
 
   const selectedBagDetails = selectedBag ? BAGS[selectedBag] : null;
   const timeLeft = Math.max(0, ROUND_SECONDS - elapsedSeconds);
@@ -185,7 +190,7 @@ export function CatchCarePage({
     effectTimeoutRef.current = window.setTimeout(() => {
       setActiveEffect('');
       setEffectLabel('');
-    }, 4600);
+    }, 2100);
   }, []);
 
   const removeItem = useCallback((itemId) => {
@@ -235,7 +240,7 @@ export function CatchCarePage({
       duration: speed * (0.88 + Math.random() * 0.22),
       rotation: -14 + Math.random() * 28,
     };
-    setItems((current) => [...current, nextItem].slice(-18));
+    setItems((current) => [...current, nextItem].slice(-10));
 
     const nextDelay = Math.max(650, 1170 - scoreRef.current * 12);
     spawnTimeoutRef.current = window.setTimeout(spawnItem, nextDelay);
@@ -249,9 +254,15 @@ export function CatchCarePage({
       const nextElapsed = (performance.now() - startedAtRef.current) / 1000;
       setElapsedSeconds(nextElapsed);
       if (nextElapsed >= ROUND_SECONDS) finishGame('time');
-    }, 100);
+    }, 500);
 
     const checkCollisions = () => {
+      const now = performance.now();
+      if (now - collisionLastCheckRef.current < 34) {
+        collisionFrameRef.current = window.requestAnimationFrame(checkCollisions);
+        return;
+      }
+      collisionLastCheckRef.current = now;
       const bagRect = bagRef.current?.getBoundingClientRect();
       if (bagRect) {
         for (const item of itemsRef.current) {
@@ -296,6 +307,7 @@ export function CatchCarePage({
     livesRef.current = STARTING_LIVES;
     caughtProductsRef.current = {};
     itemNodesRef.current.clear();
+    collisionLastCheckRef.current = 0;
     startedAtRef.current = performance.now();
     setScore(0);
     setLives(STARTING_LIVES);
@@ -326,7 +338,7 @@ export function CatchCarePage({
     .sort((left, right) => right.count - left.count);
 
   return (
-    <main className={`catchcare-page is-${phase} effect-${activeEffect || 'none'}`}>
+    <main className={`catchcare-page is-${phase} effect-${activeEffect || 'none'}${isLowPowerDevice ? ' is-lightweight' : ''}`}>
       <header className="catchcare-header">
         <button type="button" className="catchcare-back" onClick={onBack} aria-label="Повернутися до каталогу">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -414,10 +426,10 @@ export function CatchCarePage({
             </div>
           ))}
 
-          <div className="catchcare-sun" aria-hidden="true">☀</div>
-          <div className="catchcare-powder" aria-hidden="true">{Array.from({ length: 22 }, (_, index) => <i key={index} style={{ '--i': index }} />)}</div>
-          <div className="catchcare-bubbles" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ '--i': index }} />)}</div>
-          <div className="catchcare-calm-waves" aria-hidden="true"><i /><i /><i /></div>
+          {activeEffect === 'sun' && <div className="catchcare-sun" aria-hidden="true">☀</div>}
+          {activeEffect === 'powder' && <div className="catchcare-powder" aria-hidden="true">{Array.from({ length: isLowPowerDevice ? 4 : 8 }, (_, index) => <i key={index} style={{ '--i': index }} />)}</div>}
+          {activeEffect === 'bubbles' && <div className="catchcare-bubbles" aria-hidden="true">{Array.from({ length: isLowPowerDevice ? 4 : 7 }, (_, index) => <i key={index} style={{ '--i': index }} />)}</div>}
+          {activeEffect === 'calm' && <div className="catchcare-calm-waves" aria-hidden="true"><i />{!isLowPowerDevice && <i />}</div>}
           {effectLabel && <div className="catchcare-effect-label" role="status">{effectLabel}</div>}
 
           <div className={`catchcare-hero is-${selectedBag}`} style={{ left: `${heroX}%` }}>
