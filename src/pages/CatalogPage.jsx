@@ -146,6 +146,9 @@ export function CatalogPage({
   isAdmin,
   onAdminClick,
   onLoveCareClick,
+  onCatchCareClick,
+  loveCareEnabled = true,
+  catchCareEnabled = false,
   savedState,
   onSaveState,
   brandColors,
@@ -284,15 +287,28 @@ export function CatalogPage({
               )}
             </div>
           )}
-          <button
-            type="button"
-            className="catalog-search-admin-btn catalog-love-btn"
-            aria-label="Відкрити LoveCare"
-            title="LoveCare"
-            onClick={onLoveCareClick}
-          >
-            <span aria-hidden="true">♥</span>
-          </button>
+          {loveCareEnabled && (
+            <button
+              type="button"
+              className="catalog-search-admin-btn catalog-love-btn"
+              aria-label="Відкрити LoveCare"
+              title="LoveCare"
+              onClick={onLoveCareClick}
+            >
+              <span aria-hidden="true">♥</span>
+            </button>
+          )}
+          {(isAdmin || catchCareEnabled) && (
+            <button
+              type="button"
+              className="catalog-search-admin-btn catalog-catchcare-btn"
+              aria-label="Відкрити CatchCare"
+              title="CatchCare"
+              onClick={onCatchCareClick}
+            >
+              <span aria-hidden="true">♥</span>
+            </button>
+          )}
           {isAdmin && (
             <div className="catalog-admin-shortcuts" aria-label="Швидкі дії адміна">
               {adminShortcuts.map((shortcut) => (

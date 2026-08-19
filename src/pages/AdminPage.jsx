@@ -6,6 +6,8 @@ import {
   fetchAdminOrders,
   fetchAccessLogEntries,
   fetchAllProducts,
+  fetchCatchGameResults,
+  fetchCatchGameSessions,
   fetchCatalogUsers,
   fetchLoveCareActivity,
   fetchProductImageSource,
@@ -45,6 +47,7 @@ const adminSections = [
   { id: 'access', label: 'Користувачі' },
   { id: 'access-log', label: 'Журнал входів' },
   { id: 'lovecare', label: 'LoveCare' },
+  { id: 'beauty-lov', label: 'Beauty лов' },
   { id: 'orders', label: 'Замовлення' },
 ];
 
@@ -142,6 +145,9 @@ export function AdminPage({
   onPaymentTaxIdChange,
   onPaymentExtraDetailsChange,
   onPaymentCardVisibilityChange,
+  loveCareEnabled = true,
+  catchCareEnabled = false,
+  onEasterEggVisibilityChange,
   initialSection = DEFAULT_ADMIN_SECTION,
   adminPhones = [],
   onAdminPhonesChange,
@@ -188,6 +194,11 @@ export function AdminPage({
   const [loveCareSearch, setLoveCareSearch] = useState('');
   const [deletingLoveCareSessionIds, setDeletingLoveCareSessionIds] = useState({});
   const [confirmingLoveCareSessionId, setConfirmingLoveCareSessionId] = useState('');
+  const [beautyLovSessions, setBeautyLovSessions] = useState([]);
+  const [beautyLovResults, setBeautyLovResults] = useState([]);
+  const [beautyLovLoading, setBeautyLovLoading] = useState(false);
+  const [beautyLovError, setBeautyLovError] = useState('');
+  const [beautyLovSearch, setBeautyLovSearch] = useState('');
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
@@ -279,6 +290,26 @@ export function AdminPage({
     }
   }, []);
 
+  const loadBeautyLovAnalytics = useCallback(async () => {
+    setBeautyLovLoading(true);
+    setBeautyLovError('');
+
+    try {
+      const [sessions, results] = await Promise.all([
+        fetchCatchGameSessions(),
+        fetchCatchGameResults(),
+      ]);
+      setBeautyLovSessions(sessions);
+      setBeautyLovResults(results);
+    } catch (error) {
+      setBeautyLovSessions([]);
+      setBeautyLovResults([]);
+      setBeautyLovError(error.message || 'Не вдалося завантажити аналітику Beauty лов.');
+    } finally {
+      setBeautyLovLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeSection === 'access') {
       loadCatalogUsers();
@@ -295,7 +326,11 @@ export function AdminPage({
     if (activeSection === 'lovecare') {
       loadLoveCareActivity();
     }
-  }, [activeSection, loadAccessLogs, loadCatalogUsers, loadLoveCareActivity, loadOrders]);
+
+    if (activeSection === 'beauty-lov') {
+      loadBeautyLovAnalytics();
+    }
+  }, [activeSection, loadAccessLogs, loadBeautyLovAnalytics, loadCatalogUsers, loadLoveCareActivity, loadOrders]);
 
   useEffect(() => {
     const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors'].includes(activeSection);
@@ -406,6 +441,55 @@ export function AdminPage({
       ]),
     ].filter(Boolean).some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query)));
   }, [loveCareSearch, loveCareSessions]);
+
+  const beautyLovUsers = useMemo(() => {
+    const users = new Map();
+    const getUser = (entry) => {
+      const phone = cleanActivityText(entry.phone);
+      const tgUserId = cleanActivityText(entry.tg_user_id);
+      const key = phone || (tgUserId ? `tg:${tgUserId}` : `unknown:${entry.id}`);
+      let user = users.get(key);
+
+      if (!user) {
+        user = {
+          id: key,
+          phone,
+          tgUserId,
+          lastName: cleanActivityText(entry.last_name, 'Без імені'),
+          sessions: [],
+          results: [],
+          latestAt: entry.created_at || '',
+        };
+        users.set(key, user);
+      }
+
+      if (entry.last_name) user.lastName = cleanActivityText(entry.last_name, user.lastName);
+      if (entry.phone) user.phone = cleanActivityText(entry.phone);
+      if (entry.tg_user_id) user.tgUserId = cleanActivityText(entry.tg_user_id);
+      if (new Date(entry.created_at || 0) > new Date(user.latestAt || 0)) user.latestAt = entry.created_at;
+      return user;
+    };
+
+    beautyLovSessions.forEach((session) => getUser(session).sessions.push(session));
+    beautyLovResults.forEach((result) => getUser(result).results.push(result));
+
+    return [...users.values()]
+      .map((user) => ({
+        ...user,
+        sessions: user.sessions.sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0)),
+        results: user.results.sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0)),
+      }))
+      .sort((left, right) => new Date(right.latestAt || 0) - new Date(left.latestAt || 0));
+  }, [beautyLovResults, beautyLovSessions]);
+
+  const filteredBeautyLovUsers = useMemo(() => {
+    const query = beautyLovSearch.trim().toLocaleLowerCase('uk-UA');
+    if (!query) return beautyLovUsers;
+
+    return beautyLovUsers.filter((user) => [user.lastName, user.phone, user.tgUserId]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query)));
+  }, [beautyLovSearch, beautyLovUsers]);
 
   const handleDeleteLoveCareSession = async (session) => {
     if (deletingLoveCareSessionIds[session.id]) return;
@@ -595,6 +679,11 @@ export function AdminPage({
 
     if (activeSection === 'lovecare') {
       loadLoveCareActivity();
+      return;
+    }
+
+    if (activeSection === 'beauty-lov') {
+      loadBeautyLovAnalytics();
       return;
     }
 
@@ -1147,6 +1236,35 @@ export function AdminPage({
         </div>
       )}
 
+      {activeSection === 'title' && (
+        <div className="admin-settings-card admin-section-card">
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Пасхалки каталогу</div>
+              <div className="admin-settings-subtitle">Керуйте видимістю сердець для всіх схвалених користувачів.</div>
+            </div>
+          </div>
+          <div className="admin-payment-visibility" role="group" aria-label="Видимість пасхалок">
+            <label className="admin-payment-visibility-row">
+              <span>♥ Червоне серце LoveCare</span>
+              <input
+                type="checkbox"
+                checked={Boolean(loveCareEnabled)}
+                onChange={(event) => onEasterEggVisibilityChange?.('lovecare', event.target.checked)}
+              />
+            </label>
+            <label className="admin-payment-visibility-row">
+              <span>♥ Жовте серце Beauty лов</span>
+              <input
+                type="checkbox"
+                checked={Boolean(catchCareEnabled)}
+                onChange={(event) => onEasterEggVisibilityChange?.('catchcare', event.target.checked)}
+              />
+            </label>
+          </div>
+        </div>
+      )}
+
       {activeSection === 'create' && (
         <form className="admin-create-card" onSubmit={handleCreateProduct}>
           <div className="admin-create-head">
@@ -1555,6 +1673,84 @@ export function AdminPage({
             {!loveCareLoading && !loveCareError && filteredLoveCareSessions.length === 0 && (
               <div className="admin-activity-loading">
                 {loveCareActivity.length ? 'За цим пошуком входів немає' : 'LoveCare ще ніхто не відкривав'}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeSection === 'beauty-lov' && (
+        <section className="beauty-lov-admin-section">
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Заходи та результати Beauty лов</div>
+              <div className="admin-settings-subtitle">Картка користувача об’єднує всі входи та спроби гри.</div>
+            </div>
+            <div className="lovecare-admin-count">{beautyLovUsers.length}</div>
+          </div>
+
+          <div className="admin-access-search lovecare-admin-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="search"
+              inputMode="search"
+              value={beautyLovSearch}
+              placeholder="Пошук за ПІБ, телефоном або TG ID"
+              onChange={(event) => setBeautyLovSearch(event.target.value)}
+            />
+            {beautyLovSearch && (
+              <button type="button" aria-label="Очистити пошук" onClick={() => setBeautyLovSearch('')}>×</button>
+            )}
+          </div>
+
+          <div className="beauty-lov-admin-list">
+            {beautyLovLoading && <div className="admin-activity-loading">Завантаження входів та результатів…</div>}
+            {beautyLovError && <div className="admin-activity-error">{beautyLovError}</div>}
+            {!beautyLovLoading && !beautyLovError && filteredBeautyLovUsers.map((user) => (
+              <article key={user.id} className="beauty-lov-admin-user">
+                <header className="beauty-lov-admin-user-head">
+                  <div className="beauty-lov-admin-icon" aria-hidden="true">♥</div>
+                  <div className="lovecare-admin-main">
+                    <div className="lovecare-admin-user">{user.lastName}</div>
+                    <div className="lovecare-admin-phone">{user.phone || 'Без телефону'}</div>
+                  </div>
+                  <div className="beauty-lov-admin-counts">
+                    <span><b>{user.sessions.length}</b> входів</span>
+                    <span><b>{user.results.length}</b> спроб</span>
+                  </div>
+                </header>
+
+                {user.sessions.length > 0 && (
+                  <div className="beauty-lov-entry-times">
+                    <span>Заходив(ла):</span>
+                    {user.sessions.slice(0, 5).map((session) => (
+                      <time key={session.id} dateTime={session.created_at}>{formatKyivDateTime(session.created_at)}</time>
+                    ))}
+                    {user.sessions.length > 5 && <b>+{user.sessions.length - 5}</b>}
+                  </div>
+                )}
+
+                <div className="beauty-lov-results">
+                  {user.results.length ? user.results.map((result) => (
+                    <div key={result.id} className="beauty-lov-result">
+                      <div>
+                        <strong>{Number(result.score || 0)} товарів</strong>
+                        <span>{result.bag_type === 'purple' ? 'Фіолетовий пакет' : 'Чорний пакет'} · {Math.round(Number(result.duration_seconds || 0))} с</span>
+                      </div>
+                      <div>
+                        <time dateTime={result.created_at}>{formatKyivDateTime(result.created_at)}</time>
+                        <b className={result.ended_reason === 'time' ? 'is-time' : ''}>{result.ended_reason === 'time' ? 'Час' : 'Зіткнення'}</b>
+                      </div>
+                    </div>
+                  )) : <div className="lovecare-admin-empty-session">Ще не запускав(ла) гру</div>}
+                </div>
+              </article>
+            ))}
+            {!beautyLovLoading && !beautyLovError && filteredBeautyLovUsers.length === 0 && (
+              <div className="admin-activity-loading">
+                {beautyLovSessions.length || beautyLovResults.length ? 'За цим пошуком користувачів немає' : 'Beauty лов ще ніхто не відкривав'}
               </div>
             )}
           </div>

@@ -292,6 +292,96 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
   return data;
 }
 
+/**
+ * Save one completed CatchCare round in its dedicated analytics table.
+ */
+export async function saveCatchGameResult({
+  sessionId,
+  phone,
+  lastName,
+  tgUserId,
+  bagType,
+  score,
+  caughtProducts,
+  durationSeconds,
+  endedReason,
+}) {
+  ensureSupabaseConfigured();
+
+  const { error } = await supabase
+    .from('catch_game_results')
+    .insert({
+      session_id: sessionId || null,
+      phone: phone || '',
+      last_name: lastName || '',
+      tg_user_id: tgUserId || null,
+      bag_type: bagType,
+      score: Math.max(0, Number(score) || 0),
+      caught_products: caughtProducts || {},
+      duration_seconds: Math.max(0, Number(durationSeconds) || 0),
+      ended_reason: endedReason || 'hazard',
+    });
+
+  if (error) {
+    console.error('saveCatchGameResult error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося зберегти результат CatchCare.'));
+  }
+}
+
+export async function recordCatchGameSessionOpen({ sessionId, phone, lastName, tgUserId }) {
+  ensureSupabaseConfigured();
+
+  if (!sessionId) return;
+
+  const { error } = await supabase
+    .from('catch_game_sessions')
+    .insert({
+      session_id: sessionId,
+      phone: phone || '',
+      last_name: lastName || '',
+      tg_user_id: tgUserId || null,
+    });
+
+  if (error) {
+    console.error('recordCatchGameSessionOpen error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося записати вхід у Beauty лов.'));
+  }
+}
+
+export async function fetchCatchGameSessions(limit = 500) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('catch_game_sessions')
+    .select('id, session_id, phone, last_name, tg_user_id, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('fetchCatchGameSessions error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити входи Beauty лов.'));
+  }
+
+  return data || [];
+}
+
+export async function fetchCatchGameResults(limit = 500) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('catch_game_results')
+    .select('id, session_id, phone, last_name, tg_user_id, bag_type, score, caught_products, duration_seconds, ended_reason, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('fetchCatchGameResults error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося завантажити результати Beauty лов.'));
+  }
+
+  return data || [];
+}
+
 async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
   await logAccess({ phone, lastName, tgUserId });
 
