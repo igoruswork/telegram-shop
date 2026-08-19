@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const ROUND_SECONDS = 55;
-const STARTING_LIVES = 4;
+const ROUND_SECONDS = 120;
+const STARTING_LIVES = 2;
 
 const GAME_PRODUCTS = [
   {
@@ -79,7 +79,9 @@ function clamp(value, min, max) {
 
 function formatTime(seconds) {
   const safeSeconds = Math.max(0, Math.ceil(seconds));
-  return `0:${String(safeSeconds).padStart(2, '0')}`;
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
 export function CatchCarePage({
@@ -442,7 +444,7 @@ export function CatchCarePage({
           <button type="button" className="catchcare-start" disabled={!selectedBag} onClick={startGame}>
             <span>Старт</span><b>→</b>
           </button>
-          <div className="catchcare-intro-rules"><span>♥ 4 життя</span><span>◷ 55 секунд</span><span>⚡ стає швидше</span></div>
+          <div className="catchcare-intro-rules"><span>♥ 2 життя</span><span>◷ 2 хвилини</span><span>⚡ стає швидше</span></div>
         </section>
       )}
 
