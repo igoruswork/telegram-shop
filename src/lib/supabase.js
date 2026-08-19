@@ -382,6 +382,26 @@ export async function fetchCatchGameResults(limit = 500) {
   return data || [];
 }
 
+/**
+ * Delete one Beauty лов entry and its attempts. The database cascade keeps the
+ * session and results in sync even if an admin refreshes the history mid-delete.
+ */
+export async function deleteCatchGameSession(sessionId) {
+  ensureSupabaseConfigured();
+
+  if (!sessionId) return;
+
+  const { error } = await supabase
+    .from('catch_game_sessions')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (error) {
+    console.error('deleteCatchGameSession error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося видалити вхід Beauty лов.'));
+  }
+}
+
 async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
   await logAccess({ phone, lastName, tgUserId });
 

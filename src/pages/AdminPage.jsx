@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   createProduct,
   deleteAccessLogEntry,
+  deleteCatchGameSession,
   deleteLoveCareActivityEvents,
   fetchAdminOrders,
   fetchAccessLogEntries,
@@ -199,6 +200,8 @@ export function AdminPage({
   const [beautyLovLoading, setBeautyLovLoading] = useState(false);
   const [beautyLovError, setBeautyLovError] = useState('');
   const [beautyLovSearch, setBeautyLovSearch] = useState('');
+  const [deletingBeautyLovSessionIds, setDeletingBeautyLovSessionIds] = useState({});
+  const [confirmingBeautyLovSessionId, setConfirmingBeautyLovSessionId] = useState('');
   const [adminPhoneDraft, setAdminPhoneDraft] = useState('');
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
@@ -442,54 +445,33 @@ export function AdminPage({
     ].filter(Boolean).some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query)));
   }, [loveCareSearch, loveCareSessions]);
 
-  const beautyLovUsers = useMemo(() => {
-    const users = new Map();
-    const getUser = (entry) => {
-      const phone = cleanActivityText(entry.phone);
-      const tgUserId = cleanActivityText(entry.tg_user_id);
-      const key = phone || (tgUserId ? `tg:${tgUserId}` : `unknown:${entry.id}`);
-      let user = users.get(key);
+  const beautyLovHistory = useMemo(() => {
+    const resultsBySessionId = new Map();
+    beautyLovResults.forEach((result) => {
+      const sessionId = String(result.session_id || '');
+      if (!sessionId) return;
+      const current = resultsBySessionId.get(sessionId) || [];
+      current.push(result);
+      resultsBySessionId.set(sessionId, current);
+    });
 
-      if (!user) {
-        user = {
-          id: key,
-          phone,
-          tgUserId,
-          lastName: cleanActivityText(entry.last_name, 'Без імені'),
-          sessions: [],
-          results: [],
-          latestAt: entry.created_at || '',
-        };
-        users.set(key, user);
-      }
-
-      if (entry.last_name) user.lastName = cleanActivityText(entry.last_name, user.lastName);
-      if (entry.phone) user.phone = cleanActivityText(entry.phone);
-      if (entry.tg_user_id) user.tgUserId = cleanActivityText(entry.tg_user_id);
-      if (new Date(entry.created_at || 0) > new Date(user.latestAt || 0)) user.latestAt = entry.created_at;
-      return user;
-    };
-
-    beautyLovSessions.forEach((session) => getUser(session).sessions.push(session));
-    beautyLovResults.forEach((result) => getUser(result).results.push(result));
-
-    return [...users.values()]
-      .map((user) => ({
-        ...user,
-        sessions: user.sessions.sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0)),
-        results: user.results.sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0)),
+    return beautyLovSessions
+      .map((session) => ({
+        ...session,
+        results: (resultsBySessionId.get(String(session.session_id || '')) || [])
+          .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0)),
       }))
-      .sort((left, right) => new Date(right.latestAt || 0) - new Date(left.latestAt || 0));
+      .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0));
   }, [beautyLovResults, beautyLovSessions]);
 
-  const filteredBeautyLovUsers = useMemo(() => {
+  const filteredBeautyLovHistory = useMemo(() => {
     const query = beautyLovSearch.trim().toLocaleLowerCase('uk-UA');
-    if (!query) return beautyLovUsers;
+    if (!query) return beautyLovHistory;
 
-    return beautyLovUsers.filter((user) => [user.lastName, user.phone, user.tgUserId]
+    return beautyLovHistory.filter((session) => [session.last_name, session.phone, session.tg_user_id]
       .filter(Boolean)
       .some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query)));
-  }, [beautyLovSearch, beautyLovUsers]);
+  }, [beautyLovHistory, beautyLovSearch]);
 
   const handleDeleteLoveCareSession = async (session) => {
     if (deletingLoveCareSessionIds[session.id]) return;
@@ -514,6 +496,33 @@ export function AdminPage({
     } finally {
       setConfirmingLoveCareSessionId((current) => (current === session.id ? '' : current));
       setDeletingLoveCareSessionIds((current) => {
+        const next = { ...current };
+        delete next[session.id];
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteBeautyLovSession = async (session) => {
+    const sessionId = String(session.session_id || '');
+    if (!sessionId || deletingBeautyLovSessionIds[session.id]) return;
+
+    const previousSessions = beautyLovSessions;
+    const previousResults = beautyLovResults;
+    setBeautyLovError('');
+    setDeletingBeautyLovSessionIds((current) => ({ ...current, [session.id]: true }));
+    setBeautyLovSessions((current) => current.filter((entry) => entry.id !== session.id));
+    setBeautyLovResults((current) => current.filter((entry) => entry.session_id !== sessionId));
+
+    try {
+      await deleteCatchGameSession(sessionId);
+    } catch (error) {
+      setBeautyLovSessions(previousSessions);
+      setBeautyLovResults(previousResults);
+      setBeautyLovError(error.message || 'Не вдалося видалити вхід Beauty лов.');
+    } finally {
+      setConfirmingBeautyLovSessionId((current) => (current === session.id ? '' : current));
+      setDeletingBeautyLovSessionIds((current) => {
         const next = { ...current };
         delete next[session.id];
         return next;
@@ -1684,9 +1693,9 @@ export function AdminPage({
           <div className="admin-create-head">
             <div>
               <div className="admin-create-title">Заходи та результати Beauty лов</div>
-              <div className="admin-settings-subtitle">Картка користувача об’єднує всі входи та спроби гри.</div>
+              <div className="admin-settings-subtitle">Кожен вхід — окрема картка з усіма спробами цього сеансу.</div>
             </div>
-            <div className="lovecare-admin-count">{beautyLovUsers.length}</div>
+            <div className="lovecare-admin-count">{beautyLovHistory.length}</div>
           </div>
 
           <div className="admin-access-search lovecare-admin-search">
@@ -1708,32 +1717,66 @@ export function AdminPage({
           <div className="beauty-lov-admin-list">
             {beautyLovLoading && <div className="admin-activity-loading">Завантаження входів та результатів…</div>}
             {beautyLovError && <div className="admin-activity-error">{beautyLovError}</div>}
-            {!beautyLovLoading && !beautyLovError && filteredBeautyLovUsers.map((user) => (
-              <article key={user.id} className="beauty-lov-admin-user">
-                <header className="beauty-lov-admin-user-head">
+            {!beautyLovLoading && !beautyLovError && filteredBeautyLovHistory.map((session) => {
+              const isDeleting = Boolean(deletingBeautyLovSessionIds[session.id]);
+              const isConfirmingDelete = confirmingBeautyLovSessionId === session.id;
+
+              return (
+              <article key={session.id} className="beauty-lov-admin-session">
+                <header className="beauty-lov-admin-session-head">
                   <div className="beauty-lov-admin-icon" aria-hidden="true">♥</div>
                   <div className="lovecare-admin-main">
-                    <div className="lovecare-admin-user">{user.lastName}</div>
-                    <div className="lovecare-admin-phone">{user.phone || 'Без телефону'}</div>
+                    <div className="lovecare-admin-user">{cleanActivityText(session.last_name, 'Без імені')}</div>
+                    <div className="lovecare-admin-phone">{cleanActivityText(session.phone, 'Без телефону')}</div>
                   </div>
-                  <div className="beauty-lov-admin-counts">
-                    <span><b>{user.sessions.length}</b> входів</span>
-                    <span><b>{user.results.length}</b> спроб</span>
+                  <div className="beauty-lov-admin-session-meta">
+                    <span>Зайшов(ла)</span>
+                    {session.tg_user_id && <span>TG {session.tg_user_id}</span>}
+                    <time dateTime={session.created_at}>{formatKyivDateTime(session.created_at)}</time>
+                    <b>{session.results.length} спроб</b>
                   </div>
+                  <button
+                    type="button"
+                    className="lovecare-admin-delete"
+                    aria-label="Видалити цей вхід Beauty лов і спроби"
+                    title="Видалити вхід і спроби"
+                    onClick={() => setConfirmingBeautyLovSessionId(session.id)}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? '…' : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" />
+                      </svg>
+                    )}
+                  </button>
                 </header>
 
-                {user.sessions.length > 0 && (
-                  <div className="beauty-lov-entry-times">
-                    <span>Заходив(ла):</span>
-                    {user.sessions.slice(0, 5).map((session) => (
-                      <time key={session.id} dateTime={session.created_at}>{formatKyivDateTime(session.created_at)}</time>
-                    ))}
-                    {user.sessions.length > 5 && <b>+{user.sessions.length - 5}</b>}
+                {isConfirmingDelete && (
+                  <div className="lovecare-admin-delete-confirm" role="alert">
+                    <span>Видалити цей вхід і всі спроби в ньому?</span>
+                    <div>
+                      <button
+                        type="button"
+                        className="lovecare-admin-delete-confirm-action"
+                        onClick={() => handleDeleteBeautyLovSession(session)}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? 'Видаляємо…' : 'Так, видалити'}
+                      </button>
+                      <button
+                        type="button"
+                        className="lovecare-admin-delete-cancel"
+                        onClick={() => setConfirmingBeautyLovSessionId('')}
+                        disabled={isDeleting}
+                      >
+                        Скасувати
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 <div className="beauty-lov-results">
-                  {user.results.length ? user.results.map((result) => (
+                  {session.results.length ? session.results.map((result) => (
                     <div key={result.id} className="beauty-lov-result">
                       <div>
                         <strong>{Number(result.score || 0)} товарів</strong>
@@ -1744,13 +1787,14 @@ export function AdminPage({
                         <b className={result.ended_reason === 'time' ? 'is-time' : ''}>{result.ended_reason === 'time' ? 'Час' : 'Зіткнення'}</b>
                       </div>
                     </div>
-                  )) : <div className="lovecare-admin-empty-session">Ще не запускав(ла) гру</div>}
+                  )) : <div className="lovecare-admin-empty-session">Під час цього входу гру ще не запускали</div>}
                 </div>
               </article>
-            ))}
-            {!beautyLovLoading && !beautyLovError && filteredBeautyLovUsers.length === 0 && (
+              );
+            })}
+            {!beautyLovLoading && !beautyLovError && filteredBeautyLovHistory.length === 0 && (
               <div className="admin-activity-loading">
-                {beautyLovSessions.length || beautyLovResults.length ? 'За цим пошуком користувачів немає' : 'Beauty лов ще ніхто не відкривав'}
+                {beautyLovSessions.length || beautyLovResults.length ? 'За цим пошуком входів немає' : 'Beauty лов ще ніхто не відкривав'}
               </div>
             )}
           </div>
