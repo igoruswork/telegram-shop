@@ -372,12 +372,15 @@ export function CatalogPage({
 
       {/* Категорії */}
       <div className="categories-scroll">
-        {allCategories.map((cat) => (
+        {allCategories.map((cat, index) => (
           <button
             key={cat}
             type="button"
             className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
-            style={getBrandStyle(cat, brandColors, defaultBrandColor)}
+            style={{
+              ...getBrandStyle(cat, brandColors, defaultBrandColor),
+              '--category-chip-delay': `${index * 180}ms`,
+            }}
             onClick={() => handleCategoryClick(cat)}
           >
             {cat}
