@@ -455,7 +455,7 @@ export async function requestCatalogAccess({ phone, lastName, tgUserId }) {
       },
       { onConflict: 'phone' }
     )
-    .select('phone, last_name, is_approved, last_access_at')
+    .select('phone, last_name, is_approved, is_blocked, last_access_at')
     .single();
 
   if (error) {
@@ -482,7 +482,7 @@ export async function fetchCatalogUserAccess(phone) {
 
   const { data, error } = await supabase
     .from('catalog_users')
-    .select('phone, last_name, is_approved, last_access_at')
+    .select('phone, last_name, is_approved, is_blocked, last_access_at')
     .eq('phone', phone)
     .maybeSingle();
 
@@ -504,7 +504,7 @@ export async function fetchCatalogUsers(limit = 100) {
 
   const { data, error } = await supabase
     .from('catalog_users')
-    .select('phone, last_name, tg_user_id, is_approved, created_at, updated_at, last_access_at')
+    .select('phone, last_name, tg_user_id, is_approved, is_blocked, created_at, updated_at, last_access_at')
     .order('last_access_at', { ascending: false })
     .limit(limit);
 
@@ -521,14 +521,32 @@ export async function updateCatalogUserApproval(phone, isApproved) {
 
   const { data, error } = await supabase
     .from('catalog_users')
-    .update({ is_approved: Boolean(isApproved) })
+    .update({ is_approved: Boolean(isApproved), ...(isApproved ? { is_blocked: false } : {}) })
     .eq('phone', phone)
-    .select('phone, last_name, tg_user_id, is_approved, created_at, updated_at, last_access_at')
+    .select('phone, last_name, tg_user_id, is_approved, is_blocked, created_at, updated_at, last_access_at')
     .single();
 
   if (error) {
     console.error('updateCatalogUserApproval error:', error);
     throw new Error(toReadableError(error, 'Не вдалося змінити доступ користувача.'));
+  }
+
+  return data;
+}
+
+export async function updateCatalogUserBlocked(phone, isBlocked) {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('catalog_users')
+    .update({ is_blocked: Boolean(isBlocked), ...(isBlocked ? { is_approved: false } : {}) })
+    .eq('phone', phone)
+    .select('phone, last_name, tg_user_id, is_approved, is_blocked, created_at, updated_at, last_access_at')
+    .single();
+
+  if (error) {
+    console.error('updateCatalogUserBlocked error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося змінити блокування користувача.'));
   }
 
   return data;
@@ -541,7 +559,7 @@ export async function updateCatalogUserName(phone, lastName) {
     .from('catalog_users')
     .update({ last_name: String(lastName || '').trim() })
     .eq('phone', phone)
-    .select('phone, last_name, tg_user_id, is_approved, created_at, updated_at, last_access_at')
+    .select('phone, last_name, tg_user_id, is_approved, is_blocked, created_at, updated_at, last_access_at')
     .single();
 
   if (error) {

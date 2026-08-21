@@ -24,7 +24,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
 
     fetchCatalogUserAccess(normalizedPhone)
       .then(async (catalogUser) => {
-        if (cancelled || !catalogUser?.is_approved) return;
+        if (cancelled || !catalogUser?.is_approved || catalogUser.is_blocked) return;
 
         try {
           await logAccess({
@@ -71,6 +71,11 @@ export function GatePage({ onAuthorized, tgUserId }) {
         lastName: lastName.trim(),
         tgUserId,
       });
+
+      if (catalogUser?.is_blocked) {
+        setError('Ваш доступ заблоковано. Зверніться до адміністратора.');
+        return;
+      }
 
       onAuthorized({
         phone: catalogUser?.phone || normalizePhoneInput(phone),

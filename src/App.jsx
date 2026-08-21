@@ -38,6 +38,10 @@ const DEFAULT_PAYMENT_CARD_VISIBILITY = {
 };
 const DEFAULT_LOVECARE_ENABLED = true;
 const DEFAULT_CATCHCARE_ENABLED = false;
+const DEFAULT_ADMIN_SECTION_ORDER = [
+  'title', 'create', 'colors', 'details', 'visibility',
+  'access', 'access-log', 'lovecare', 'beauty-lov', 'orders', 'section-order',
+];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
 const USER_STORAGE_KEY = 'telegram-shop-user';
@@ -160,6 +164,14 @@ function normalizePaymentCardVisibility(value) {
   );
 }
 
+function normalizeAdminSectionOrder(value) {
+  const requestedIds = Array.isArray(value) ? value : [];
+  const knownIds = new Set(DEFAULT_ADMIN_SECTION_ORDER);
+  const uniqueIds = [...new Set(requestedIds.filter((id) => knownIds.has(id)))];
+
+  return [...uniqueIds, ...DEFAULT_ADMIN_SECTION_ORDER.filter((id) => !uniqueIds.includes(id))];
+}
+
 function normalizeAppSettings(value) {
   const brandColors = normalizeBrandColors(value?.brandColors || value?.brand_colors || {});
   const adminPhones = normalizeAdminPhones(value?.adminPhones || value?.admin_phones || []);
@@ -192,6 +204,9 @@ function normalizeAppSettings(value) {
   const catchCareEnabled = typeof value?.catchCareEnabled === 'boolean'
     ? value.catchCareEnabled
     : DEFAULT_CATCHCARE_ENABLED;
+  const adminSectionOrder = normalizeAdminSectionOrder(
+    value?.adminSectionOrder || value?.admin_section_order
+  );
 
   return {
     brandColors,
@@ -205,6 +220,7 @@ function normalizeAppSettings(value) {
     paymentCardVisibility,
     loveCareEnabled,
     catchCareEnabled,
+    adminSectionOrder,
   };
 }
 
@@ -233,6 +249,7 @@ export default function App() {
   const [paymentCardVisibility, setPaymentCardVisibility] = useState(DEFAULT_PAYMENT_CARD_VISIBILITY);
   const [loveCareEnabled, setLoveCareEnabled] = useState(DEFAULT_LOVECARE_ENABLED);
   const [catchCareEnabled, setCatchCareEnabled] = useState(DEFAULT_CATCHCARE_ENABLED);
+  const [adminSectionOrder, setAdminSectionOrder] = useState(DEFAULT_ADMIN_SECTION_ORDER);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
@@ -360,7 +377,7 @@ export default function App() {
     fetchCatalogUserAccess(storedUser.phone)
       .then((catalogUser) => {
         if (cancelled) return;
-        if (catalogUser?.is_approved) {
+        if (catalogUser?.is_approved && !catalogUser.is_blocked) {
           const currentUser = {
             phone: catalogUser.phone,
             lastName: String(catalogUser.last_name || storedUser.lastName || '').trim(),
@@ -411,6 +428,7 @@ export default function App() {
     setPaymentCardVisibility(normalized.paymentCardVisibility);
     setLoveCareEnabled(normalized.loveCareEnabled);
     setCatchCareEnabled(normalized.catchCareEnabled);
+    setAdminSectionOrder(normalized.adminSectionOrder);
     return true;
   }, []);
 
@@ -427,8 +445,9 @@ export default function App() {
       paymentCardVisibility,
       loveCareEnabled,
       catchCareEnabled,
+      adminSectionOrder,
     };
-  }, [adminPhones, brandColors, catalogTitle, catchCareEnabled, loveCareEnabled, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
+  }, [adminPhones, adminSectionOrder, brandColors, catalogTitle, catchCareEnabled, loveCareEnabled, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
 
   const queueSaveSettings = useCallback((settings) => {
     const normalized = normalizeAppSettings({ ...settingsSnapshotRef.current, ...settings });
@@ -667,6 +686,12 @@ export default function App() {
       queueSaveSettings({ loveCareEnabled, catchCareEnabled: Boolean(visible) });
     }
   }, [catchCareEnabled, loveCareEnabled, queueSaveSettings]);
+
+  const setAdminSectionOrderSetting = useCallback((value) => {
+    const nextOrder = normalizeAdminSectionOrder(value);
+    setAdminSectionOrder(nextOrder);
+    queueSaveSettings({ adminSectionOrder: nextOrder });
+  }, [queueSaveSettings]);
 
   useEffect(() => {
     if (
@@ -1054,6 +1079,8 @@ export default function App() {
           initialSection={initialAdminSection}
           adminPhones={adminPhones}
           onAdminPhonesChange={setAdminPhonesSetting}
+          adminSectionOrder={adminSectionOrder}
+          onAdminSectionOrderChange={setAdminSectionOrderSetting}
           currentAdminPhone={gateData.phone}
         />
       )}

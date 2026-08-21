@@ -14,6 +14,7 @@ import {
   importProductImage,
   updateProduct,
   updateCatalogUserApproval,
+  updateCatalogUserBlocked,
   updateCatalogUserName,
   uploadProductImageFile,
 } from '../lib/supabase';
@@ -49,6 +50,7 @@ const adminSections = [
   { id: 'lovecare', label: 'LoveCare' },
   { id: 'beauty-lov', label: 'Beauty лов' },
   { id: 'orders', label: 'Замовлення' },
+  { id: 'section-order', label: 'Порядок' },
 ];
 
 const DEFAULT_ADMIN_SECTION = 'details';
@@ -56,10 +58,19 @@ const accessTabs = [
   { id: 'all', label: 'Користувачі' },
   { id: 'approved', label: 'Схвалено' },
   { id: 'pending', label: 'Очікує' },
+  { id: 'blocked', label: 'Заблоковані' },
 ];
 
 function normalizeAdminSection(section) {
   return adminSections.some((item) => item.id === section) ? section : DEFAULT_ADMIN_SECTION;
+}
+
+function normalizeAdminSectionOrder(value) {
+  const requestedIds = Array.isArray(value) ? value : [];
+  const knownIds = new Set(adminSections.map((section) => section.id));
+  const uniqueIds = [...new Set(requestedIds.filter((id) => knownIds.has(id)))];
+
+  return [...uniqueIds, ...adminSections.map((section) => section.id).filter((id) => !uniqueIds.includes(id))];
 }
 
 function isHexColor(value) {
@@ -151,6 +162,8 @@ export function AdminPage({
   initialSection = DEFAULT_ADMIN_SECTION,
   adminPhones = [],
   onAdminPhonesChange,
+  adminSectionOrder,
+  onAdminSectionOrderChange,
   currentAdminPhone = '',
 }) {
   const [products, setProducts] = useState([]);
@@ -163,6 +176,20 @@ export function AdminPage({
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
   const [activeSection, setActiveSection] = useState(() => normalizeAdminSection(initialSection));
+  const orderedAdminSections = useMemo(() => {
+    const sectionById = new Map(adminSections.map((section) => [section.id, section]));
+    return normalizeAdminSectionOrder(adminSectionOrder).map((id) => sectionById.get(id));
+  }, [adminSectionOrder]);
+  const moveAdminSection = useCallback((sectionId, direction) => {
+    const currentIndex = orderedAdminSections.findIndex((section) => section.id === sectionId);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedAdminSections.length) return;
+
+    const nextOrder = [...orderedAdminSections];
+    [nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]];
+    onAdminSectionOrderChange?.(nextOrder.map((section) => section.id));
+  }, [onAdminSectionOrderChange, orderedAdminSections]);
   const [newProduct, setNewProduct] = useState(emptyProductForm);
   const [creating, setCreating] = useState(false);
   const [createSaved, setCreateSaved] = useState(false);
@@ -366,8 +393,9 @@ export function AdminPage({
     const query = accessSearch.trim().toLocaleLowerCase('uk-UA');
 
     return catalogUsers.filter((entry) => {
-      if (accessTab === 'approved' && !entry.is_approved) return false;
-      if (accessTab === 'pending' && entry.is_approved) return false;
+      if (accessTab === 'approved' && (!entry.is_approved || entry.is_blocked)) return false;
+      if (accessTab === 'pending' && (entry.is_approved || entry.is_blocked)) return false;
+      if (accessTab === 'blocked' && !entry.is_blocked) return false;
       if (!query) return true;
 
       return [entry.last_name, entry.phone, entry.tg_user_id]
@@ -670,9 +698,11 @@ export function AdminPage({
   };
 
   const handleCatalogUserApproval = async (catalogUser, isApproved) => {
-    const previous = catalogUser.is_approved;
+    const previous = { isApproved: catalogUser.is_approved, isBlocked: catalogUser.is_blocked };
     setCatalogUsers((current) => current.map((item) => (
-      item.phone === catalogUser.phone ? { ...item, is_approved: isApproved } : item
+      item.phone === catalogUser.phone
+        ? { ...item, is_approved: isApproved, is_blocked: isApproved ? false : item.is_blocked }
+        : item
     )));
 
     try {
@@ -682,7 +712,32 @@ export function AdminPage({
       )));
     } catch (error) {
       setCatalogUsers((current) => current.map((item) => (
-        item.phone === catalogUser.phone ? { ...item, is_approved: previous } : item
+        item.phone === catalogUser.phone
+          ? { ...item, is_approved: previous.isApproved, is_blocked: previous.isBlocked }
+          : item
+      )));
+      alert('Помилка: ' + error.message);
+    }
+  };
+
+  const handleCatalogUserBlocked = async (catalogUser, isBlocked) => {
+    const previous = { isApproved: catalogUser.is_approved, isBlocked: catalogUser.is_blocked };
+    setCatalogUsers((current) => current.map((item) => (
+      item.phone === catalogUser.phone
+        ? { ...item, is_blocked: isBlocked, is_approved: isBlocked ? false : item.is_approved }
+        : item
+    )));
+
+    try {
+      const updated = await updateCatalogUserBlocked(catalogUser.phone, isBlocked);
+      setCatalogUsers((current) => current.map((item) => (
+        item.phone === updated.phone ? updated : item
+      )));
+    } catch (error) {
+      setCatalogUsers((current) => current.map((item) => (
+        item.phone === catalogUser.phone
+          ? { ...item, is_approved: previous.isApproved, is_blocked: previous.isBlocked }
+          : item
       )));
       alert('Помилка: ' + error.message);
     }
@@ -1026,10 +1081,12 @@ export function AdminPage({
       </div>
 
       <div className="admin-section-tabs" role="tablist" aria-label="Розділи адмінки">
-        {adminSections.map((section) => (
+        {orderedAdminSections.map((section) => (
           <button
             key={section.id}
             type="button"
+            role="tab"
+            aria-selected={activeSection === section.id}
             className={`admin-section-tab ${activeSection === section.id ? 'active' : ''}`}
             onClick={() => setActiveSection(section.id)}
           >
@@ -1037,6 +1094,43 @@ export function AdminPage({
           </button>
         ))}
       </div>
+
+      {activeSection === 'section-order' && (
+        <section className="admin-settings-card admin-section-card admin-section-order-card">
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Порядок розділів</div>
+              <div className="admin-settings-subtitle">Переміщуйте картки вгору або вниз. Зміни збережуться для всіх адміністраторів.</div>
+            </div>
+          </div>
+          <div className="admin-section-order-list">
+            {orderedAdminSections.map((section, index) => (
+              <div className="admin-section-order-item" key={section.id}>
+                <span className="admin-section-order-number">{index + 1}</span>
+                <span className="admin-section-order-label">{section.label}</span>
+                <div className="admin-section-order-actions">
+                  <button
+                    type="button"
+                    aria-label={`Перемістити ${section.label} вище`}
+                    disabled={index === 0}
+                    onClick={() => moveAdminSection(section.id, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Перемістити ${section.label} нижче`}
+                    disabled={index === orderedAdminSections.length - 1}
+                    onClick={() => moveAdminSection(section.id, 1)}
+                  >
+                    ↓
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {activeSection === 'title' && (
         <div className="admin-settings-card admin-section-card">
@@ -1428,7 +1522,7 @@ export function AdminPage({
           {!accessLoading && !accessError && filteredCatalogUsers.map((entry) => (
             <article
               key={entry.phone}
-              className={`admin-access-card ${entry.is_approved ? 'admin-access-card--approved' : 'admin-access-card--pending'}`}
+              className={`admin-access-card ${entry.is_blocked ? 'admin-access-card--blocked' : entry.is_approved ? 'admin-access-card--approved' : 'admin-access-card--pending'}`}
             >
               <div className="admin-access-person">
                 {editingCatalogUserPhone === entry.phone ? (
@@ -1466,10 +1560,18 @@ export function AdminPage({
                   <input
                     type="checkbox"
                     checked={Boolean(entry.is_approved)}
+                    disabled={Boolean(entry.is_blocked)}
                     onChange={(event) => handleCatalogUserApproval(entry, event.target.checked)}
                   />
-                  <span>{entry.is_approved ? 'Схвалено' : 'Очікує схвалення'}</span>
+                  <span>{entry.is_blocked ? 'Заблоковано' : entry.is_approved ? 'Схвалено' : 'Очікує схвалення'}</span>
                 </label>
+                <button
+                  type="button"
+                  className={`admin-user-block ${entry.is_blocked ? 'is-blocked' : ''}`}
+                  onClick={() => handleCatalogUserBlocked(entry, !entry.is_blocked)}
+                >
+                  {entry.is_blocked ? 'Розблокувати' : 'Заблокувати'}
+                </button>
               </div>
             </article>
           ))}
