@@ -73,7 +73,6 @@ export function GatePage({ onAuthorized, tgUserId }) {
       });
 
       if (catalogUser?.is_blocked) {
-        setError('Ваш доступ заблоковано. Зверніться до адміністратора.');
         return;
       }
 
