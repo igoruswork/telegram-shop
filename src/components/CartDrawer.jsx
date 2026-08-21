@@ -52,7 +52,7 @@ export function CartDrawer({
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        onOrderSuccess();
+        onOrderSuccess(order);
         onClose();
       }, 2500);
     } catch (err) {

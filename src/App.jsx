@@ -361,12 +361,19 @@ export default function App() {
       .then((catalogUser) => {
         if (cancelled) return;
         if (catalogUser?.is_approved) {
+          const currentUser = {
+            phone: catalogUser.phone,
+            lastName: String(catalogUser.last_name || storedUser.lastName || '').trim(),
+          };
+          // Keep the local identity in sync with administrator edits.
+          setGateData(currentUser);
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
           setAuthorized(true);
           if (!storedAccessLoggedRef.current) {
             storedAccessLoggedRef.current = true;
             logAccess({
-              phone: catalogUser.phone,
-              lastName: catalogUser.last_name || storedUser.lastName,
+              phone: currentUser.phone,
+              lastName: currentUser.lastName,
               tgUserId: user?.id,
             }).catch((error) => console.warn('stored user access log error:', error));
           }
@@ -792,10 +799,19 @@ export default function App() {
     [haptic]
   );
 
-  const handleOrderSuccess = useCallback(() => {
+  const handleOrderSuccess = useCallback((order) => {
+    const currentLastName = String(order?.last_name || '').trim();
+    const orderPhone = normalizePhoneInput(order?.phone);
+
+    if (currentLastName && orderPhone && orderPhone === normalizePhoneInput(gateData.phone)) {
+      const currentUser = { phone: gateData.phone, lastName: currentLastName };
+      setGateData(currentUser);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
+    }
+
     hapticNotification('success');
     setCart([]);
-  }, [hapticNotification]);
+  }, [gateData.phone, hapticNotification]);
 
   const clearCart = useCallback(() => {
     haptic('medium');

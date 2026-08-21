@@ -271,13 +271,36 @@ export async function fetchProductById(id) {
 export async function createOrder({ tgUserId, tgUsername, phone, lastName, items, total }) {
   ensureSupabaseConfigured();
 
+  // The gate keeps a local copy of the customer's name. An administrator can
+  // correct it later in catalog_users, so use the current database value when
+  // an order is placed instead of sending a stale value from localStorage.
+  let currentLastName = String(lastName || '').trim();
+  const normalizedPhone = String(phone || '').trim();
+
+  if (normalizedPhone) {
+    const { data: catalogUser, error: catalogUserError } = await supabase
+      .from('catalog_users')
+      .select('last_name')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    if (catalogUserError) {
+      if (!isMissingCatalogUsersTable(catalogUserError)) {
+        console.warn('createOrder catalog user lookup error:', catalogUserError);
+      }
+    } else {
+      const savedLastName = String(catalogUser?.last_name || '').trim();
+      if (savedLastName) currentLastName = savedLastName;
+    }
+  }
+
   const { data, error } = await supabase
     .from('orders')
     .insert({
       tg_user_id: tgUserId || null,
       tg_username: tgUsername || '',
       phone: phone || '',
-      last_name: lastName || '',
+      last_name: currentLastName,
       items,
       total,
       status: 'new',
