@@ -863,6 +863,7 @@ export default function App() {
     (product) => {
       haptic('light');
       setSelectedProduct(product);
+      window.scrollTo(0, 0);
       setPage('product');
     },
     [haptic]
