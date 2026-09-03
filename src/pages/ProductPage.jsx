@@ -17,18 +17,19 @@ function getBadgeClass(badge) {
   return 'default';
 }
 
-export function ProductPage({ productId, onBack, onAddToCart }) {
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
+export function ProductPage({ productId, initialProduct = null, onBack, onAddToCart }) {
+  const [product, setProduct] = useState(initialProduct);
+  const [loading, setLoading] = useState(() => !initialProduct);
   const [error, setError] = useState('');
   const bindSingleTap = useSingleTap();
 
-  // Завантажити свіжі дані товару з Supabase по ID
+  // Render the catalog snapshot immediately, then refresh it from Supabase.
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      setLoading(true);
+      setProduct(initialProduct);
+      setLoading(!initialProduct);
       setError('');
 
       try {
@@ -38,8 +39,12 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
         }
       } catch (err) {
         if (!cancelled) {
-          setProduct(null);
-          setError(err.message || 'Не вдалося завантажити товар.');
+          if (!initialProduct) {
+            setProduct(null);
+            setError(err.message || 'Не вдалося завантажити товар.');
+          } else {
+            console.warn('product background refresh error:', err);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -50,7 +55,7 @@ export function ProductPage({ productId, onBack, onAddToCart }) {
 
     load();
     return () => { cancelled = true; };
-  }, [productId]);
+  }, [initialProduct, productId]);
 
   if (loading) {
     return (

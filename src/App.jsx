@@ -280,7 +280,7 @@ export default function App() {
 
   // ─── Навігація ────────────────────────────────────────
   const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
-  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [initialAdminSection, setInitialAdminSection] = useState('details');
 
   // ─── Збереження стану каталогу (скрол + категорія) ───
@@ -862,7 +862,7 @@ export default function App() {
   const openProduct = useCallback(
     (product) => {
       haptic('light');
-      setSelectedProductId(product.id);
+      setSelectedProduct(product);
       setPage('product');
     },
     [haptic]
@@ -871,7 +871,7 @@ export default function App() {
   const goBack = useCallback(() => {
     haptic('light');
     setPage('catalog');
-    setSelectedProductId(null);
+    setSelectedProduct(null);
   }, [haptic]);
 
   const openAdmin = useCallback((section = 'details') => {
@@ -912,7 +912,7 @@ export default function App() {
     setAccessChecked(true);
     setGateData({ phone: '', lastName: '' });
     setPage('catalog');
-    setSelectedProductId(null);
+    setSelectedProduct(null);
     setCartOpen(false);
     setCart([]);
     setCatalogState(null);
@@ -967,10 +967,11 @@ export default function App() {
         />
       )}
 
-      {page === 'product' && selectedProductId && (
+      {page === 'product' && selectedProduct && (
         <React.Suspense fallback={<div className="gate-page" aria-busy="true" />}>
           <ProductPage
-            productId={selectedProductId}
+            productId={selectedProduct.id}
+            initialProduct={selectedProduct}
             onBack={goBack}
             onAddToCart={addToCart}
           />
