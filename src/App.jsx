@@ -384,9 +384,12 @@ export default function App() {
     if (!storedUser) return undefined;
 
     let cancelled = false;
+    let retryTimer = null;
+    let attempts = 0;
 
-    fetchCatalogUserAccess(storedUser.phone)
-      .then((catalogUser) => {
+    const checkStoredAccess = async () => {
+      try {
+        const catalogUser = await fetchCatalogUserAccess(storedUser.phone);
         if (cancelled) return;
         if (catalogUser?.is_approved && !catalogUser.is_blocked) {
           const currentUser = {
@@ -397,6 +400,7 @@ export default function App() {
           setGateData(currentUser);
           localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
           setAuthorized(true);
+          setAccessChecked(true);
           if (!storedAccessLoggedRef.current) {
             storedAccessLoggedRef.current = true;
             logAccess({
@@ -411,16 +415,30 @@ export default function App() {
         // grant access: the user still sees the gate until an administrator
         // changes is_approved in Supabase.
         setGateData({ phone: '', lastName: '' });
-      })
-      .catch((error) => {
+        setAccessChecked(true);
+      } catch (error) {
         console.warn('stored user access check error:', error);
-      })
-      .finally(() => {
-        if (!cancelled) setAccessChecked(true);
-      });
+        if (cancelled) return;
+
+        // A network hiccup must not immediately throw a previously approved
+        // visitor back to the gate. Retries still require a successful server
+        // response before restoring the session.
+        if (attempts < 2) {
+          const delay = 500 * (2 ** attempts);
+          attempts += 1;
+          retryTimer = window.setTimeout(checkStoredAccess, delay);
+          return;
+        }
+
+        setAccessChecked(true);
+      }
+    };
+
+    checkStoredAccess();
 
     return () => {
       cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
   }, [storedUser, user?.id]);
 

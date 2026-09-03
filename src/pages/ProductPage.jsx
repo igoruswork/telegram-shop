@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
 import { productDisplayText } from '../lib/productDisplay';
@@ -22,6 +22,21 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
   const [loading, setLoading] = useState(() => !initialProduct);
   const [error, setError] = useState('');
   const bindSingleTap = useSingleTap();
+
+  // The catalog and the product page share the document scroll container.
+  // Reset it after this page has mounted, not only when the card is pressed:
+  // on mobile the old scroll position can otherwise win the same-frame update.
+  useLayoutEffect(() => {
+    const scrollToTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    scrollToTop();
+    const frame = window.requestAnimationFrame(scrollToTop);
+    return () => window.cancelAnimationFrame(frame);
+  }, [productId]);
 
   // Render the catalog snapshot immediately, then refresh it from Supabase.
   useEffect(() => {
