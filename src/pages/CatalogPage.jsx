@@ -145,10 +145,6 @@ export function CatalogPage({
   onUpdateQty,
   isAdmin,
   onAdminClick,
-  onLoveCareClick,
-  onCatchCareClick,
-  loveCareEnabled = true,
-  catchCareEnabled = false,
   savedState,
   onSaveState,
   brandColors,
@@ -286,28 +282,6 @@ export function CatalogPage({
                 </span>
               )}
             </div>
-          )}
-          {loveCareEnabled && (
-            <button
-              type="button"
-              className="catalog-search-admin-btn catalog-love-btn"
-              aria-label="Відкрити LoveCare"
-              title="LoveCare"
-              onClick={onLoveCareClick}
-            >
-              <span aria-hidden="true">♥</span>
-            </button>
-          )}
-          {(isAdmin || catchCareEnabled) && (
-            <button
-              type="button"
-              className="catalog-search-admin-btn catalog-catchcare-btn"
-              aria-label="Відкрити CatchCare"
-              title="CatchCare"
-              onClick={onCatchCareClick}
-            >
-              <span aria-hidden="true">♥</span>
-            </button>
           )}
           {isAdmin && (
             <div className="catalog-admin-shortcuts" aria-label="Швидкі дії адміна">

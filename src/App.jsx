@@ -5,9 +5,6 @@ import {
   fetchCatalogUserAccess,
   fetchProducts,
   logAccess,
-  recordCatchGameSessionOpen,
-  recordLoveCareEvent,
-  saveCatchGameResult,
   saveAppSettings,
   subscribeToAppSettings,
   subscribeToProducts,
@@ -17,8 +14,6 @@ import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { ProductPage } from './pages/ProductPage';
 import { AdminPage } from './pages/AdminPage';
-import { LoveCarePage } from './pages/LoveCarePage';
-import { CatchCarePage } from './pages/CatchCarePage';
 import { CartDrawer } from './components/CartDrawer';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
 import './styles.css';
@@ -36,11 +31,9 @@ const DEFAULT_PAYMENT_CARD_VISIBILITY = {
   taxId: true,
   extraDetails: true,
 };
-const DEFAULT_LOVECARE_ENABLED = true;
-const DEFAULT_CATCHCARE_ENABLED = false;
 const DEFAULT_ADMIN_SECTION_ORDER = [
   'title', 'create', 'colors', 'details', 'visibility',
-  'access', 'access-log', 'lovecare', 'beauty-lov', 'orders', 'section-order',
+  'access', 'access-log', 'orders', 'section-order',
 ];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
@@ -198,12 +191,6 @@ function normalizeAppSettings(value) {
   const paymentCardVisibility = normalizePaymentCardVisibility(
     value?.paymentCardVisibility || value?.payment_card_visibility
   );
-  const loveCareEnabled = typeof value?.loveCareEnabled === 'boolean'
-    ? value.loveCareEnabled
-    : DEFAULT_LOVECARE_ENABLED;
-  const catchCareEnabled = typeof value?.catchCareEnabled === 'boolean'
-    ? value.catchCareEnabled
-    : DEFAULT_CATCHCARE_ENABLED;
   const adminSectionOrder = normalizeAdminSectionOrder(
     value?.adminSectionOrder || value?.admin_section_order
   );
@@ -218,8 +205,6 @@ function normalizeAppSettings(value) {
     paymentTaxId,
     paymentExtraDetails,
     paymentCardVisibility,
-    loveCareEnabled,
-    catchCareEnabled,
     adminSectionOrder,
   };
 }
@@ -247,8 +232,6 @@ export default function App() {
   const [paymentTaxId, setPaymentTaxId] = useState(DEFAULT_PAYMENT_TAX_ID);
   const [paymentExtraDetails, setPaymentExtraDetails] = useState('');
   const [paymentCardVisibility, setPaymentCardVisibility] = useState(DEFAULT_PAYMENT_CARD_VISIBILITY);
-  const [loveCareEnabled, setLoveCareEnabled] = useState(DEFAULT_LOVECARE_ENABLED);
-  const [catchCareEnabled, setCatchCareEnabled] = useState(DEFAULT_CATCHCARE_ENABLED);
   const [adminSectionOrder, setAdminSectionOrder] = useState(DEFAULT_ADMIN_SECTION_ORDER);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
@@ -256,9 +239,6 @@ export default function App() {
   const saveSettingsTimeoutRef = useRef(null);
   const localSettingsMigrationRef = useRef(false);
   const storedAccessLoggedRef = useRef(false);
-  const loveCareEventQueueRef = useRef(Promise.resolve());
-  const loveCareSessionIdRef = useRef('');
-  const catchCareSessionIdRef = useRef('');
   const settingsSnapshotRef = useRef({});
 
   // ─── Авторизація (гейт) ──────────────────────────────
@@ -268,7 +248,7 @@ export default function App() {
   const isAdmin = adminPhones.includes(normalizePhoneInput(gateData.phone));
 
   // ─── Навігація ────────────────────────────────────────
-  const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin' | 'lovecare' | 'catchcare'
+  const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [initialAdminSection, setInitialAdminSection] = useState('details');
 
@@ -426,8 +406,6 @@ export default function App() {
     setPaymentTaxId(normalized.paymentTaxId);
     setPaymentExtraDetails(normalized.paymentExtraDetails);
     setPaymentCardVisibility(normalized.paymentCardVisibility);
-    setLoveCareEnabled(normalized.loveCareEnabled);
-    setCatchCareEnabled(normalized.catchCareEnabled);
     setAdminSectionOrder(normalized.adminSectionOrder);
     return true;
   }, []);
@@ -443,11 +421,9 @@ export default function App() {
       paymentTaxId,
       paymentExtraDetails,
       paymentCardVisibility,
-      loveCareEnabled,
-      catchCareEnabled,
       adminSectionOrder,
     };
-  }, [adminPhones, adminSectionOrder, brandColors, catalogTitle, catchCareEnabled, loveCareEnabled, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
+  }, [adminPhones, adminSectionOrder, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
 
   const queueSaveSettings = useCallback((settings) => {
     const normalized = normalizeAppSettings({ ...settingsSnapshotRef.current, ...settings });
@@ -674,19 +650,6 @@ export default function App() {
     });
   }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
-  const setEasterEggVisibility = useCallback((key, visible) => {
-    if (key === 'lovecare') {
-      setLoveCareEnabled(Boolean(visible));
-      queueSaveSettings({ loveCareEnabled: Boolean(visible), catchCareEnabled });
-      return;
-    }
-
-    if (key === 'catchcare') {
-      setCatchCareEnabled(Boolean(visible));
-      queueSaveSettings({ loveCareEnabled, catchCareEnabled: Boolean(visible) });
-    }
-  }, [catchCareEnabled, loveCareEnabled, queueSaveSettings]);
-
   const setAdminSectionOrderSetting = useCallback((value) => {
     const nextOrder = normalizeAdminSectionOrder(value);
     setAdminSectionOrder(nextOrder);
@@ -871,90 +834,6 @@ export default function App() {
     setPage('catalog');
   }, [haptic]);
 
-  const enqueueLoveCareEvent = useCallback((event) => {
-    const eventWithUser = {
-      ...event,
-      phone: normalizePhoneInput(gateData.phone),
-      last_name: String(gateData.lastName || '').trim(),
-      tg_user_id: user?.id || null,
-    };
-
-    const queuedEvent = loveCareEventQueueRef.current
-      .catch(() => undefined)
-      .then(() => recordLoveCareEvent(eventWithUser));
-
-    loveCareEventQueueRef.current = queuedEvent;
-    queuedEvent.catch((error) => console.warn('LoveCare activity save error:', error));
-    return queuedEvent;
-  }, [gateData.lastName, gateData.phone, user?.id]);
-
-  const openLoveCare = useCallback(() => {
-    hapticNotification('success');
-    setPage('lovecare');
-  }, [hapticNotification]);
-
-  const closeLoveCare = useCallback(() => {
-    haptic('light');
-    setPage('catalog');
-  }, [haptic]);
-
-  const openCatchCare = useCallback(() => {
-    if (!isAdmin && !catchCareEnabled) return;
-    hapticNotification('success');
-    setPage('catchcare');
-  }, [catchCareEnabled, hapticNotification, isAdmin]);
-
-  const closeCatchCare = useCallback(() => {
-    haptic('light');
-    setPage('catalog');
-  }, [haptic]);
-
-  const handleCatchCareResult = useCallback((result) => saveCatchGameResult({
-    ...result,
-    sessionId: catchCareSessionIdRef.current,
-    phone: normalizePhoneInput(gateData.phone),
-    lastName: String(gateData.lastName || '').trim(),
-    tgUserId: user?.id || null,
-  }), [gateData.lastName, gateData.phone, user?.id]);
-
-  const handleCatchCareSessionOpen = useCallback(() => {
-    const sessionId = `beauty-lov-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    catchCareSessionIdRef.current = sessionId;
-    return recordCatchGameSessionOpen({
-      sessionId,
-      phone: normalizePhoneInput(gateData.phone),
-      lastName: String(gateData.lastName || '').trim(),
-      tgUserId: user?.id || null,
-    });
-  }, [gateData.lastName, gateData.phone, user?.id]);
-
-  const handleLoveCareReaction = useCallback((product, reaction) => {
-    hapticNotification(reaction === 'like' ? 'success' : 'warning');
-    return enqueueLoveCareEvent({
-      type: 'product_reaction',
-      session_id: loveCareSessionIdRef.current,
-      reaction,
-      product_id: product.id,
-      product_name: product.name,
-      product_sku: product.sku || '',
-      product_category: product.category || '',
-      product_price: Number(product.price || 0),
-    });
-  }, [enqueueLoveCareEvent, hapticNotification]);
-
-  useEffect(() => {
-    if (!authorized) {
-      loveCareSessionIdRef.current = '';
-      return;
-    }
-
-    if (loveCareSessionIdRef.current) return;
-
-    const sessionId = `lovecare-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    loveCareSessionIdRef.current = sessionId;
-    enqueueLoveCareEvent({ type: 'session_open', session_id: sessionId });
-  }, [authorized, enqueueLoveCareEvent]);
-
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {
     const userData = {
@@ -977,9 +856,6 @@ export default function App() {
 
   const handleLogout = useCallback(() => {
     haptic('light');
-    if (loveCareSessionIdRef.current) {
-      enqueueLoveCareEvent({ type: 'session_close', session_id: loveCareSessionIdRef.current });
-    }
     localStorage.removeItem(USER_STORAGE_KEY);
     setAuthorized(false);
     setAccessChecked(true);
@@ -989,7 +865,7 @@ export default function App() {
     setCartOpen(false);
     setCart([]);
     setCatalogState(null);
-  }, [enqueueLoveCareEvent, haptic]);
+  }, [haptic]);
 
   // ─── Рендер ──────────────────────────────────────────
 
@@ -1024,10 +900,6 @@ export default function App() {
           onUpdateQty={updateQty}
           isAdmin={isAdmin}
           onAdminClick={openAdmin}
-          onLoveCareClick={openLoveCare}
-          onCatchCareClick={openCatchCare}
-          loveCareEnabled={loveCareEnabled}
-          catchCareEnabled={catchCareEnabled}
           savedState={catalogState}
           onSaveState={setCatalogState}
           brandColors={brandColors}
@@ -1073,37 +945,12 @@ export default function App() {
           onPaymentTaxIdChange={setPaymentTaxIdSetting}
           onPaymentExtraDetailsChange={setPaymentExtraDetailsSetting}
           onPaymentCardVisibilityChange={setPaymentCardVisibilitySetting}
-          loveCareEnabled={loveCareEnabled}
-          catchCareEnabled={catchCareEnabled}
-          onEasterEggVisibilityChange={setEasterEggVisibility}
           initialSection={initialAdminSection}
           adminPhones={adminPhones}
           onAdminPhonesChange={setAdminPhonesSetting}
           adminSectionOrder={adminSectionOrder}
           onAdminSectionOrderChange={setAdminSectionOrderSetting}
           currentAdminPhone={gateData.phone}
-        />
-      )}
-
-      {page === 'lovecare' && loveCareEnabled && (
-        <LoveCarePage
-          products={products}
-          userName={gateData.lastName}
-          isAdmin={isAdmin}
-          onBack={closeLoveCare}
-          onReaction={handleLoveCareReaction}
-        />
-      )}
-
-      {page === 'catchcare' && (isAdmin || catchCareEnabled) && (
-        <CatchCarePage
-          products={products}
-          userName={gateData.lastName}
-          onBack={closeCatchCare}
-          onResult={handleCatchCareResult}
-          onSessionOpen={handleCatchCareSessionOpen}
-          onHaptic={haptic}
-          onHapticNotification={hapticNotification}
         />
       )}
 

@@ -144,11 +144,7 @@ export async function fetchAppSettings() {
 export async function saveAppSettings(value) {
   ensureSupabaseConfigured();
 
-  const currentValue = await fetchAppSettings().catch(() => null);
-  const mergedValue = {
-    ...(currentValue && typeof currentValue === 'object' ? currentValue : {}),
-    ...(value && typeof value === 'object' ? value : {}),
-  };
+  const mergedValue = value && typeof value === 'object' ? value : {};
 
   const { error } = await supabase
     .from('app_settings')
@@ -166,65 +162,6 @@ export async function saveAppSettings(value) {
   }
 
   return mergedValue;
-}
-
-export async function recordLoveCareEvent(event) {
-  ensureSupabaseConfigured();
-
-  const settings = await fetchAppSettings() || {};
-  const activity = Array.isArray(settings.loveCareActivity)
-    ? settings.loveCareActivity
-    : [];
-  const currentTgUserId = String(event?.tg_user_id || '').trim();
-  const currentPhone = String(event?.phone || '').trim();
-  const hasOtherUserLike = event?.type === 'product_reaction'
-    && event?.reaction === 'like'
-    && activity.some((entry) => {
-      if (entry?.type !== 'product_reaction' || entry?.reaction !== 'like') return false;
-      if (String(entry.product_id || '') !== String(event.product_id || '')) return false;
-
-      const entryTgUserId = String(entry.tg_user_id || '').trim();
-      const entryPhone = String(entry.phone || '').trim();
-      if (currentTgUserId && entryTgUserId) return currentTgUserId !== entryTgUserId;
-      return Boolean(currentPhone && entryPhone && currentPhone !== entryPhone);
-    });
-  const nextEvent = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    created_at: new Date().toISOString(),
-    ...event,
-  };
-
-  const loveCareActivity = [...activity, nextEvent].slice(-1000);
-  await saveAppSettings({ loveCareActivity });
-  return { ...nextEvent, hasOtherUserLike };
-}
-
-export async function fetchLoveCareActivity(limit = 1000) {
-  const settings = await fetchAppSettings();
-  const activity = Array.isArray(settings?.loveCareActivity)
-    ? settings.loveCareActivity
-    : [];
-
-  return activity
-    .filter((entry) => entry && typeof entry === 'object')
-    .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0))
-    .slice(0, limit);
-}
-
-export async function deleteLoveCareActivityEvents(eventIds) {
-  ensureSupabaseConfigured();
-
-  const idsToDelete = new Set((Array.isArray(eventIds) ? eventIds : []).filter(Boolean));
-  if (idsToDelete.size === 0) return [];
-
-  const settings = await fetchAppSettings() || {};
-  const activity = Array.isArray(settings.loveCareActivity)
-    ? settings.loveCareActivity
-    : [];
-  const loveCareActivity = activity.filter((entry) => !idsToDelete.has(entry?.id));
-
-  await saveAppSettings({ loveCareActivity });
-  return loveCareActivity;
 }
 
 /**
@@ -313,96 +250,6 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
     throw new Error(toReadableError(error, 'Не вдалося зберегти замовлення.'));
   }
   return data;
-}
-
-/**
- * Save one completed CatchCare round in its dedicated analytics table.
- */
-export async function saveCatchGameResult({
-  sessionId,
-  phone,
-  lastName,
-  tgUserId,
-  bagType,
-  score,
-  caughtProducts,
-  durationSeconds,
-  endedReason,
-}) {
-  ensureSupabaseConfigured();
-
-  const { error } = await supabase
-    .from('catch_game_results')
-    .insert({
-      session_id: sessionId || null,
-      phone: phone || '',
-      last_name: lastName || '',
-      tg_user_id: tgUserId || null,
-      bag_type: bagType,
-      score: Math.max(0, Number(score) || 0),
-      caught_products: caughtProducts || {},
-      duration_seconds: Math.max(0, Number(durationSeconds) || 0),
-      ended_reason: endedReason || 'hazard',
-    });
-
-  if (error) {
-    console.error('saveCatchGameResult error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося зберегти результат CatchCare.'));
-  }
-}
-
-export async function recordCatchGameSessionOpen({ sessionId, phone, lastName, tgUserId }) {
-  ensureSupabaseConfigured();
-
-  if (!sessionId) return;
-
-  const { error } = await supabase
-    .from('catch_game_sessions')
-    .insert({
-      session_id: sessionId,
-      phone: phone || '',
-      last_name: lastName || '',
-      tg_user_id: tgUserId || null,
-    });
-
-  if (error) {
-    console.error('recordCatchGameSessionOpen error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося записати вхід у Beauty лов.'));
-  }
-}
-
-export async function fetchCatchGameSessions(limit = 500) {
-  ensureSupabaseConfigured();
-
-  const { data, error } = await supabase
-    .from('catch_game_sessions')
-    .select('id, session_id, phone, last_name, tg_user_id, created_at')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error('fetchCatchGameSessions error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося завантажити входи Beauty лов.'));
-  }
-
-  return data || [];
-}
-
-export async function fetchCatchGameResults(limit = 500) {
-  ensureSupabaseConfigured();
-
-  const { data, error } = await supabase
-    .from('catch_game_results')
-    .select('id, session_id, phone, last_name, tg_user_id, bag_type, score, caught_products, duration_seconds, ended_reason, created_at')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error('fetchCatchGameResults error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося завантажити результати Beauty лов.'));
-  }
-
-  return data || [];
 }
 
 async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
