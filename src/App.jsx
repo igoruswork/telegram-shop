@@ -12,11 +12,12 @@ import {
 } from './lib/supabase';
 import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
-import { ProductPage } from './pages/ProductPage';
-import { AdminPage } from './pages/AdminPage';
-import { CartDrawer } from './components/CartDrawer';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
 import './styles.css';
+
+const ProductPage = React.lazy(() => import('./pages/ProductPage').then((module) => ({ default: module.ProductPage })));
+const AdminPage = React.lazy(() => import('./pages/AdminPage').then((module) => ({ default: module.AdminPage })));
+const CartDrawer = React.lazy(() => import('./components/CartDrawer').then((module) => ({ default: module.CartDrawer })));
 
 const ADMIN_PHONE = '+380111111111';
 const DEFAULT_ADMIN_PHONES = [ADMIN_PHONE];
@@ -37,6 +38,8 @@ const DEFAULT_ADMIN_SECTION_ORDER = [
 ];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
+const CATALOG_CACHE_STORAGE_KEY = 'telegram-shop-catalog-cache:v1';
+const CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const USER_STORAGE_KEY = 'telegram-shop-user';
 const CART_STORAGE_PREFIX = 'telegram-shop-cart:';
 
@@ -138,6 +141,33 @@ function loadStoredCart(storageKey) {
   }
 }
 
+function loadStoredCatalogCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_STORAGE_KEY) || 'null');
+    const cachedAt = Number(cached?.cachedAt || 0);
+    const products = Array.isArray(cached?.products) ? cached.products : [];
+
+    if (!cachedAt || Date.now() - cachedAt > CATALOG_CACHE_TTL_MS || products.length === 0) {
+      return null;
+    }
+
+    return sortProducts(products.filter((product) => product && product.id && product.name));
+  } catch {
+    return null;
+  }
+}
+
+function saveCatalogCache(products) {
+  try {
+    localStorage.setItem(CATALOG_CACHE_STORAGE_KEY, JSON.stringify({
+      cachedAt: Date.now(),
+      products,
+    }));
+  } catch {
+    // The catalog stays functional if browser storage is unavailable or full.
+  }
+}
+
 function normalizeBrandColors(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
@@ -220,6 +250,7 @@ function sortProducts(products) {
 export default function App() {
   const { user, haptic, hapticNotification } = useTelegram();
   const storedUser = useMemo(loadStoredUser, []);
+  const [initialCatalogCache] = useState(loadStoredCatalogCache);
   const [catalogTitle, setCatalogTitle] = useState(() => {
     const stored = localStorage.getItem(CATALOG_TITLE_STORAGE_KEY)?.trim();
     return stored || DEFAULT_CATALOG_TITLE;
@@ -256,8 +287,8 @@ export default function App() {
   const [catalogState, setCatalogState] = useState(null);
 
   // ─── Дані з Supabase ─────────────────────────────────
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState(() => initialCatalogCache || []);
+  const [loading, setLoading] = useState(() => !initialCatalogCache);
   const [loadError, setLoadError] = useState(supabaseConfigError);
 
   // ─── Кошик (зберігається на пристрої до оформлення або очищення) ──
@@ -688,16 +719,22 @@ export default function App() {
   }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async ({ keepCachedCatalog = false } = {}) => {
+    if (!keepCachedCatalog) setLoading(true);
     setLoadError('');
 
     try {
       const productsData = await fetchProducts();
-      setProducts(sortProducts(productsData));
+      const sortedProducts = sortProducts(productsData);
+      setProducts(sortedProducts);
+      saveCatalogCache(sortedProducts);
     } catch (error) {
-      setProducts([]);
-      setLoadError(error.message || 'Не вдалося завантажити дані.');
+      if (!keepCachedCatalog) {
+        setProducts([]);
+        setLoadError(error.message || 'Не вдалося завантажити дані.');
+      } else {
+        console.warn('catalog background refresh error:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -711,7 +748,9 @@ export default function App() {
 
     setProducts((currentProducts) => {
       if (eventType === 'DELETE') {
-        return currentProducts.filter((product) => product.id !== changedId);
+        const nextProducts = currentProducts.filter((product) => product.id !== changedId);
+        saveCatalogCache(nextProducts);
+        return nextProducts;
       }
 
       const existingIndex = currentProducts.findIndex((product) => product.id === changedId);
@@ -720,16 +759,22 @@ export default function App() {
         : { ...currentProducts[existingIndex], ...changedProduct };
 
       if (!nextProduct?.view) {
-        return currentProducts.filter((product) => product.id !== changedId);
+        const nextProducts = currentProducts.filter((product) => product.id !== changedId);
+        saveCatalogCache(nextProducts);
+        return nextProducts;
       }
 
       if (existingIndex === -1) {
-        return sortProducts([...currentProducts, nextProduct]);
+        const sortedProducts = sortProducts([...currentProducts, nextProduct]);
+        saveCatalogCache(sortedProducts);
+        return sortedProducts;
       }
 
       const nextProducts = [...currentProducts];
       nextProducts[existingIndex] = nextProduct;
-      return sortProducts(nextProducts);
+      const sortedProducts = sortProducts(nextProducts);
+      saveCatalogCache(sortedProducts);
+      return sortedProducts;
     });
   }, []);
 
@@ -737,7 +782,13 @@ export default function App() {
   useEffect(() => {
     if (!authorized) return;
 
-    loadData();
+    const cachedCatalog = loadStoredCatalogCache();
+    if (cachedCatalog) {
+      setProducts(cachedCatalog);
+      setLoading(false);
+    }
+
+    loadData({ keepCachedCatalog: Boolean(cachedCatalog) });
 
     const unsubscribe = subscribeToProducts(applyProductRealtimeChange);
 
@@ -917,56 +968,64 @@ export default function App() {
       )}
 
       {page === 'product' && selectedProductId && (
-        <ProductPage
-          productId={selectedProductId}
-          onBack={goBack}
-          onAddToCart={addToCart}
-        />
+        <React.Suspense fallback={<div className="gate-page" aria-busy="true" />}>
+          <ProductPage
+            productId={selectedProductId}
+            onBack={goBack}
+            onAddToCart={addToCart}
+          />
+        </React.Suspense>
       )}
 
       {page === 'admin' && isAdmin && (
-        <AdminPage
-          onBack={closeAdmin}
-          brandColors={brandColors}
-          onBrandColorChange={setBrandColorForBrand}
-          defaultBrandColor={DEFAULT_BRAND_COLOR}
-          catalogTitle={catalogTitle}
-          onCatalogTitleChange={setCatalogTitleSetting}
-          defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
-          paymentDetails={paymentDetails}
-          paymentIban={paymentIban}
-          onPaymentDetailsChange={setPaymentDetailsSetting}
-          onPaymentIbanChange={setPaymentIbanSetting}
-          paymentCardColor={paymentCardColor}
-          onPaymentCardColorChange={setPaymentCardColorSetting}
-          paymentTaxId={paymentTaxId}
-          paymentExtraDetails={paymentExtraDetails}
-          paymentCardVisibility={paymentCardVisibility}
-          onPaymentTaxIdChange={setPaymentTaxIdSetting}
-          onPaymentExtraDetailsChange={setPaymentExtraDetailsSetting}
-          onPaymentCardVisibilityChange={setPaymentCardVisibilitySetting}
-          initialSection={initialAdminSection}
-          adminPhones={adminPhones}
-          onAdminPhonesChange={setAdminPhonesSetting}
-          adminSectionOrder={adminSectionOrder}
-          onAdminSectionOrderChange={setAdminSectionOrderSetting}
-          currentAdminPhone={gateData.phone}
-        />
+        <React.Suspense fallback={<div className="gate-page" aria-busy="true" />}>
+          <AdminPage
+            onBack={closeAdmin}
+            brandColors={brandColors}
+            onBrandColorChange={setBrandColorForBrand}
+            defaultBrandColor={DEFAULT_BRAND_COLOR}
+            catalogTitle={catalogTitle}
+            onCatalogTitleChange={setCatalogTitleSetting}
+            defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
+            paymentDetails={paymentDetails}
+            paymentIban={paymentIban}
+            onPaymentDetailsChange={setPaymentDetailsSetting}
+            onPaymentIbanChange={setPaymentIbanSetting}
+            paymentCardColor={paymentCardColor}
+            onPaymentCardColorChange={setPaymentCardColorSetting}
+            paymentTaxId={paymentTaxId}
+            paymentExtraDetails={paymentExtraDetails}
+            paymentCardVisibility={paymentCardVisibility}
+            onPaymentTaxIdChange={setPaymentTaxIdSetting}
+            onPaymentExtraDetailsChange={setPaymentExtraDetailsSetting}
+            onPaymentCardVisibilityChange={setPaymentCardVisibilitySetting}
+            initialSection={initialAdminSection}
+            adminPhones={adminPhones}
+            onAdminPhonesChange={setAdminPhonesSetting}
+            adminSectionOrder={adminSectionOrder}
+            onAdminSectionOrderChange={setAdminSectionOrderSetting}
+            currentAdminPhone={gateData.phone}
+          />
+        </React.Suspense>
       )}
 
-      <CartDrawer
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        cart={cart}
-        onUpdateQty={updateQty}
-        onClearCart={clearCart}
-        total={cartTotal}
-        phone={gateData.phone}
-        lastName={gateData.lastName}
-        tgUserId={user?.id}
-        tgUsername={user?.username}
-        onOrderSuccess={handleOrderSuccess}
-      />
+      {cartOpen && (
+        <React.Suspense fallback={null}>
+          <CartDrawer
+            open={cartOpen}
+            onClose={() => setCartOpen(false)}
+            cart={cart}
+            onUpdateQty={updateQty}
+            onClearCart={clearCart}
+            total={cartTotal}
+            phone={gateData.phone}
+            lastName={gateData.lastName}
+            tgUserId={user?.id}
+            tgUsername={user?.username}
+            onOrderSuccess={handleOrderSuccess}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }
