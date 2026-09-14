@@ -15,6 +15,9 @@ import {
   uploadProductImageFile,
 } from '../lib/supabase';
 import { isPhoneComplete, normalizePhoneInput } from '../lib/phone';
+import { AdminPricing } from '../components/AdminPricing';
+import { isComingSoon } from '../lib/productDisplay';
+import { parsePrice } from '../lib/pricing';
 import { SafeImage } from '../components/SafeImage';
 
 const emptyProductForm = {
@@ -22,6 +25,7 @@ const emptyProductForm = {
   name: '',
   sku: '',
   price: '',
+  badge: '',
   thumbnail_url: '',
   category: '',
   p_category: '',
@@ -40,6 +44,7 @@ const adminSections = [
   { id: 'create', label: 'Нова картка' },
   { id: 'colors', label: 'Кольори' },
   { id: 'details', label: 'Деталі картки' },
+  { id: 'pricing', label: 'Переоцінка' },
   { id: 'visibility', label: 'Видимість' },
   { id: 'access', label: 'Користувачі' },
   { id: 'access-log', label: 'Журнал входів' },
@@ -137,6 +142,7 @@ export function AdminPage({
   currentAdminPhone = '',
 }) {
   const [products, setProducts] = useState([]);
+  const [pricingBusy, setPricingBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -277,7 +283,7 @@ export function AdminPage({
   }, [activeSection, loadAccessLogs, loadCatalogUsers, loadOrders]);
 
   useEffect(() => {
-    const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors'].includes(activeSection);
+    const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors', 'pricing'].includes(activeSection);
     if (sectionNeedsProducts && !hasLoadedProductsRef.current) {
       hasLoadedProductsRef.current = true;
       load();
@@ -358,7 +364,7 @@ export function AdminPage({
     if (search.trim()) {
       const words = search.toLowerCase().trim().split(/\s+/);
       result = result.filter((p) => {
-        const hay = `${p.name || ''} ${p.category || ''} ${p.p_category || ''}`.toLowerCase();
+        const hay = `${p.name || ''} ${p.sku || ''} ${p.category || ''} ${p.p_category || ''}`.toLowerCase();
         return words.every((w) => hay.includes(w));
       });
     } else {
@@ -597,7 +603,14 @@ export function AdminPage({
     if (e.p_category !== undefined) fields.p_category = e.p_category || null;
     if (e.badge !== undefined) fields.badge = e.badge || null;
     if (e.category !== undefined) fields.category = e.category || null;
-    if (e.price !== undefined) fields.price = e.price === '' ? null : Number(e.price);
+    if (e.price !== undefined) {
+      const price = parsePrice(e.price);
+      if (price === null && !(e.price === '' && isComingSoon({ badge: e.badge ?? p.badge }))) {
+        alert('Вкажіть коректну невід’ємну ціну, до 2 знаків після коми.');
+        return;
+      }
+      fields.price = price;
+    }
     if (e.number_sites !== undefined) fields.number_sites = e.number_sites === '' ? null : Number(e.number_sites);
     if (!Object.keys(fields).length) return;
 
@@ -708,7 +721,7 @@ export function AdminPage({
     if (creating) return;
 
     const id = Number(newProduct.id);
-    const price = Number(newProduct.price);
+    const price = isComingSoon(newProduct) && !newProduct.price.trim() ? 0 : parsePrice(newProduct.price);
 
     if (!Number.isInteger(id) || id <= 0) {
       alert('Вкажіть коректний id.');
@@ -725,7 +738,7 @@ export function AdminPage({
       return;
     }
 
-    if (!newProduct.price.trim() || !Number.isFinite(price)) {
+    if (price === null) {
       alert('Вкажіть коректну price.');
       return;
     }
@@ -758,7 +771,7 @@ export function AdminPage({
       thumbnail_url: newProduct.thumbnail_url.trim(),
       category: newProduct.category.trim(),
       p_category: newProduct.p_category.trim(),
-      badge: null,
+      badge: newProduct.badge || null,
       view: true,
       number_sites: maxOrder + 1,
     };
@@ -823,7 +836,7 @@ export function AdminPage({
     <div className="admin-page">
       <div className="header">
         <div className="header-row">
-          <button type="button" className="admin-back-btn" onClick={onBack}>
+          <button type="button" className="admin-back-btn" disabled={pricingBusy} onClick={onBack}>
             ← Назад
           </button>
           <div className="header-title">Адмін</div>
@@ -832,11 +845,12 @@ export function AdminPage({
               type="button"
               className="admin-add-btn"
               aria-label="Нова картка"
+              disabled={pricingBusy}
               onClick={() => setActiveSection('create')}
             >
               +
             </button>
-            <button type="button" className="admin-refresh-btn" onClick={handleRefresh}>↻</button>
+            <button type="button" className="admin-refresh-btn" disabled={pricingBusy} onClick={handleRefresh}>↻</button>
           </div>
         </div>
         {isProductSection && (
@@ -869,6 +883,7 @@ export function AdminPage({
             key={section.id}
             type="button"
             role="tab"
+            disabled={pricingBusy}
             aria-selected={activeSection === section.id}
             className={`admin-section-tab ${activeSection === section.id ? 'active' : ''}`}
             onClick={() => setActiveSection(section.id)}
@@ -876,6 +891,11 @@ export function AdminPage({
             {section.label}
           </button>
         ))}
+      </div>
+
+      <datalist id="product-badge-options"><option value="Скоро.." /><option value="Хіт" /><option value="Новинка" /><option value="Акція" /></datalist>
+      <div hidden={activeSection !== 'pricing'}>
+        <AdminPricing products={products} setProducts={setProducts} loading={loading} loadError={error} onBusyChange={setPricingBusy} />
       </div>
 
       {activeSection === 'section-order' && (
@@ -1119,7 +1139,7 @@ export function AdminPage({
             </label>
             <label className="admin-label">
               <span>price</span>
-              <input className="admin-input" type="number" inputMode="decimal" step="0.01" value={newProduct.price} placeholder="ціна"
+              <input className="admin-input" type="number" inputMode="decimal" step="0.01" disabled={isComingSoon(newProduct)} value={newProduct.price} placeholder={isComingSoon(newProduct) ? "Прихована для покупців" : "ціна"}
                 onChange={(e) => handleNewProductField('price', e.target.value)} />
             </label>
             <label className="admin-label">
@@ -1131,6 +1151,10 @@ export function AdminPage({
               <span>p_category</span>
               <input className="admin-input" type="text" list="admin-subcategory-options" value={newProduct.p_category} placeholder="оберіть або введіть"
                 onChange={(e) => handleNewProductField('p_category', e.target.value)} />
+            </label>
+            <label className="admin-label">
+              <span>Бейдж</span>
+              <input className="admin-input" list="product-badge-options" value={newProduct.badge} placeholder="Хіт / Новинка / Скоро.." onChange={(e) => handleNewProductField('badge', e.target.value)} />
             </label>
             <label className="admin-label admin-label--wide">
               <span>thumbnail</span>
@@ -1540,9 +1564,10 @@ export function AdminPage({
                       onChange={(e) => handleField(p.id, 'p_category', e.target.value)} />
                   </label>
                   <label className="admin-label">
-                    <span>badge</span>
-                    <input className="admin-input" type="text" value={edit.badge} placeholder="хіт / new / акція"
+                    <span>Бейдж</span>
+                    <input className="admin-input" type="text" list="product-badge-options" value={edit.badge} placeholder="Хіт / Новинка / Скоро.."
                       onChange={(e) => handleField(p.id, 'badge', e.target.value)} />
+                    <button type="button" className={"admin-soon-toggle" + (isComingSoon(edit) ? ' active' : '')} aria-pressed={isComingSoon(edit)} onClick={() => handleField(p.id, 'badge', isComingSoon(edit) ? '' : 'Скоро..')}>✦ Скоро..</button>
                   </label>
                   <label className="admin-label">
                     <span>price</span>

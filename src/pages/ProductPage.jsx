@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
-import { productDisplayText } from '../lib/productDisplay';
+import { productDisplayText, isComingSoon } from '../lib/productDisplay';
 import { SafeImage } from '../components/SafeImage';
 
 function formatPrice(price) {
@@ -117,7 +117,8 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
     );
   }
 
-  const badge = productDisplayText(product.badge);
+  const soon = isComingSoon(product);
+  const badge = soon ? 'Скоро..' : productDisplayText(product.badge);
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.category);
   const subCategory = productDisplayText(product.p_category);
@@ -148,7 +149,7 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
 
       <div className="product-page-body">
         {badge && (
-          <span className={`product-page-badge ${getBadgeClass(badge)}`}>
+          <span className={`product-page-badge ${soon ? 'soon' : getBadgeClass(badge)}`}>
             {badge}
           </span>
         )}
@@ -167,7 +168,7 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
           <div className="product-page-sku">Штрихкод: {sku}</div>
         )}
 
-        <div className="product-page-price-row">
+        {soon ? <div className="product-soon-panel"><span className="coming-soon-dot" /><div><strong>Незабаром у продажу</strong><p>Готуємо новинку для вас. Замовлення стане доступним після появи товару.</p></div></div> : <div className="product-page-price-row">
           <div className="product-page-price">
             {formatPrice(product.price)} <span>₴</span>
           </div>
@@ -180,7 +181,7 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
           >
             🛒 Додати в кошик
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );

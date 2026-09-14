@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { isComingSoon } from './productDisplay';
 import { optimizeProductImageFile } from './productImageOptimizer';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
@@ -207,6 +208,27 @@ export async function fetchProductById(id) {
  */
 export async function createOrder({ tgUserId, tgUsername, phone, lastName, items, total }) {
   ensureSupabaseConfigured();
+
+  if (!Array.isArray(items) || !items.length) throw new Error('Кошик порожній.');
+  // Recheck the database so a stale browser/cart cannot order a coming-soon item.
+  const currentProducts = [];
+  const ids = [...new Set(items.map((item) => item.id))];
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const { data, error } = await supabase.from('products')
+      .select('id, name, price, badge, view').in('id', ids.slice(offset, offset + 100));
+    if (error) throw new Error(toReadableError(error, 'Не вдалося перевірити товари перед замовленням.'));
+    currentProducts.push(...(data || []));
+  }
+  for (const item of items) {
+    const product = currentProducts.find((p) => String(p.id) === String(item.id));
+    if (!product || !product.view || isComingSoon(product)) {
+      throw new Error(`«${item.name}» зараз недоступний для замовлення. Оновіть каталог і кошик.`);
+    }
+    if (product.price === null || Number(product.price) !== Number(item.price)) {
+      throw new Error(`Ціна «${item.name}» змінилася. Оновіть каталог, щоб оформити за актуальною ціною.`);
+    }
+  }
+  total = Math.round(items.reduce((sum, item) => sum + Number(item.price) * item.qty, 0) * 100) / 100;
 
   // The gate keeps a local copy of the customer's name. An administrator can
   // correct it later in catalog_users, so use the current database value when
@@ -474,16 +496,20 @@ export async function fetchAdminOrders(limit = 100) {
 export async function fetchAllProducts() {
   ensureSupabaseConfigured();
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
-    .order('number_sites', { ascending: true });
-
-  if (error) {
-    console.error('fetchAllProducts error:', error);
-    throw new Error(toReadableError(error, 'Не вдалося завантажити всі товари.'));
+  const products = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
+      .order('number_sites', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(toReadableError(error, 'Не вдалося завантажити всі товари.'));
+    products.push(...(data || []));
+    if (!data || data.length < pageSize) break;
   }
-  return data || [];
+  return products;
 }
 
 /**
@@ -495,7 +521,9 @@ export async function updateProduct(id, fields) {
   const { error } = await supabase
     .from('products')
     .update(fields)
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .single();
 
   if (error) {
     console.error('updateProduct error:', error);

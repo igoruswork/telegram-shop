@@ -13,6 +13,7 @@ import {
 import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
+import { isComingSoon } from './lib/productDisplay';
 import './styles.css';
 
 const ProductPage = React.lazy(() => import('./pages/ProductPage').then((module) => ({ default: module.ProductPage })));
@@ -33,7 +34,7 @@ const DEFAULT_PAYMENT_CARD_VISIBILITY = {
   extraDetails: true,
 };
 const DEFAULT_ADMIN_SECTION_ORDER = [
-  'title', 'create', 'colors', 'details', 'visibility',
+  'title', 'create', 'colors', 'details', 'pricing', 'visibility',
   'access', 'access-log', 'orders', 'section-order',
 ];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
@@ -813,9 +814,20 @@ export default function App() {
     return unsubscribe;
   }, [applyProductRealtimeChange, authorized, loadData]);
 
+  // Keep persisted carts aligned with current product availability and prices.
+  useEffect(() => {
+    if (!products.length) return;
+    const byId = new Map(products.map((product) => [product.id, product]));
+    setCart((current) => current.filter((item) => !isComingSoon(byId.get(item.id))).map((item) => {
+      const product = byId.get(item.id);
+      return product ? { ...item, price: product.price, name: product.name } : item;
+    }));
+  }, [products, cartStorageReadyKey]);
+
   // ─── Кошик ───────────────────────────────────────────
   const addToCart = useCallback(
     (product) => {
+      if (isComingSoon(product) || isComingSoon(products.find((p) => p.id === product.id))) return;
       haptic('medium');
       setCart((prev) => {
         const existing = prev.find((i) => i.id === product.id);
@@ -837,11 +849,12 @@ export default function App() {
         ];
       });
     },
-    [haptic]
+    [haptic, products]
   );
 
   const updateQty = useCallback(
     (productId, delta) => {
+      if (delta > 0 && isComingSoon(products.find((p) => p.id === productId))) return;
       haptic('light');
       setCart((prev) =>
         prev
@@ -853,7 +866,7 @@ export default function App() {
           .filter((i) => i.qty > 0)
       );
     },
-    [haptic]
+    [haptic, products]
   );
 
   const handleOrderSuccess = useCallback((order) => {
@@ -902,7 +915,8 @@ export default function App() {
   const closeAdmin = useCallback(() => {
     haptic('light');
     setPage('catalog');
-  }, [haptic]);
+    loadData({ keepCachedCatalog: true });
+  }, [haptic, loadData]);
 
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {

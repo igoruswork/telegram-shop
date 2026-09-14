@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { SafeImage } from './SafeImage';
-import { productDisplayText } from '../lib/productDisplay';
+import { productDisplayText, isComingSoon } from '../lib/productDisplay';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -47,7 +47,8 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
   imagePriority = 'auto',
   cardStyle,
 }) {
-  const badge = productDisplayText(product.badge);
+  const soon = isComingSoon(product);
+  const badge = soon ? 'Скоро..' : productDisplayText(product.badge);
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.p_category) || productDisplayText(product.category);
   const brandStyle = useMemo(() => {
@@ -73,10 +74,10 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
 
   return (
     <article
-      className={`product-card ${qty > 0 ? 'product-card--in-cart' : ''}`}
+      className={`product-card ${!soon && qty > 0 ? 'product-card--in-cart' : ''} ${soon ? 'product-card--soon' : ''}`}
       style={{ ...brandStyle, ...cardStyle }}
     >
-      {qty > 0 && <div className="product-card-cart-mark" aria-label={`У кошику ${qty}`}>{qty}</div>}
+      {!soon && qty > 0 && <div className="product-card-cart-mark" aria-label={`У кошику ${qty}`}>{qty}</div>}
 
       <div
         role="button"
@@ -90,7 +91,7 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
       >
         <div className="product-card-imgwrap">
           {badge && (
-            <span className={`product-badge ${getBadgeClass(badge)}`}>{badge}</span>
+            <span className={`product-badge ${soon ? 'soon' : getBadgeClass(badge)}`}>{badge}</span>
           )}
           <SafeImage
             className="product-card-img"
@@ -111,7 +112,7 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
         </div>
       </div>
 
-      <div className={`product-card-footer ${qty === 0 ? 'product-card-footer--empty' : ''}`}>
+      {soon ? <div className="product-coming-soon"><span className="coming-soon-dot" />Незабаром у продажу</div> : <div className={`product-card-footer ${qty === 0 ? 'product-card-footer--empty' : ''}`}>
         <div className="product-card-price">{formatPrice(product.price)}</div>
         <div className={`catalog-qty-controls ${qty === 0 ? 'catalog-qty-controls--empty' : ''}`}>
           <button
@@ -135,7 +136,7 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
             +
           </button>
         </div>
-      </div>
+      </div>}
     </article>
   );
 });

@@ -8,3 +8,7 @@ export function productDisplayText(value, fallback = '') {
 
   return text;
 }
+
+export function isComingSoon(product) {
+  return /^(скоро[.\s…]*|coming\s+soon[.\s…]*)$/i.test(productDisplayText(product?.badge));
+}
