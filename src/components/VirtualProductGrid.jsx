@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CatalogProductCard } from './CatalogProductCard';
+import { PaymentCard } from './PaymentCard';
 
 const MOBILE_COLUMNS = 2;
 const DESKTOP_COLUMNS = 5;
@@ -8,8 +9,8 @@ const DESKTOP_GAP = 16;
 const MOBILE_HORIZONTAL_PADDING = 32;
 const DESKTOP_HORIZONTAL_PADDING = 48;
 const OVERSCAN_ROWS = 4;
-const MOBILE_INFO_CARD_HEIGHT = 108;
-const MOBILE_INFO_CARD_EXPANDED_HEIGHT = 276;
+const MOBILE_INFO_CARD_HEIGHT = 124;
+const MOBILE_INFO_CARD_EXPANDED_HEIGHT = 300;
 
 function getColumns() {
   return window.matchMedia('(min-width: 900px)').matches ? DESKTOP_COLUMNS : MOBILE_COLUMNS;
@@ -40,180 +41,6 @@ function getVisibleRange(length, rowHeight, offset, relativeTop, relativeBottom)
   return { start, end };
 }
 
-async function copyToClipboard(value) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const input = document.createElement('textarea');
-  input.value = value;
-  input.setAttribute('readonly', '');
-  input.style.position = 'fixed';
-  input.style.opacity = '0';
-  document.body.appendChild(input);
-  input.select();
-  document.execCommand('copy');
-  input.remove();
-}
-
-function getPaymentCardStyle(color) {
-  const value = /^#[0-9a-fA-F]{6}$/.test(color || '') ? color : '#B8A477';
-  const channels = [1, 3, 5].map((index) => parseInt(value.slice(index, index + 2), 16));
-  const luminance = (channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722) / 255;
-
-  return {
-    '--payment-card-color': value,
-    '--payment-card-rgb': channels.join(', '),
-    '--payment-card-ink': luminance < 0.55 ? '#ffffff' : '#0f1b33',
-  };
-}
-
-function PaymentCardMark() {
-  return (
-    <span className="catalog-info-card-mark" aria-hidden="true">
-      <svg viewBox="0 0 32 32" fill="none">
-        <path d="M16 26.5V14.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M15.8 18.2C9.4 18.2 6.2 14 6.2 7.1c5.8 0 9.6 3.5 9.6 11.1Z" fill="currentColor" opacity=".82" />
-        <path d="M16.2 18.2c6.4 0 9.6-4.2 9.6-11.1-5.8 0-9.6 3.5-9.6 11.1Z" fill="currentColor" opacity=".6" />
-        <path d="M8.4 23.8h15.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </span>
-  );
-}
-
-function CopyIcon({ copied }) {
-  if (copied) {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="m5 12 4.2 4.2L19 6.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="8" y="8" width="10" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M15.5 8V6.3A2.3 2.3 0 0 0 13.2 4H6.3A2.3 2.3 0 0 0 4 6.3v8.9a2.3 2.3 0 0 0 2.3 2.3H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CatalogInfoCard({
-  details,
-  iban,
-  color,
-  taxId,
-  extraDetails,
-  visibility,
-  expanded,
-  onToggle,
-}) {
-  const [copied, setCopied] = useState(false);
-  const cardStyle = useMemo(() => getPaymentCardStyle(color), [color]);
-  const showName = visibility?.name !== false && Boolean(details);
-  const showIban = visibility?.iban !== false && Boolean(iban);
-  const showTaxId = visibility?.taxId !== false && Boolean(taxId);
-  const showExtraDetails = visibility?.extraDetails !== false && Boolean(extraDetails);
-  const compactTitle = showName ? details : 'Реквізити';
-
-  const handleCopy = async () => {
-    if (!iban) return;
-
-    try {
-      await copyToClipboard(iban);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch (error) {
-      console.warn('IBAN copy error:', error);
-    }
-  };
-
-  const handleToggleKeyDown = (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    onToggle?.();
-  };
-
-  return (
-    <aside
-      className={`catalog-info-card catalog-info-card--filled ${expanded ? 'catalog-info-card--expanded' : ''}`}
-      style={cardStyle}
-    >
-      <div
-        role="button"
-        tabIndex={0}
-        className="catalog-info-card-toggle"
-        aria-expanded={expanded}
-        onClick={onToggle}
-        onKeyDown={handleToggleKeyDown}
-      >
-        <PaymentCardMark />
-        <span className="catalog-info-card-head-copy">
-          <span className="catalog-info-card-text">{compactTitle}</span>
-          {showIban && <span className="catalog-info-card-compact-iban">{iban}</span>}
-        </span>
-        {!expanded && showIban && (
-          <button
-            type="button"
-            className={`catalog-info-card-compact-copy catalog-info-card-copy-icon ${copied ? 'is-copied' : ''}`}
-            aria-label="Скопіювати IBAN"
-            title="Скопіювати IBAN"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleCopy();
-            }}
-          >
-            <CopyIcon copied={copied} />
-          </button>
-        )}
-      </div>
-
-      {expanded && (
-        <div className="catalog-info-card-expanded-body">
-          {showName && (
-            <div className="catalog-info-card-detail">
-              <span>Одержувач</span>
-              <strong>{details}</strong>
-            </div>
-          )}
-          {showIban && (
-            <button
-              type="button"
-              className="catalog-info-card-detail catalog-info-card-detail--copy"
-              aria-label={copied ? 'IBAN скопійовано' : 'Скопіювати IBAN'}
-              onClick={handleCopy}
-            >
-              <span>IBAN</span>
-              <strong>
-                {iban}
-                <em
-                  className={`catalog-info-card-copy-icon ${copied ? 'is-copied' : ''}`}
-                  title={copied ? 'Скопійовано' : 'Скопіювати'}
-                >
-                  <CopyIcon copied={copied} />
-                </em>
-              </strong>
-            </button>
-          )}
-          {showTaxId && (
-            <div className="catalog-info-card-detail">
-              <span>ІПН / ЄДРПОУ</span>
-              <strong>{taxId}</strong>
-            </div>
-          )}
-          {showExtraDetails && (
-            <div className="catalog-info-card-detail catalog-info-card-detail--extra">
-              <span>Додатково</span>
-              <strong>{extraDetails}</strong>
-            </div>
-          )}
-        </div>
-      )}
-    </aside>
-  );
-}
-
 export function VirtualProductGrid({
   products,
   cartQtyByProductId,
@@ -235,6 +62,7 @@ export function VirtualProductGrid({
   const [gridMetrics, setGridMetrics] = useState(() => ({ top: 0, width: window.innerWidth }));
   const [scrollY, setScrollY] = useState(() => window.scrollY);
   const [paymentCardExpanded, setPaymentCardExpanded] = useState(false);
+  const [expandedHeight, setExpandedHeight] = useState(MOBILE_INFO_CARD_EXPANDED_HEIGHT);
 
   const rows = useMemo(() => splitIntoRows(products, columns), [products, columns]);
   const mobileColumns = useMemo(() => ({
@@ -249,9 +77,9 @@ export function VirtualProductGrid({
   const paymentCardEnabled = paymentCardVisibility?.enabled !== false;
   const paymentCardIsExpanded = paymentCardEnabled && paymentCardExpanded;
   const mobileLeftOffset = paymentCardEnabled
-    ? (paymentCardIsExpanded ? MOBILE_INFO_CARD_EXPANDED_HEIGHT : MOBILE_INFO_CARD_HEIGHT)
+    ? (paymentCardIsExpanded ? expandedHeight : MOBILE_INFO_CARD_HEIGHT)
     : 0;
-  const mobileRightOffset = paymentCardIsExpanded ? MOBILE_INFO_CARD_EXPANDED_HEIGHT : 0;
+  const mobileRightOffset = paymentCardIsExpanded ? expandedHeight : 0;
   const mobileLeftRange = getVisibleRange(
     mobileColumns.left.length,
     rowHeight,
@@ -334,7 +162,7 @@ export function VirtualProductGrid({
       {mobileLayout && (
         <>
           {paymentCardIsExpanded && (
-            <CatalogInfoCard
+            <PaymentCard
               details={paymentDetails}
               iban={paymentIban}
               color={paymentCardColor}
@@ -342,12 +170,13 @@ export function VirtualProductGrid({
               extraDetails={paymentExtraDetails}
               visibility={paymentCardVisibility}
               expanded
+              onHeightChange={setExpandedHeight}
               onToggle={() => setPaymentCardExpanded(false)}
             />
           )}
           <div className="virtual-product-grid-mobile-column virtual-product-grid-mobile-column--left">
             {paymentCardEnabled && !paymentCardIsExpanded && (
-              <CatalogInfoCard
+              <PaymentCard
                 details={paymentDetails}
                 iban={paymentIban}
                 color={paymentCardColor}

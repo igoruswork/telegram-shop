@@ -15,6 +15,7 @@ import {
   uploadProductImageFile,
 } from '../lib/supabase';
 import { isPhoneComplete, normalizePhoneInput } from '../lib/phone';
+import { PaymentCard } from '../components/PaymentCard';
 import { AdminPricing } from '../components/AdminPricing';
 import { isComingSoon } from '../lib/productDisplay';
 import { parsePrice } from '../lib/pricing';
@@ -175,6 +176,7 @@ export function AdminPage({
   const [newProductImageFile, setNewProductImageFile] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState('');
   const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
+  const [paymentPreviewExpanded, setPaymentPreviewExpanded] = useState(false);
   const [paymentCardColorDraft, setPaymentCardColorDraft] = useState(paymentCardColor);
   const [catalogUsers, setCatalogUsers] = useState([]);
   const [accessSearch, setAccessSearch] = useState('');
@@ -966,8 +968,21 @@ export function AdminPage({
             </div>
           </div>
 
+          <div className="payment-editor">
+            <div className="payment-editor-preview">
+              <div className="payment-editor-head">
+                <span className="payment-editor-kicker">ЖИВИЙ ПЕРЕГЛЯД · АВРОРА</span>
+                <span>Колір і текст змінюються нижче</span>
+              </div>
+              <div className={`payment-editor-stage ${paymentPreviewExpanded ? 'is-expanded' : ''}`}>
+                <PaymentCard details={paymentDetails} iban={paymentIban} color={paymentCardColor} taxId={paymentTaxId} extraDetails={paymentExtraDetails} visibility={paymentCardVisibility} expanded={paymentPreviewExpanded} onToggle={() => setPaymentPreviewExpanded((value) => !value)} preview />
+              </div>
+              <span className="payment-editor-caption">Натисніть, щоб побачити повні реквізити.</span>
+              {paymentCardVisibility?.enabled === false && <span className="payment-editor-caption">Картка зараз прихована в каталозі.</span>}
+            </div>
+          </div>
           <label className="admin-label admin-label--stacked">
-            <span>Текст</span>
+            <span>Текст на картці</span>
             <textarea
               className="admin-input admin-settings-textarea"
               value={paymentDetails}
