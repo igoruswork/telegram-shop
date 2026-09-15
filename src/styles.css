@@ -3095,6 +3095,91 @@ body {
   cursor: default;
 }
 
+.admin-brand-discounts {
+  margin-bottom: 24px;
+}
+
+.admin-brand-discounts-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-brand-discount-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 70px;
+  padding: 12px 14px;
+  border: 1px solid rgba(var(--brand-rgb), 0.14);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.admin-brand-discount-info {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-brand-discount-info strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-brand-discount-info span,
+.admin-brand-discount-input > span,
+.admin-brand-discounts-loading {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.admin-brand-discounts-loading {
+  padding: 24px 0 8px;
+  text-align: center;
+}
+
+.admin-brand-discount-input {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.admin-brand-discount-input > div {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(var(--brand-rgb), 0.18);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.admin-brand-discount-input input {
+  width: 72px;
+  min-height: 38px;
+  padding: 7px 4px 7px 10px;
+  border: 0;
+  outline: 0;
+  color: var(--brand-price-color);
+  background: transparent;
+  font: 850 15px/1 var(--font);
+  text-align: right;
+}
+
+.admin-brand-discount-input > div > span {
+  padding: 0 10px 0 4px;
+  color: var(--brand-price-color);
+  font-size: 15px;
+  font-weight: 850;
+}
+
 .gate-btn,
 .product-page-add-btn,
 .cart-submit-btn,

@@ -14,6 +14,7 @@ import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
 import { isComingSoon } from './lib/productDisplay';
+import { getProductDiscountedPrice, normalizeBrandDiscounts } from './lib/brandDiscounts';
 import './styles.css';
 
 const ProductPage = React.lazy(() => import('./pages/ProductPage').then((module) => ({ default: module.ProductPage })));
@@ -34,7 +35,7 @@ const DEFAULT_PAYMENT_CARD_VISIBILITY = {
   extraDetails: true,
 };
 const DEFAULT_ADMIN_SECTION_ORDER = [
-  'title', 'create', 'colors', 'details', 'pricing', 'visibility',
+  'title', 'create', 'colors', 'brands', 'details', 'pricing', 'visibility',
   'access', 'access-log', 'orders', 'section-order',
 ];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
@@ -198,6 +199,7 @@ function normalizeAdminSectionOrder(value) {
 
 function normalizeAppSettings(value) {
   const brandColors = normalizeBrandColors(value?.brandColors || value?.brand_colors || {});
+  const brandDiscounts = normalizeBrandDiscounts(value?.brandDiscounts || value?.brand_discounts || {});
   const adminPhones = normalizeAdminPhones(value?.adminPhones || value?.admin_phones || []);
   const rawTitle = value?.catalogTitle || value?.catalog_title || '';
   const catalogTitle = typeof rawTitle === 'string' && rawTitle.trim()
@@ -228,6 +230,7 @@ function normalizeAppSettings(value) {
 
   return {
     brandColors,
+    brandDiscounts,
     catalogTitle,
     adminPhones,
     paymentDetails,
@@ -257,6 +260,7 @@ export default function App() {
     return stored || DEFAULT_CATALOG_TITLE;
   });
   const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
+  const [brandDiscounts, setBrandDiscounts] = useState({});
   const [adminPhones, setAdminPhones] = useState(DEFAULT_ADMIN_PHONES);
   const [paymentDetails, setPaymentDetails] = useState('');
   const [paymentIban, setPaymentIban] = useState('');
@@ -448,6 +452,7 @@ export default function App() {
 
     const normalized = normalizeAppSettings(settings);
     setBrandColors(normalized.brandColors);
+    setBrandDiscounts(normalized.brandDiscounts);
     setCatalogTitle(normalized.catalogTitle);
     setAdminPhones(normalized.adminPhones);
     setPaymentDetails(normalized.paymentDetails);
@@ -463,6 +468,7 @@ export default function App() {
   useEffect(() => {
     settingsSnapshotRef.current = {
       brandColors,
+      brandDiscounts,
       catalogTitle,
       adminPhones,
       paymentDetails,
@@ -473,7 +479,7 @@ export default function App() {
       paymentCardVisibility,
       adminSectionOrder,
     };
-  }, [adminPhones, adminSectionOrder, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
+  }, [adminPhones, adminSectionOrder, brandColors, brandDiscounts, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
 
   const queueSaveSettings = useCallback((settings) => {
     const normalized = normalizeAppSettings({ ...settingsSnapshotRef.current, ...settings });
@@ -554,6 +560,15 @@ export default function App() {
       paymentCardVisibility,
     });
   }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+
+  const setBrandDiscountForBrand = useCallback((brand, discount) => {
+    const key = String(brand || '').trim();
+    const nextDiscounts = normalizeBrandDiscounts({ ...brandDiscounts, [key]: discount });
+    if (!key || nextDiscounts[key] === undefined) return;
+
+    setBrandDiscounts(nextDiscounts);
+    queueSaveSettings({ brandDiscounts: nextDiscounts });
+  }, [brandDiscounts, queueSaveSettings]);
 
   const setCatalogTitleSetting = useCallback((value) => {
     const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
@@ -814,15 +829,15 @@ export default function App() {
     return unsubscribe;
   }, [applyProductRealtimeChange, authorized, loadData]);
 
-  // Keep persisted carts aligned with current product availability and prices.
+  // Keep persisted carts aligned with availability, base prices and brand discounts.
   useEffect(() => {
     if (!products.length) return;
     const byId = new Map(products.map((product) => [product.id, product]));
     setCart((current) => current.filter((item) => !isComingSoon(byId.get(item.id))).map((item) => {
       const product = byId.get(item.id);
-      return product ? { ...item, price: product.price, name: product.name } : item;
+      return product ? { ...item, price: getProductDiscountedPrice(product, brandDiscounts), name: product.name } : item;
     }));
-  }, [products, cartStorageReadyKey]);
+  }, [brandDiscounts, products, cartStorageReadyKey]);
 
   // ─── Кошик ───────────────────────────────────────────
   const addToCart = useCallback(
@@ -841,7 +856,7 @@ export default function App() {
           {
             id: product.id,
             name: product.name,
-            price: product.price,
+            price: getProductDiscountedPrice(product, brandDiscounts),
             sku: product.sku,
             thumbnail_url: product.thumbnail_url,
             qty: 1,
@@ -849,7 +864,7 @@ export default function App() {
         ];
       });
     },
-    [haptic, products]
+    [brandDiscounts, haptic, products]
   );
 
   const updateQty = useCallback(
@@ -987,6 +1002,7 @@ export default function App() {
           savedState={catalogState}
           onSaveState={setCatalogState}
           brandColors={brandColors}
+          brandDiscounts={brandDiscounts}
           defaultBrandColor={defaultBrandColor}
           catalogTitle={catalogTitle}
           paymentDetails={paymentDetails}
@@ -1007,6 +1023,7 @@ export default function App() {
             initialProduct={selectedProduct}
             onBack={goBack}
             onAddToCart={addToCart}
+            brandDiscounts={brandDiscounts}
           />
         </React.Suspense>
       )}
@@ -1017,6 +1034,8 @@ export default function App() {
             onBack={closeAdmin}
             brandColors={brandColors}
             onBrandColorChange={setBrandColorForBrand}
+            brandDiscounts={brandDiscounts}
+            onBrandDiscountChange={setBrandDiscountForBrand}
             defaultBrandColor={DEFAULT_BRAND_COLOR}
             catalogTitle={catalogTitle}
             onCatalogTitleChange={setCatalogTitleSetting}

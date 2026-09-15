@@ -3,6 +3,7 @@ import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
 import { productDisplayText, isComingSoon } from '../lib/productDisplay';
 import { SafeImage } from '../components/SafeImage';
+import { getProductDiscountedPrice } from '../lib/brandDiscounts';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -17,7 +18,7 @@ function getBadgeClass(badge) {
   return 'default';
 }
 
-export function ProductPage({ productId, initialProduct = null, onBack, onAddToCart }) {
+export function ProductPage({ productId, initialProduct = null, onBack, onAddToCart, brandDiscounts }) {
   const [product, setProduct] = useState(initialProduct);
   const [loading, setLoading] = useState(() => !initialProduct);
   const [error, setError] = useState('');
@@ -122,6 +123,7 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.category);
   const subCategory = productDisplayText(product.p_category);
+  const price = getProductDiscountedPrice(product, brandDiscounts);
 
   return (
     <div className="product-page">
@@ -170,7 +172,7 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
 
         {soon ? <div className="product-soon-panel"><span className="coming-soon-dot" /><div><strong>Незабаром у продажу</strong><p>Готуємо новинку для вас. Замовлення стане доступним після появи товару.</p></div></div> : <div className="product-page-price-row">
           <div className="product-page-price">
-            {formatPrice(product.price)} <span>₴</span>
+            {formatPrice(price)} <span>₴</span>
           </div>
           <button
             type="button"

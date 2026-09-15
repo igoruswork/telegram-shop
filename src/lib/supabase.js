@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { isComingSoon } from './productDisplay';
 import { optimizeProductImageFile } from './productImageOptimizer';
+import { calculateDiscountedPrice, normalizeBrandDiscounts } from './brandDiscounts';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -215,20 +216,46 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
   const ids = [...new Set(items.map((item) => item.id))];
   for (let offset = 0; offset < ids.length; offset += 100) {
     const { data, error } = await supabase.from('products')
-      .select('id, name, price, badge, view').in('id', ids.slice(offset, offset + 100));
+      .select('id, name, category, sku, price, badge, view').in('id', ids.slice(offset, offset + 100));
     if (error) throw new Error(toReadableError(error, 'Не вдалося перевірити товари перед замовленням.'));
     currentProducts.push(...(data || []));
   }
-  for (const item of items) {
+  let brandDiscounts = {};
+  const settingsRequest = supabase
+    .from('app_settings')
+    .select('value');
+  // The compatibility branch also keeps checkout working for installations
+  // that have not yet applied the optional settings migration: that is the
+  // same as having every brand at the default 0% discount.
+  const { data: settings, error: settingsError } = typeof settingsRequest.eq === 'function'
+    ? await settingsRequest.eq('key', APP_SETTINGS_KEY).maybeSingle()
+    : { data: null, error: { code: '42P01' } };
+
+  if (settingsError && !isMissingAppSettingsTable(settingsError)) {
+    throw new Error(toReadableError(settingsError, 'Не вдалося перевірити знижки брендів.'));
+  }
+
+  brandDiscounts = normalizeBrandDiscounts(
+    settings?.value?.brandDiscounts || settings?.value?.brand_discounts || {}
+  );
+
+  const verifiedItems = items.map((item) => {
     const product = currentProducts.find((p) => String(p.id) === String(item.id));
     if (!product || !product.view || isComingSoon(product)) {
       throw new Error(`«${item.name}» зараз недоступний для замовлення. Оновіть каталог і кошик.`);
     }
-    if (product.price === null || Number(product.price) !== Number(item.price)) {
+    const price = calculateDiscountedPrice(product.price, brandDiscounts[product.category] ?? 0);
+    if (product.price === null || price !== Number(item.price)) {
       throw new Error(`Ціна «${item.name}» змінилася. Оновіть каталог, щоб оформити за актуальною ціною.`);
     }
-  }
-  total = Math.round(items.reduce((sum, item) => sum + Number(item.price) * item.qty, 0) * 100) / 100;
+    return {
+      ...item,
+      name: product.name,
+      sku: product.sku || item.sku || '',
+      price,
+    };
+  });
+  total = Math.round(verifiedItems.reduce((sum, item) => sum + Number(item.price) * item.qty, 0) * 100) / 100;
 
   // The gate keeps a local copy of the customer's name. An administrator can
   // correct it later in catalog_users, so use the current database value when
@@ -260,7 +287,7 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
       tg_username: tgUsername || '',
       phone: phone || '',
       last_name: currentLastName,
-      items,
+      items: verifiedItems,
       total,
       status: 'new',
     })

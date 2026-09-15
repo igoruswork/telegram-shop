@@ -19,6 +19,7 @@ import { PaymentCard } from '../components/PaymentCard';
 import { AdminPricing } from '../components/AdminPricing';
 import { isComingSoon } from '../lib/productDisplay';
 import { parsePrice } from '../lib/pricing';
+import { getBrandDiscount } from '../lib/brandDiscounts';
 import { SafeImage } from '../components/SafeImage';
 
 const emptyProductForm = {
@@ -44,6 +45,7 @@ const adminSections = [
   { id: 'title', label: 'Заголовок' },
   { id: 'create', label: 'Нова картка' },
   { id: 'colors', label: 'Кольори' },
+  { id: 'brands', label: 'Бренди' },
   { id: 'details', label: 'Деталі картки' },
   { id: 'pricing', label: 'Переоцінка' },
   { id: 'visibility', label: 'Видимість' },
@@ -119,6 +121,8 @@ export function AdminPage({
   onBack,
   brandColors = {},
   onBrandColorChange,
+  brandDiscounts = {},
+  onBrandDiscountChange,
   defaultBrandColor,
   catalogTitle,
   onCatalogTitleChange,
@@ -285,7 +289,7 @@ export function AdminPage({
   }, [activeSection, loadAccessLogs, loadCatalogUsers, loadOrders]);
 
   useEffect(() => {
-    const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors', 'pricing'].includes(activeSection);
+    const sectionNeedsProducts = ['details', 'visibility', 'create', 'colors', 'brands', 'pricing'].includes(activeSection);
     if (sectionNeedsProducts && !hasLoadedProductsRef.current) {
       hasLoadedProductsRef.current = true;
       load();
@@ -899,6 +903,53 @@ export function AdminPage({
       <div hidden={activeSection !== 'pricing'}>
         <AdminPricing products={products} setProducts={setProducts} loading={loading} loadError={error} onBusyChange={setPricingBusy} />
       </div>
+
+      {activeSection === 'brands' && (
+        <section className="admin-settings-card admin-section-card admin-brand-discounts">
+          <div className="admin-create-head">
+            <div>
+              <div className="admin-create-title">Бренди та знижки</div>
+              <div className="admin-settings-subtitle">За замовчуванням — 0%. Після переоцінки покупець бачитиме в картці, кошику й замовленні вже ціну зі знижкою.</div>
+            </div>
+          </div>
+
+          {loading && <div className="admin-brand-discounts-loading">Завантаження брендів…</div>}
+          {!loading && categoryOptions.length === 0 && <div className="admin-brand-discounts-loading">Брендів ще немає</div>}
+          {!loading && categoryOptions.length > 0 && (
+            <div className="admin-brand-discounts-list">
+              {categoryOptions.map((brand) => {
+                const discount = getBrandDiscount(brandDiscounts, brand);
+                const productCount = products.filter((product) => product.category === brand).length;
+
+                return (
+                  <article className="admin-brand-discount-card" key={brand}>
+                    <div className="admin-brand-discount-info">
+                      <strong>{brand}</strong>
+                      <span>{productCount} {productCount === 1 ? 'товар' : productCount < 5 ? 'товари' : 'товарів'}</span>
+                    </div>
+                    <label className="admin-brand-discount-input">
+                      <span>Знижка</span>
+                      <div>
+                        <input
+                          aria-label={`Знижка бренду ${brand}`}
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={discount}
+                          onChange={(event) => onBrandDiscountChange?.(brand, event.target.value || 0)}
+                        />
+                        <span>%</span>
+                      </div>
+                    </label>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {activeSection === 'section-order' && (
         <section className="admin-settings-card admin-section-card admin-section-order-card">

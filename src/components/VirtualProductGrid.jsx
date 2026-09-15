@@ -48,6 +48,7 @@ export function VirtualProductGrid({
   onAddToCart,
   onUpdateQty,
   brandColors,
+  brandDiscounts,
   defaultBrandColor,
   paymentDetails,
   paymentIban,
@@ -199,6 +200,7 @@ export function VirtualProductGrid({
                   onAddToCart={onAddToCart}
                   onUpdateQty={onUpdateQty}
                   brandColors={brandColors}
+                  brandDiscounts={brandDiscounts}
                   defaultBrandColor={defaultBrandColor}
                   imagePriority={productIndex < 3 ? 'high' : 'auto'}
                   cardStyle={{ transform: `translateY(${mobileLeftOffset + productIndex * rowHeight}px)` }}
@@ -219,6 +221,7 @@ export function VirtualProductGrid({
                   onAddToCart={onAddToCart}
                   onUpdateQty={onUpdateQty}
                   brandColors={brandColors}
+                  brandDiscounts={brandDiscounts}
                   defaultBrandColor={defaultBrandColor}
                   imagePriority={productIndex < 3 ? 'high' : 'auto'}
                   cardStyle={{ transform: `translateY(${mobileRightOffset + productIndex * rowHeight}px)` }}
@@ -246,6 +249,7 @@ export function VirtualProductGrid({
                 onAddToCart={onAddToCart}
                 onUpdateQty={onUpdateQty}
                 brandColors={brandColors}
+                brandDiscounts={brandDiscounts}
                 defaultBrandColor={defaultBrandColor}
                 imagePriority={rowIndex === 0 && productIndex < 4 ? 'high' : 'auto'}
               />

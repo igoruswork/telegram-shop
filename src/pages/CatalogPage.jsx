@@ -148,6 +148,7 @@ export function CatalogPage({
   savedState,
   onSaveState,
   brandColors,
+  brandDiscounts,
   defaultBrandColor,
   paymentDetails,
   paymentIban,
@@ -417,6 +418,7 @@ export function CatalogPage({
               onAddToCart={onAddToCart}
               onUpdateQty={onUpdateQty}
               brandColors={brandColors}
+              brandDiscounts={brandDiscounts}
               defaultBrandColor={defaultBrandColor}
               paymentDetails={paymentDetails}
               paymentIban={paymentIban}

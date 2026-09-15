@@ -96,7 +96,7 @@ export function AdminPricing({ products, setProducts, loading, loadError, onBusy
     <section className="pricing" aria-label="Переоцінка товарів">
       <div className="pricing-hero">
         <div><span className="pricing-eyebrow">КЕРУВАННЯ КАТАЛОГОМ</span><h1>Переоцінка<span>↗</span></h1>
-          <p>Усі ціни в одному місці.<br />Редагуйте вручну або оновлюйте з Excel.</p></div>
+          <p>Базові ціни до знижок бренду.<br />Редагуйте вручну або оновлюйте з Excel.</p></div>
         <div className="pricing-stats"><div><strong>{products.length}</strong><span>товарів у каталозі</span></div>
           <div><strong>{changes.length}</strong><span>цін до збереження</span></div></div>
       </div>
@@ -143,7 +143,7 @@ export function AdminPricing({ products, setProducts, loading, loadError, onBusy
       </div>
       {(error || loadError) && <div className="pricing-error" role="alert">{error || loadError}</div>}
       {notice && <div className="pricing-success" role="status">✓ {notice}</div>}
-      <div className="pricing-table-wrap"><table className="pricing-table"><thead><tr><th>Товар</th><th>Штрихкод</th><th>Поточна ціна</th><th>Нова ціна, ₴</th><th>Різниця</th></tr></thead>
+      <div className="pricing-table-wrap"><table className="pricing-table"><thead><tr><th>Товар</th><th>Штрихкод</th><th>Базова ціна</th><th>Нова базова ціна, ₴</th><th>Різниця</th></tr></thead>
         <tbody>{!loading && !loadError && filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE).map((p) => {
           const changed = Object.hasOwn(drafts, p.id);
           const nextPrice = changed ? parsePrice(drafts[p.id]) : null;

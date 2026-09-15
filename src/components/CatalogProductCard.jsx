@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { SafeImage } from './SafeImage';
 import { productDisplayText, isComingSoon } from '../lib/productDisplay';
+import { getProductDiscountedPrice } from '../lib/brandDiscounts';
 
 function formatPrice(price) {
   return Number(price).toLocaleString('uk-UA');
@@ -43,11 +44,13 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
   onAddToCart,
   onUpdateQty,
   brandColors,
+  brandDiscounts,
   defaultBrandColor,
   imagePriority = 'auto',
   cardStyle,
 }) {
   const soon = isComingSoon(product);
+  const price = getProductDiscountedPrice(product, brandDiscounts);
   const badge = soon ? 'Скоро..' : productDisplayText(product.badge);
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.p_category) || productDisplayText(product.category);
@@ -113,7 +116,7 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
       </div>
 
       {soon ? <div className="product-coming-soon"><span className="coming-soon-dot" />Незабаром у продажу</div> : <div className={`product-card-footer ${qty === 0 ? 'product-card-footer--empty' : ''}`}>
-        <div className="product-card-price">{formatPrice(product.price)}</div>
+        <div className="product-card-price">{formatPrice(price)}</div>
         <div className={`catalog-qty-controls ${qty === 0 ? 'catalog-qty-controls--empty' : ''}`}>
           <button
             type="button"
