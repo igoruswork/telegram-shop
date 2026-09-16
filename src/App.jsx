@@ -41,7 +41,7 @@ const DEFAULT_ADMIN_SECTION_ORDER = [
 ];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
-const CATALOG_CACHE_STORAGE_KEY = 'telegram-shop-catalog-cache:v1';
+const CATALOG_CACHE_STORAGE_KEY = 'telegram-shop-catalog-cache:v2';
 const CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const USER_STORAGE_KEY = 'telegram-shop-user';
 const CART_STORAGE_PREFIX = 'telegram-shop-cart:';
@@ -248,7 +248,7 @@ function sortProducts(products) {
   return [...products].sort((left, right) => {
     const leftOrder = Number(left.number_sites ?? 0);
     const rightOrder = Number(right.number_sites ?? 0);
-    return leftOrder - rightOrder;
+    return rightOrder - leftOrder || Number(left.id) - Number(right.id);
   });
 }
 

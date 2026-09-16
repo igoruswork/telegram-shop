@@ -100,7 +100,7 @@ Telegram Mini App з каталогом товарів, кошиком, адмі
 | `p_category` | text | Підкатегорія |
 | `badge` | text | Badge (`Coming soon`, `Hit`, `New`, `Sale`) |
 | `view` | boolean | `TRUE` — показувати, `FALSE` — приховати |
-| `number_sites` | int | Порядок відображення |
+| `number_sites` | int | Порядок відображення: більше число — вище картка |
 | `sku` | text | Штрихкод |
 | `price` | numeric | Ціна |
 | `thumbnail_url` | text | URL картинки |

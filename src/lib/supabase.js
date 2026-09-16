@@ -176,7 +176,7 @@ export async function saveAppSettings(value) {
 }
 
 /**
- * Отримати всі видимі товари (view = true), відсортовані по number_sites
+ * Отримати всі видимі товари (view = true), відсортовані за спаданням number_sites.
  */
 export async function fetchProducts() {
   ensureSupabaseConfigured();
@@ -185,7 +185,8 @@ export async function fetchProducts() {
     .from('products')
     .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
     .eq('view', true)
-    .order('number_sites', { ascending: true });
+    .order('number_sites', { ascending: false })
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('fetchProducts error:', error);
@@ -614,7 +615,7 @@ export async function fetchAllProducts() {
     const { data, error } = await supabase
       .from('products')
       .select('id, name, category, p_category, badge, view, number_sites, sku, price, thumbnail_url')
-      .order('number_sites', { ascending: true })
+      .order('number_sites', { ascending: false })
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw new Error(toReadableError(error, 'Не вдалося завантажити всі товари.'));

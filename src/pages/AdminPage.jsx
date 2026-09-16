@@ -853,7 +853,7 @@ export function AdminPage({
       setProducts((prev) => [...prev, created].sort((a, b) => {
         const aOrder = Number(a.number_sites ?? 0);
         const bOrder = Number(b.number_sites ?? 0);
-        return aOrder - bOrder;
+        return bOrder - aOrder || Number(a.id) - Number(b.id);
       }));
       setNewProduct(emptyProductForm);
       setNewProductImageFile(null);
