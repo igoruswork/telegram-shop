@@ -15,7 +15,7 @@ test('coming-soon UI and checkout reject stale cart snapshots', async () => {
       product: p, qty: 2, defaultBrandColor: '#075985', onProductClick() {}, onAddToCart() {}, onUpdateQty() {},
     }));
     const soon = render(product);
-    assert.match(soon, /Скоро../);
+    assert.match(soon, /Coming soon/);
     assert.match(soon, /Незабаром у продажу/);
     assert.doesNotMatch(soon, /product-card-price|catalog-qty-btn|product-card-cart-mark/);
     const available = render({ ...product, badge: 'Хіт' });

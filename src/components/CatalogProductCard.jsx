@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { SafeImage } from './SafeImage';
-import { productDisplayText, isComingSoon } from '../lib/productDisplay';
+import { normalizeProductBadge, productDisplayText, isComingSoon } from '../lib/productDisplay';
 import { getProductDiscountedPrice } from '../lib/brandDiscounts';
 
 function formatPrice(price) {
@@ -51,7 +51,7 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
 }) {
   const soon = isComingSoon(product);
   const price = getProductDiscountedPrice(product, brandDiscounts);
-  const badge = soon ? 'Скоро..' : productDisplayText(product.badge);
+  const badge = normalizeProductBadge(product.badge);
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.p_category) || productDisplayText(product.category);
   const brandStyle = useMemo(() => {

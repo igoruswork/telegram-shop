@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { utils, write } from 'xlsx';
 import { parsePrice, normalizeBarcode, detectPriceColumns, previewPriceImport, savePriceChanges } from '../src/lib/pricing.js';
 import { readPriceWorkbook } from '../src/lib/priceWorkbook.js';
-import { isComingSoon } from '../src/lib/productDisplay.js';
+import { isComingSoon, normalizeProductBadge } from '../src/lib/productDisplay.js';
 import { calculateDiscountedPrice, getBrandDiscount, normalizeBrandDiscounts } from '../src/lib/brandDiscounts.js';
 
 const products = [{ id: 1, sku: '00123', price: 10 }, { id: 2, sku: '456', price: 20 }, { id: 3, sku: '00123', price: 12 }];
@@ -56,6 +56,13 @@ test('saving reports partial failures and never retries successful writes', asyn
 test('coming-soon badge accepts punctuation/case variants without matching unrelated badges', () => {
   for (const badge of ['Скоро..', ' скоро… ', 'СКОРО', 'Coming soon']) assert.equal(isComingSoon({ badge }), true);
   for (const badge of ['Хіт', 'Акція', null, 'Скороход']) assert.equal(isComingSoon({ badge }), false);
+});
+test('standard badges are stored and displayed in English', () => {
+  assert.equal(normalizeProductBadge('Хіт'), 'Hit');
+  assert.equal(normalizeProductBadge('Новинка'), 'New');
+  assert.equal(normalizeProductBadge('Акція'), 'Sale');
+  assert.equal(normalizeProductBadge('Скоро..'), 'Coming soon');
+  assert.equal(normalizeProductBadge('Custom'), 'Custom');
 });
 test('brand discounts default to zero and calculate a rounded customer price', () => {
   const discounts = normalizeBrandDiscounts({ Balme: '50%', Other: '30,5', Bad: 101 });

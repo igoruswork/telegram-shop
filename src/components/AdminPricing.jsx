@@ -150,7 +150,7 @@ export function AdminPricing({ products, setProducts, loading, loadError, onBusy
           const delta = changed && nextPrice !== null && p.price !== null ? Math.round((nextPrice - Number(p.price)) * 100) / 100 : null;
           return <tr key={p.id} className={changed ? 'pricing-row-changed' : ''}>
             <td><div className="pricing-product"><SafeImage className="pricing-thumbnail" src={p.thumbnail_url} alt="" /><div><strong>{p.name}</strong><span>{p.category || 'Без категорії'}{!p.view ? ' · Прихований' : ''}</span>
-              {isComingSoon(p) && <span className="pricing-soon">Скоро.. · ціна прихована в каталозі</span>}</div></div></td>
+              {isComingSoon(p) && <span className="pricing-soon">Coming soon · ціна прихована в каталозі</span>}</div></div></td>
             <td className="pricing-barcode">{p.sku || '—'}</td><td className="pricing-money">{money(p.price)}{p.price != null ? ' ₴' : ''}</td>
             <td><input className="pricing-price-input" aria-label={`Нова ціна ${p.name}`} aria-invalid={changed && nextPrice === null} inputMode="decimal" disabled={busy}
               value={drafts[p.id] ?? String(p.price ?? '')} onChange={(e) => editPrice(p, e.target.value)} />

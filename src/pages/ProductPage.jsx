@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
-import { productDisplayText, isComingSoon } from '../lib/productDisplay';
+import { normalizeProductBadge, productDisplayText, isComingSoon } from '../lib/productDisplay';
 import { SafeImage } from '../components/SafeImage';
 import { getProductDiscountedPrice } from '../lib/brandDiscounts';
 
@@ -119,7 +119,7 @@ export function ProductPage({ productId, initialProduct = null, onBack, onAddToC
   }
 
   const soon = isComingSoon(product);
-  const badge = soon ? 'Скоро..' : productDisplayText(product.badge);
+  const badge = normalizeProductBadge(product.badge);
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.category);
   const subCategory = productDisplayText(product.p_category);

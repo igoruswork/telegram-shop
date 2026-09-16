@@ -17,7 +17,7 @@ import {
 import { isPhoneComplete, normalizePhoneInput } from '../lib/phone';
 import { PaymentCard } from '../components/PaymentCard';
 import { AdminPricing } from '../components/AdminPricing';
-import { isComingSoon } from '../lib/productDisplay';
+import { isComingSoon, normalizeProductBadge } from '../lib/productDisplay';
 import { parsePrice } from '../lib/pricing';
 import { getBrandDiscount } from '../lib/brandDiscounts';
 import { SafeImage } from '../components/SafeImage';
@@ -409,7 +409,7 @@ export function AdminPage({
 
   const getEdit = (p) => ({
     p_category: edits[p.id]?.p_category ?? (p.p_category || ''),
-    badge: edits[p.id]?.badge ?? (p.badge || ''),
+    badge: edits[p.id]?.badge ?? normalizeProductBadge(p.badge),
     category: edits[p.id]?.category ?? (p.category || ''),
     price: edits[p.id]?.price ?? String(p.price ?? ''),
     number_sites: edits[p.id]?.number_sites ?? String(p.number_sites ?? ''),
@@ -428,12 +428,14 @@ export function AdminPage({
   };
 
   const handleField = (id, field, value) => {
-    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+    const normalizedValue = field === 'badge' ? normalizeProductBadge(value) : value;
+    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: normalizedValue } }));
     setSaved((prev) => ({ ...prev, [id]: false }));
   };
 
   const handleNewProductField = (field, value) => {
-    setNewProduct((prev) => ({ ...prev, [field]: value }));
+    const normalizedValue = field === 'badge' ? normalizeProductBadge(value) : value;
+    setNewProduct((prev) => ({ ...prev, [field]: normalizedValue }));
     setCreateSaved(false);
   };
 
@@ -635,7 +637,7 @@ export function AdminPage({
     const e = edits[p.id] || {};
     const fields = {};
     if (e.p_category !== undefined) fields.p_category = e.p_category || null;
-    if (e.badge !== undefined) fields.badge = e.badge || null;
+    if (e.badge !== undefined) fields.badge = normalizeProductBadge(e.badge) || null;
     if (e.category !== undefined) fields.category = e.category || null;
     if (e.price !== undefined) {
       const price = parsePrice(e.price);
@@ -805,7 +807,7 @@ export function AdminPage({
       thumbnail_url: newProduct.thumbnail_url.trim(),
       category: newProduct.category.trim(),
       p_category: newProduct.p_category.trim(),
-      badge: newProduct.badge || null,
+      badge: normalizeProductBadge(newProduct.badge) || null,
       view: true,
       number_sites: maxOrder + 1,
     };
@@ -927,7 +929,7 @@ export function AdminPage({
         ))}
       </div>
 
-      <datalist id="product-badge-options"><option value="Скоро.." /><option value="Хіт" /><option value="Новинка" /><option value="Акція" /></datalist>
+      <datalist id="product-badge-options"><option value="Coming soon" /><option value="Hit" /><option value="New" /><option value="Sale" /></datalist>
       <div hidden={activeSection !== 'pricing'}>
         <AdminPricing products={products} setProducts={setProducts} loading={loading} loadError={error} onBusyChange={setPricingBusy} />
       </div>
@@ -1247,8 +1249,8 @@ export function AdminPage({
                 onChange={(e) => handleNewProductField('p_category', e.target.value)} />
             </label>
             <label className="admin-label">
-              <span>Бейдж</span>
-              <input className="admin-input" list="product-badge-options" value={newProduct.badge} placeholder="Хіт / Новинка / Скоро.." onChange={(e) => handleNewProductField('badge', e.target.value)} />
+              <span>badge</span>
+              <input className="admin-input" list="product-badge-options" value={newProduct.badge} placeholder="Hit / New / Coming soon" onChange={(e) => handleNewProductField('badge', e.target.value)} />
             </label>
             <label className="admin-label admin-label--wide">
               <span>thumbnail</span>
@@ -1687,10 +1689,10 @@ export function AdminPage({
                       onChange={(e) => handleField(p.id, 'p_category', e.target.value)} />
                   </label>
                   <label className="admin-label">
-                    <span>Бейдж</span>
-                    <input className="admin-input" type="text" list="product-badge-options" value={edit.badge} placeholder="Хіт / Новинка / Скоро.."
+                    <span>badge</span>
+                    <input className="admin-input" type="text" list="product-badge-options" value={edit.badge} placeholder="Hit / New / Coming soon"
                       onChange={(e) => handleField(p.id, 'badge', e.target.value)} />
-                    <button type="button" className={"admin-soon-toggle" + (isComingSoon(edit) ? ' active' : '')} aria-pressed={isComingSoon(edit)} onClick={() => handleField(p.id, 'badge', isComingSoon(edit) ? '' : 'Скоро..')}>✦ Скоро..</button>
+                    <button type="button" className={"admin-soon-toggle" + (isComingSoon(edit) ? ' active' : '')} aria-pressed={isComingSoon(edit)} onClick={() => handleField(p.id, 'badge', isComingSoon(edit) ? '' : 'Coming soon')}>✦ Coming soon</button>
                   </label>
                   <label className="admin-label">
                     <span>price</span>
