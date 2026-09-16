@@ -1,41 +1,8 @@
+import { formatPrice, getBadgeClass, getBrandStyle } from '../lib/display';
 import React, { useCallback, useMemo } from 'react';
 import { SafeImage } from './SafeImage';
 import { normalizeProductBadge, productDisplayText, isComingSoon } from '../lib/productDisplay';
 import { getProductDiscountedPrice } from '../lib/brandDiscounts';
-
-function formatPrice(price) {
-  return Number(price).toLocaleString('uk-UA');
-}
-
-function getBadgeClass(badge) {
-  if (!badge) return '';
-  const value = String(badge).toLowerCase();
-  if (value.includes('хіт') || value.includes('hit')) return 'hit';
-  if (value.includes('нов') || value.includes('new')) return 'new';
-  if (value.includes('акц') || value.includes('sale')) return 'sale';
-  return 'default';
-}
-
-function isHexColor(value) {
-  return /^#[0-9a-fA-F]{6}$/.test(value || '');
-}
-
-function hexToRgb(hex) {
-  const value = hex.replace('#', '');
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ].join(', ');
-}
-
-function darkenHex(hex, amount = 0.34) {
-  const value = hex.replace('#', '');
-  return `#${[0, 2, 4]
-    .map((index) => Math.max(0, Math.round(parseInt(value.slice(index, index + 2), 16) * (1 - amount))))
-    .map((channel) => channel.toString(16).padStart(2, '0'))
-    .join('')}`;
-}
 
 export const CatalogProductCard = React.memo(function CatalogProductCard({
   product,
@@ -54,16 +21,10 @@ export const CatalogProductCard = React.memo(function CatalogProductCard({
   const badge = normalizeProductBadge(product.badge);
   const sku = productDisplayText(product.sku);
   const category = productDisplayText(product.p_category) || productDisplayText(product.category);
-  const brandStyle = useMemo(() => {
-    const color = brandColors?.[product.category] || defaultBrandColor;
-    const validColor = isHexColor(color) ? color : defaultBrandColor;
-
-    return {
-      '--brand-color': validColor,
-      '--brand-price-color': darkenHex(validColor),
-      '--brand-rgb': hexToRgb(validColor),
-    };
-  }, [brandColors, defaultBrandColor, product.category]);
+  const brandStyle = useMemo(
+    () => getBrandStyle(product.category, brandColors, defaultBrandColor),
+    [brandColors, defaultBrandColor, product.category]
+  );
 
   const openProduct = useCallback(() => onProductClick(product), [onProductClick, product]);
   const decreaseQty = useCallback(() => onUpdateQty(product.id, -1), [onUpdateQty, product.id]);

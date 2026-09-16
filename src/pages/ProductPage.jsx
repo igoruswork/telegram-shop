@@ -1,22 +1,11 @@
+import { formatPrice, getBadgeClass } from '../lib/display';
+import './ProductPage.css';
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { fetchProductById } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
 import { normalizeProductBadge, productDisplayText, isComingSoon } from '../lib/productDisplay';
 import { SafeImage } from '../components/SafeImage';
 import { getProductDiscountedPrice } from '../lib/brandDiscounts';
-
-function formatPrice(price) {
-  return Number(price).toLocaleString('uk-UA');
-}
-
-function getBadgeClass(badge) {
-  if (!badge) return '';
-  const b = badge.toLowerCase();
-  if (b.includes('хіт') || b.includes('hit')) return 'hit';
-  if (b.includes('нов') || b.includes('new')) return 'new';
-  if (b.includes('акц') || b.includes('sale')) return 'sale';
-  return 'default';
-}
 
 export function ProductPage({ productId, initialProduct = null, onBack, onAddToCart, brandDiscounts }) {
   const [product, setProduct] = useState(initialProduct);

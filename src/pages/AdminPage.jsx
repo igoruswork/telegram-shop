@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { isHexColor } from '../lib/display';
+import './AdminPage.css';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import {
   createProduct,
   deleteAccessLogEntry,
@@ -42,7 +44,7 @@ const brandColorPresets = [
 ];
 
 const adminSections = [
-  { id: 'title', label: 'Заголовок' },
+  { id: 'title', label: 'Налаштування' },
   { id: 'create', label: 'Нова картка' },
   { id: 'colors', label: 'Кольори' },
   { id: 'brands', label: 'Бренди' },
@@ -74,10 +76,6 @@ function normalizeAdminSectionOrder(value) {
   const uniqueIds = [...new Set(requestedIds.filter((id) => knownIds.has(id)))];
 
   return [...uniqueIds, ...adminSections.map((section) => section.id).filter((id) => !uniqueIds.includes(id))];
-}
-
-function isHexColor(value) {
-  return /^#[0-9a-fA-F]{6}$/.test(value || '');
 }
 
 function formatKyivDateTime(value) {
@@ -137,9 +135,6 @@ export function AdminPage({
   brandDiscounts = {},
   onBrandDiscountChange,
   defaultBrandColor,
-  catalogTitle,
-  onCatalogTitleChange,
-  defaultCatalogTitle,
   paymentDetails,
   paymentIban,
   paymentCardColor,
@@ -159,6 +154,10 @@ export function AdminPage({
   onAdminSectionOrderChange,
   currentAdminPhone = '',
 }) {
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [products, setProducts] = useState([]);
   const [pricingBusy, setPricingBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -192,7 +191,6 @@ export function AdminPage({
   const [imageUploading, setImageUploading] = useState({});
   const [newProductImageFile, setNewProductImageFile] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState('');
-  const [catalogTitleDraft, setCatalogTitleDraft] = useState(catalogTitle);
   const [paymentPreviewExpanded, setPaymentPreviewExpanded] = useState(false);
   const [paymentCardColorDraft, setPaymentCardColorDraft] = useState(paymentCardColor);
   const [catalogUsers, setCatalogUsers] = useState([]);
@@ -337,9 +335,6 @@ export function AdminPage({
     setBrandColorDraft(selectedBrandColor);
   }, [selectedBrandColor]);
 
-  useEffect(() => {
-    setCatalogTitleDraft(catalogTitle);
-  }, [catalogTitle]);
 
   useEffect(() => {
     setPaymentCardColorDraft(paymentCardColor);
@@ -453,10 +448,6 @@ export function AdminPage({
     }
   };
 
-  const handleCatalogTitleInput = (value) => {
-    setCatalogTitleDraft(value);
-    onCatalogTitleChange(value.trim() || defaultCatalogTitle);
-  };
 
   const handlePaymentCardColorInput = (value) => {
     setPaymentCardColorDraft(value);
@@ -1018,25 +1009,6 @@ export function AdminPage({
         </section>
       )}
 
-      {activeSection === 'title' && (
-        <div className="admin-settings-card admin-section-card">
-          <div className="admin-create-head">
-            <div className="admin-create-title">Зміна заголовку</div>
-          </div>
-
-          <label className="admin-label admin-title-label">
-            <span>title</span>
-            <input
-              className="admin-input"
-              type="text"
-              value={catalogTitleDraft}
-              placeholder={defaultCatalogTitle}
-              onChange={(e) => handleCatalogTitleInput(e.target.value)}
-              maxLength={28}
-            />
-          </label>
-        </div>
-      )}
 
       {activeSection === 'title' && (
         <div className="admin-settings-card admin-section-card">

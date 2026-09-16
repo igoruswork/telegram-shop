@@ -1,3 +1,6 @@
+import { isHexColor, hexToRgb, darkenHex } from './lib/display';
+import { sortProducts, applyProductChanges, createProductEventBuffer, createCatalogCacheWriter } from './lib/catalogUpdates';
+import { useShopNavigation } from './lib/useShopNavigation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTelegram } from './lib/useTelegram';
 import {
@@ -24,7 +27,6 @@ const CartDrawer = React.lazy(() => import('./components/CartDrawer').then((modu
 
 const ADMIN_PHONE = '+380111111111';
 const DEFAULT_ADMIN_PHONES = [ADMIN_PHONE];
-const DEFAULT_CATALOG_TITLE = 'Каталог';
 const DEFAULT_BRAND_COLOR = '#075985';
 const DEFAULT_PAYMENT_CARD_COLOR = '#B8A477';
 const DEFAULT_PAYMENT_TAX_ID = '3830010811';
@@ -40,40 +42,10 @@ const DEFAULT_ADMIN_SECTION_ORDER = [
   'access', 'access-log', 'orders', 'section-order',
 ];
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
-const CATALOG_TITLE_STORAGE_KEY = 'telegram-shop-catalog-title';
 const CATALOG_CACHE_STORAGE_KEY = 'telegram-shop-catalog-cache:v2';
 const CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const USER_STORAGE_KEY = 'telegram-shop-user';
 const CART_STORAGE_PREFIX = 'telegram-shop-cart:';
-
-function isHexColor(value) {
-  return /^#[0-9a-fA-F]{6}$/.test(value || '');
-}
-
-function hexToRgb(hex) {
-  const value = hex.replace('#', '');
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ].join(', ');
-}
-
-function darkenHex(hex, amount = 0.34) {
-  const value = hex.replace('#', '');
-  const channels = [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ];
-
-  const darkened = channels
-    .map((channel) => Math.max(0, Math.round(channel * (1 - amount))))
-    .map((channel) => channel.toString(16).padStart(2, '0'))
-    .join('');
-
-  return `#${darkened}`;
-}
 
 function loadStoredBrandColors() {
   try {
@@ -202,10 +174,6 @@ function normalizeAppSettings(value) {
   const brandColors = normalizeBrandColors(value?.brandColors || value?.brand_colors || {});
   const brandDiscounts = normalizeBrandDiscounts(value?.brandDiscounts || value?.brand_discounts || {});
   const adminPhones = normalizeAdminPhones(value?.adminPhones || value?.admin_phones || []);
-  const rawTitle = value?.catalogTitle || value?.catalog_title || '';
-  const catalogTitle = typeof rawTitle === 'string' && rawTitle.trim()
-    ? rawTitle.trim()
-    : DEFAULT_CATALOG_TITLE;
   const paymentDetails = String(value?.paymentDetails || value?.payment_details || '')
     .trim()
     .slice(0, 180);
@@ -232,7 +200,6 @@ function normalizeAppSettings(value) {
   return {
     brandColors,
     brandDiscounts,
-    catalogTitle,
     adminPhones,
     paymentDetails,
     paymentIban,
@@ -244,22 +211,10 @@ function normalizeAppSettings(value) {
   };
 }
 
-function sortProducts(products) {
-  return [...products].sort((left, right) => {
-    const leftOrder = Number(left.number_sites ?? 0);
-    const rightOrder = Number(right.number_sites ?? 0);
-    return rightOrder - leftOrder || Number(left.id) - Number(right.id);
-  });
-}
-
 export default function App() {
-  const { user, haptic, hapticNotification } = useTelegram();
+  const { tg, user, haptic, hapticNotification } = useTelegram();
   const storedUser = useMemo(loadStoredUser, []);
   const [initialCatalogCache] = useState(loadStoredCatalogCache);
-  const [catalogTitle, setCatalogTitle] = useState(() => {
-    const stored = localStorage.getItem(CATALOG_TITLE_STORAGE_KEY)?.trim();
-    return stored || DEFAULT_CATALOG_TITLE;
-  });
   const [brandColors, setBrandColors] = useState(loadStoredBrandColors);
   const [brandDiscounts, setBrandDiscounts] = useState({});
   const [adminPhones, setAdminPhones] = useState(DEFAULT_ADMIN_PHONES);
@@ -277,6 +232,8 @@ export default function App() {
   const localSettingsMigrationRef = useRef(false);
   const storedAccessLoggedRef = useRef(false);
   const settingsSnapshotRef = useRef({});
+  // Preserve retired/unknown server fields when saving unrelated settings.
+  const remoteSettingsRef = useRef({});
 
   // ─── Авторизація (гейт) ──────────────────────────────
   const [authorized, setAuthorized] = useState(false);
@@ -285,22 +242,29 @@ export default function App() {
   const [accessSession, setAccessSession] = useState(null);
   const isAdmin = adminPhones.includes(normalizePhoneInput(gateData.phone));
 
-  // ─── Навігація ────────────────────────────────────────
-  const [page, setPage] = useState('catalog'); // 'catalog' | 'product' | 'admin'
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [initialAdminSection, setInitialAdminSection] = useState('details');
+  const { page, selectedProduct, initialAdminSection, catalogState, cartOpen, navigation } =
+    useShopNavigation({ tg, enabled: authorized, onBack: haptic });
 
-  // ─── Збереження стану каталогу (скрол + категорія) ───
-  const [catalogState, setCatalogState] = useState(null);
+  useEffect(() => {
+    if (authorized && settingsLoaded && page === 'admin' && !isAdmin) navigation.reset();
+  }, [authorized, isAdmin, navigation, page, settingsLoaded]);
 
   // ─── Дані з Supabase ─────────────────────────────────
   const [products, setProducts] = useState(() => initialCatalogCache || []);
   const [loading, setLoading] = useState(() => !initialCatalogCache);
   const [loadError, setLoadError] = useState(supabaseConfigError);
+  const productsRef = useRef(products);
+  const catalogRequestRef = useRef(null);
+  const [cacheWriter] = useState(() => createCatalogCacheWriter(saveCatalogCache));
+  const commitProducts = useCallback((next, cache = true) => {
+    if (next === productsRef.current) return;
+    productsRef.current = next;
+    setProducts(next);
+    if (cache) cacheWriter.schedule(next);
+  }, [cacheWriter]);
 
   // ─── Кошик (зберігається на пристрої до оформлення або очищення) ──
   const [cart, setCart] = useState([]);
-  const [cartOpen, setCartOpen] = useState(false);
   const [cartStorageReadyKey, setCartStorageReadyKey] = useState('');
   const activeCartStorageKey = useMemo(
     () => (authorized ? cartStorageKey(gateData.phone) : ''),
@@ -440,10 +404,6 @@ export default function App() {
   }, [brandColors, defaultBrandColor]);
 
   useEffect(() => {
-    localStorage.setItem(CATALOG_TITLE_STORAGE_KEY, catalogTitle.trim() || DEFAULT_CATALOG_TITLE);
-  }, [catalogTitle]);
-
-  useEffect(() => {
     if (!storedUser) return undefined;
 
     let cancelled = false;
@@ -510,10 +470,10 @@ export default function App() {
   const applyRemoteSettings = useCallback((settings) => {
     if (!settings || typeof settings !== 'object') return false;
 
+    remoteSettingsRef.current = settings;
     const normalized = normalizeAppSettings(settings);
     setBrandColors(normalized.brandColors);
     setBrandDiscounts(normalized.brandDiscounts);
-    setCatalogTitle(normalized.catalogTitle);
     setAdminPhones(normalized.adminPhones);
     setPaymentDetails(normalized.paymentDetails);
     setPaymentIban(normalized.paymentIban);
@@ -529,7 +489,6 @@ export default function App() {
     settingsSnapshotRef.current = {
       brandColors,
       brandDiscounts,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -539,7 +498,7 @@ export default function App() {
       paymentCardVisibility,
       adminSectionOrder,
     };
-  }, [adminPhones, adminSectionOrder, brandColors, brandDiscounts, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
+  }, [adminPhones, adminSectionOrder, brandColors, brandDiscounts, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
 
   const queueSaveSettings = useCallback((settings) => {
     const normalized = normalizeAppSettings({ ...settingsSnapshotRef.current, ...settings });
@@ -550,7 +509,7 @@ export default function App() {
 
     saveSettingsTimeoutRef.current = window.setTimeout(async () => {
       try {
-        await saveAppSettings(normalized);
+        await saveAppSettings({ ...remoteSettingsRef.current, ...normalized });
         setRemoteSettingsFound(true);
       } catch (error) {
         console.warn('saveAppSettings error:', error);
@@ -610,33 +569,7 @@ export default function App() {
     setBrandColors(nextBrandColors);
     queueSaveSettings({
       brandColors: nextBrandColors,
-      catalogTitle,
-      adminPhones,
-      paymentDetails,
-      paymentIban,
-      paymentCardColor,
-      paymentTaxId,
-      paymentExtraDetails,
-      paymentCardVisibility,
-    });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
-  const setBrandDiscountForBrand = useCallback((brand, discount) => {
-    const key = String(brand || '').trim();
-    const nextDiscounts = normalizeBrandDiscounts({ ...brandDiscounts, [key]: discount });
-    if (!key || nextDiscounts[key] === undefined) return;
-
-    setBrandDiscounts(nextDiscounts);
-    queueSaveSettings({ brandDiscounts: nextDiscounts });
-  }, [brandDiscounts, queueSaveSettings]);
-
-  const setCatalogTitleSetting = useCallback((value) => {
-    const nextCatalogTitle = String(value || '').trim() || DEFAULT_CATALOG_TITLE;
-
-    setCatalogTitle(nextCatalogTitle);
-    queueSaveSettings({
-      brandColors,
-      catalogTitle: nextCatalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -647,13 +580,22 @@ export default function App() {
     });
   }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
+  const setBrandDiscountForBrand = useCallback((brand, discount) => {
+    const key = String(brand || '').trim();
+    const nextDiscounts = normalizeBrandDiscounts({ ...brandDiscounts, [key]: discount });
+    if (!key || nextDiscounts[key] === undefined) return;
+
+    setBrandDiscounts(nextDiscounts);
+    queueSaveSettings({ brandDiscounts: nextDiscounts });
+  }, [brandDiscounts, queueSaveSettings]);
+
   const setAdminPhonesSetting = useCallback((phones) => {
     const nextAdminPhones = normalizeAdminPhones(phones);
 
     setAdminPhones(nextAdminPhones);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
+
       adminPhones: nextAdminPhones,
       paymentDetails,
       paymentIban,
@@ -662,7 +604,7 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+  }, [brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setPaymentDetailsSetting = useCallback((value) => {
     const nextPaymentDetails = String(value || '').slice(0, 180);
@@ -670,7 +612,6 @@ export default function App() {
     setPaymentDetails(nextPaymentDetails);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails: nextPaymentDetails,
       paymentIban,
@@ -679,7 +620,7 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setPaymentIbanSetting = useCallback((value) => {
     const nextPaymentIban = String(value || '')
@@ -690,7 +631,6 @@ export default function App() {
     setPaymentIban(nextPaymentIban);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban: nextPaymentIban,
@@ -699,7 +639,7 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentTaxId, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentTaxId, queueSaveSettings]);
 
   const setPaymentCardColorSetting = useCallback((value) => {
     if (!isHexColor(value)) return;
@@ -708,7 +648,6 @@ export default function App() {
     setPaymentCardColor(nextPaymentCardColor);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -717,7 +656,7 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setPaymentTaxIdSetting = useCallback((value) => {
     const nextPaymentTaxId = String(value || '').replace(/\s+/g, '').slice(0, 16);
@@ -725,7 +664,6 @@ export default function App() {
     setPaymentTaxId(nextPaymentTaxId);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -734,7 +672,7 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, queueSaveSettings]);
 
   const setPaymentExtraDetailsSetting = useCallback((value) => {
     const nextPaymentExtraDetails = String(value || '').slice(0, 280);
@@ -742,7 +680,6 @@ export default function App() {
     setPaymentExtraDetails(nextPaymentExtraDetails);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -751,7 +688,7 @@ export default function App() {
       paymentExtraDetails: nextPaymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setPaymentCardVisibilitySetting = useCallback((key, visible) => {
     if (!(key in DEFAULT_PAYMENT_CARD_VISIBILITY)) return;
@@ -764,7 +701,6 @@ export default function App() {
     setPaymentCardVisibility(nextPaymentCardVisibility);
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -773,7 +709,7 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility: nextPaymentCardVisibility,
     });
-  }, [adminPhones, brandColors, catalogTitle, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
+  }, [adminPhones, brandColors, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings]);
 
   const setAdminSectionOrderSetting = useCallback((value) => {
     const nextOrder = normalizeAdminSectionOrder(value);
@@ -792,16 +728,13 @@ export default function App() {
       return;
     }
 
-    const hasLocalSettings =
-      Object.keys(brandColors).length > 0 ||
-      (catalogTitle.trim() && catalogTitle.trim() !== DEFAULT_CATALOG_TITLE);
+    const hasLocalSettings = Object.keys(brandColors).length > 0;
 
     if (!hasLocalSettings) return;
 
     localSettingsMigrationRef.current = true;
     queueSaveSettings({
       brandColors,
-      catalogTitle,
       adminPhones,
       paymentDetails,
       paymentIban,
@@ -810,84 +743,73 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
     });
-  }, [adminPhones, authorized, brandColors, catalogTitle, isAdmin, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
+  }, [adminPhones, authorized, brandColors, isAdmin, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId, queueSaveSettings, remoteSettingsFound, settingsLoaded]);
 
   // ─── Завантаження даних з Supabase ───────────────────
   const loadData = useCallback(async ({ keepCachedCatalog = false } = {}) => {
+    const request = { changes: [] };
+    catalogRequestRef.current = request;
     if (!keepCachedCatalog) setLoading(true);
     setLoadError('');
-
     try {
       const productsData = await fetchProducts();
-      const sortedProducts = sortProducts(productsData);
-      setProducts(sortedProducts);
-      saveCatalogCache(sortedProducts);
+      if (catalogRequestRef.current !== request) return;
+      // Replay events received during this request over its potentially older snapshot.
+      commitProducts(applyProductChanges(sortProducts(productsData), request.changes));
     } catch (error) {
+      if (catalogRequestRef.current !== request) return;
       if (!keepCachedCatalog) {
-        setProducts([]);
+        commitProducts([], false);
         setLoadError(error.message || 'Не вдалося завантажити дані.');
       } else {
         console.warn('catalog background refresh error:', error);
       }
     } finally {
-      setLoading(false);
+      if (catalogRequestRef.current === request) {
+        catalogRequestRef.current = null;
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [commitProducts]);
 
-  const applyProductRealtimeChange = useCallback((payload) => {
-    const eventType = payload?.eventType;
-    const changedProduct = payload?.new;
-    const changedId = changedProduct?.id || payload?.old?.id;
-    if (!changedId) return;
-
-    setProducts((currentProducts) => {
-      if (eventType === 'DELETE') {
-        const nextProducts = currentProducts.filter((product) => product.id !== changedId);
-        saveCatalogCache(nextProducts);
-        return nextProducts;
-      }
-
-      const existingIndex = currentProducts.findIndex((product) => product.id === changedId);
-      const nextProduct = existingIndex === -1
-        ? changedProduct
-        : { ...currentProducts[existingIndex], ...changedProduct };
-
-      if (!nextProduct?.view) {
-        const nextProducts = currentProducts.filter((product) => product.id !== changedId);
-        saveCatalogCache(nextProducts);
-        return nextProducts;
-      }
-
-      if (existingIndex === -1) {
-        const sortedProducts = sortProducts([...currentProducts, nextProduct]);
-        saveCatalogCache(sortedProducts);
-        return sortedProducts;
-      }
-
-      const nextProducts = [...currentProducts];
-      nextProducts[existingIndex] = nextProduct;
-      const sortedProducts = sortProducts(nextProducts);
-      saveCatalogCache(sortedProducts);
-      return sortedProducts;
-    });
-  }, []);
-
-  // ─── Після авторизації: завантажити + підписатися на Realtime
   useEffect(() => {
-    if (!authorized) return;
-
+    if (!authorized) return undefined;
     const cachedCatalog = loadStoredCatalogCache();
     if (cachedCatalog) {
-      setProducts(cachedCatalog);
+      commitProducts(cachedCatalog, false);
       setLoading(false);
     }
-
+    const buffer = createProductEventBuffer((events) => {
+      commitProducts(applyProductChanges(productsRef.current, events));
+    });
+    const unsubscribe = subscribeToProducts((event) => {
+      catalogRequestRef.current?.changes.push(event);
+      buffer.push(event);
+    });
     loadData({ keepCachedCatalog: Boolean(cachedCatalog) });
+    const flush = () => { buffer.flush(); cacheWriter.flush(); };
+    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      unsubscribe();
+      catalogRequestRef.current = null;
+      flush();
+      buffer.cancel();
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [authorized, cacheWriter, commitProducts, loadData]);
 
-    const unsubscribe = subscribeToProducts(applyProductRealtimeChange);
-
-    return unsubscribe;
-  }, [applyProductRealtimeChange, authorized, loadData]);
+  // All ways of returning from administration (including browser/Telegram Back)
+  // refresh the catalog, not just the in-page arrow.
+  const previousPageRef = useRef(page);
+  useEffect(() => {
+    if (authorized && previousPageRef.current === 'admin' && page === 'catalog') {
+      loadData({ keepCachedCatalog: true });
+    }
+    previousPageRef.current = page;
+  }, [authorized, loadData, page]);
 
   // Keep persisted carts aligned with availability, base prices and brand discounts.
   useEffect(() => {
@@ -961,37 +883,26 @@ export default function App() {
   const clearCart = useCallback(() => {
     haptic('medium');
     setCart([]);
-    setCartOpen(false);
-  }, [haptic]);
+    navigation.closeCart();
+  }, [haptic, navigation]);
 
   // ─── Навігація ───────────────────────────────────────
-  const openProduct = useCallback(
-    (product) => {
-      haptic('light');
-      setSelectedProduct(product);
-      window.scrollTo(0, 0);
-      setPage('product');
-    },
-    [haptic]
-  );
+  const openProduct = useCallback((product) => {
+    haptic('light');
+    navigation.openProduct(product);
+  }, [haptic, navigation]);
 
   const goBack = useCallback(() => {
     haptic('light');
-    setPage('catalog');
-    setSelectedProduct(null);
-  }, [haptic]);
+    navigation.back();
+  }, [haptic, navigation]);
 
   const openAdmin = useCallback((section = 'details') => {
     haptic('light');
-    setInitialAdminSection(section);
-    setPage('admin');
-  }, [haptic]);
+    navigation.openAdmin(section);
+  }, [haptic, navigation]);
 
-  const closeAdmin = useCallback(() => {
-    haptic('light');
-    setPage('catalog');
-    loadData({ keepCachedCatalog: true });
-  }, [haptic, loadData]);
+  const closeAdmin = goBack;
 
   // ─── Гейт ────────────────────────────────────────────
   const handleAuthorized = useCallback((data) => {
@@ -1011,8 +922,8 @@ export default function App() {
 
   const openCart = useCallback(() => {
     haptic('medium');
-    setCartOpen(true);
-  }, [haptic]);
+    navigation.openCart();
+  }, [haptic, navigation]);
 
   const handleLogout = useCallback(() => {
     haptic('light');
@@ -1021,12 +932,9 @@ export default function App() {
     setAccessSession(null);
     setAccessChecked(true);
     setGateData({ phone: '', lastName: '' });
-    setPage('catalog');
-    setSelectedProduct(null);
-    setCartOpen(false);
+    navigation.reset();
     setCart([]);
-    setCatalogState(null);
-  }, [haptic]);
+  }, [haptic, navigation]);
 
   // ─── Рендер ──────────────────────────────────────────
 
@@ -1062,11 +970,10 @@ export default function App() {
           isAdmin={isAdmin}
           onAdminClick={openAdmin}
           savedState={catalogState}
-          onSaveState={setCatalogState}
+          onSaveState={navigation.saveCatalogState}
           brandColors={brandColors}
           brandDiscounts={brandDiscounts}
           defaultBrandColor={defaultBrandColor}
-          catalogTitle={catalogTitle}
           paymentDetails={paymentDetails}
           paymentIban={paymentIban}
           paymentCardColor={paymentCardColor}
@@ -1099,9 +1006,6 @@ export default function App() {
             brandDiscounts={brandDiscounts}
             onBrandDiscountChange={setBrandDiscountForBrand}
             defaultBrandColor={DEFAULT_BRAND_COLOR}
-            catalogTitle={catalogTitle}
-            onCatalogTitleChange={setCatalogTitleSetting}
-            defaultCatalogTitle={DEFAULT_CATALOG_TITLE}
             paymentDetails={paymentDetails}
             paymentIban={paymentIban}
             onPaymentDetailsChange={setPaymentDetailsSetting}
@@ -1128,7 +1032,7 @@ export default function App() {
         <React.Suspense fallback={null}>
           <CartDrawer
             open={cartOpen}
-            onClose={() => setCartOpen(false)}
+            onClose={navigation.closeCart}
             cart={cart}
             onUpdateQty={updateQty}
             onClearCart={clearCart}

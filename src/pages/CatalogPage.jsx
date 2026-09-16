@@ -1,49 +1,6 @@
+import { formatPrice, getBrandStyle } from '../lib/display';
 import React, { useState, useMemo, useRef, useCallback, useDeferredValue, useEffect } from 'react';
 import { VirtualProductGrid } from '../components/VirtualProductGrid';
-
-function formatPrice(price) {
-  return Number(price).toLocaleString('uk-UA');
-}
-
-function isHexColor(value) {
-  return /^#[0-9a-fA-F]{6}$/.test(value || '');
-}
-
-function hexToRgb(hex) {
-  const value = hex.replace('#', '');
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ].join(', ');
-}
-
-function darkenHex(hex, amount = 0.34) {
-  const value = hex.replace('#', '');
-  const channels = [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ];
-
-  const darkened = channels
-    .map((channel) => Math.max(0, Math.round(channel * (1 - amount))))
-    .map((channel) => channel.toString(16).padStart(2, '0'))
-    .join('');
-
-  return `#${darkened}`;
-}
-
-function getBrandStyle(category, brandColors, defaultBrandColor) {
-  const color = brandColors?.[category] || defaultBrandColor;
-  const validColor = isHexColor(color) ? color : defaultBrandColor;
-
-  return {
-    '--brand-color': validColor,
-    '--brand-price-color': darkenHex(validColor),
-    '--brand-rgb': hexToRgb(validColor),
-  };
-}
 
 function getUserInitials(name) {
   const words = String(name || '')
@@ -159,7 +116,7 @@ export function CatalogPage({
   userName,
   onLogout,
 }) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(savedState?.search || '');
   const [activeCategory, setActiveCategory] = useState(savedState?.activeCategory || 'Всі');
   const [activeSubCategory, setActiveSubCategory] = useState(savedState?.activeSubCategory || 'Всі');
   const [headerCompact, setHeaderCompact] = useState(false);
@@ -169,10 +126,11 @@ export function CatalogPage({
 
   // Відновлення позиції скролу після монтування
   useEffect(() => {
-    if (savedState?.scrollY) {
-      requestAnimationFrame(() => {
+    if (Number.isFinite(savedState?.scrollY)) {
+      const frame = requestAnimationFrame(() => {
         window.scrollTo(0, savedState.scrollY);
       });
+      return () => cancelAnimationFrame(frame);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,15 +173,17 @@ export function CatalogPage({
     setActiveSubCategory('Всі');
   };
 
-  // Зберегти стан і перейти до товару
+  const saveState = useCallback(() => {
+    onSaveState?.({ search, scrollY: window.scrollY, activeCategory, activeSubCategory });
+  }, [onSaveState, search, activeCategory, activeSubCategory]);
+
   const handleProductClick = useCallback((product) => {
-    onSaveState?.({
-      scrollY: window.scrollY,
-      activeCategory,
-      activeSubCategory,
-    });
+    saveState();
     onProductClick(product);
-  }, [onProductClick, onSaveState, activeCategory, activeSubCategory]);
+  }, [onProductClick, saveState]);
+
+  const handleAdminClick = (section) => { saveState(); onAdminClick(section); };
+  const handleCartClick = () => { saveState(); onCartClick(); };
 
   const subCategories = useMemo(() => {
     if (activeCategory === 'Всі') return [];
@@ -293,7 +253,7 @@ export function CatalogPage({
                   className="catalog-search-admin-btn"
                   aria-label={shortcut.label}
                   title={shortcut.label}
-                  onClick={() => onAdminClick(shortcut.section)}
+                  onClick={() => handleAdminClick(shortcut.section)}
                 >
                   <AdminShortcutIcon icon={shortcut.icon} />
                 </button>
@@ -453,7 +413,7 @@ export function CatalogPage({
             type="button"
             className="cart-fab"
             aria-label="Відкрити кошик"
-            onClick={onCartClick}
+            onClick={handleCartClick}
           >
             <div className="cart-fab-left">
               <span className="cart-fab-count">{cartCount}</span>

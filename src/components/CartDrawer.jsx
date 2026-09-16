@@ -1,11 +1,9 @@
+import { formatPrice } from '../lib/display';
+import './CartDrawer.css';
 import React, { useState } from 'react';
 import { createOrder } from '../lib/supabase';
 import { useSingleTap } from '../lib/useSingleTap';
 import { SafeImage } from './SafeImage';
-
-function formatPrice(price) {
-  return Number(price).toLocaleString('uk-UA');
-}
 
 export function CartDrawer({
   open,
