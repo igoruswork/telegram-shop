@@ -99,6 +99,18 @@ function formatKyivDateTime(value) {
   }
 }
 
+function formatSessionDuration(value, endedAt) {
+  if (value === null || value === undefined || value === '') return '—';
+
+  const seconds = Math.max(0, Math.round(Number(value) || 0));
+  if (seconds === 0 && !endedAt) return '—';
+  if (seconds < 60) return '< 1 хв';
+
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours} г ${minutes % 60} хв` : `${minutes} хв`;
+}
+
 function formatPrice(value) {
   return Number(value || 0).toLocaleString('uk-UA');
 }
@@ -1483,6 +1495,7 @@ export function AdminPage({
               <div className="admin-access-meta">
                 {entry.tg_user_id && <span>TG {entry.tg_user_id}</span>}
                 <time dateTime={entry.created_at}>{formatKyivDateTime(entry.created_at)}</time>
+                <span className="admin-access-duration" title="Час у каталозі">⌛ {formatSessionDuration(entry.session_duration_seconds, entry.session_ended_at)}</span>
               </div>
               <button
                 type="button"

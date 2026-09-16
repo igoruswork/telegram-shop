@@ -2866,6 +2866,10 @@ body {
   text-align: right;
 }
 
+.admin-access-duration {
+  color: var(--brand-price-color);
+}
+
 .admin-receipt {
   position: relative;
   overflow: hidden;

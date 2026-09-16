@@ -72,6 +72,15 @@ function isMissingCatalogUsersTable(error) {
   );
 }
 
+function isMissingAccessLogSessionColumns(error) {
+  const message = error?.message || '';
+  return (
+    error?.code === '42703' ||
+    message.includes('session_duration_seconds') ||
+    message.includes('session_ended_at')
+  );
+}
+
 // ─── API ФУНКЦІЇ ───────────────────────────────────────────────
 
 const APP_SETTINGS_KEY = 'catalog';
@@ -302,11 +311,12 @@ export async function createOrder({ tgUserId, tgUsername, phone, lastName, items
 }
 
 async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
-  await logAccess({ phone, lastName, tgUserId });
+  const accessLog = await logAccess({ phone, lastName, tgUserId });
 
   return {
     phone,
     last_name: lastName,
+    accessLog,
     // Compatibility path for the short period between frontend and SQL deploy.
     // The new approval flow is enforced as soon as catalog_users exists.
     is_approved: true,
@@ -319,18 +329,22 @@ async function requestLegacyCatalogAccess({ phone, lastName, tgUserId }) {
 export async function logAccess({ phone, lastName, tgUserId }) {
   ensureSupabaseConfigured();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('access_log')
     .insert({
       phone,
       last_name: lastName,
       tg_user_id: tgUserId || null,
-    });
+    })
+    .select('id, created_at')
+    .single();
 
   if (error) {
     console.error('logAccess error:', error);
     throw new Error(toReadableError(error, 'Не вдалося записати вхід у журнал.'));
   }
+
+  return data;
 }
 
 /**
@@ -364,13 +378,13 @@ export async function requestCatalogAccess({ phone, lastName, tgUserId }) {
     throw new Error(toReadableError(error, 'Не вдалося надіслати запит на доступ.'));
   }
 
-  await logAccess({
+  const accessLog = await logAccess({
     phone: data.phone,
     lastName: data.last_name || lastName,
     tgUserId,
   });
 
-  return data;
+  return { ...data, accessLog };
 }
 
 export async function fetchCatalogUserAccess(phone) {
@@ -508,11 +522,22 @@ export async function updateCatalogUserName(phone, lastName) {
 export async function fetchAccessLogEntries(limit = 300) {
   ensureSupabaseConfigured();
 
-  const { data, error } = await supabase
+  const withSessionFields = 'id, phone, last_name, tg_user_id, created_at, session_duration_seconds, session_ended_at';
+  let { data, error } = await supabase
     .from('access_log')
-    .select('id, phone, last_name, tg_user_id, created_at')
+    .select(withSessionFields)
     .order('created_at', { ascending: false })
     .limit(limit);
+
+  // Keep the journal usable during the short interval between deploying the
+  // frontend and applying the matching SQL migration.
+  if (error && isMissingAccessLogSessionColumns(error)) {
+    ({ data, error } = await supabase
+      .from('access_log')
+      .select('id, phone, last_name, tg_user_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit));
+  }
 
   if (error) {
     console.error('fetchAccessLogEntries error:', error);
@@ -520,6 +545,27 @@ export async function fetchAccessLogEntries(limit = 300) {
   }
 
   return data || [];
+}
+
+export async function updateAccessLogSession(id, durationSeconds, { ended = false } = {}) {
+  ensureSupabaseConfigured();
+
+  const safeId = Number.parseInt(id, 10);
+  if (!Number.isSafeInteger(safeId) || safeId < 1) return;
+
+  const safeDuration = Math.max(0, Math.round(Number(durationSeconds) || 0));
+  const { error } = await supabase
+    .from('access_log')
+    .update({
+      session_duration_seconds: safeDuration,
+      session_ended_at: ended ? new Date().toISOString() : null,
+    })
+    .eq('id', safeId);
+
+  if (error) {
+    console.error('updateAccessLogSession error:', error);
+    throw new Error(toReadableError(error, 'Не вдалося оновити тривалість входу.'));
+  }
 }
 
 export async function deleteAccessLogEntry(id) {

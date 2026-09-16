@@ -9,6 +9,7 @@ import {
   subscribeToAppSettings,
   subscribeToProducts,
   supabaseConfigError,
+  updateAccessLogSession,
 } from './lib/supabase';
 import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
@@ -281,6 +282,7 @@ export default function App() {
   const [authorized, setAuthorized] = useState(false);
   const [accessChecked, setAccessChecked] = useState(!storedUser);
   const [gateData, setGateData] = useState(storedUser || { phone: '', lastName: '' });
+  const [accessSession, setAccessSession] = useState(null);
   const isAdmin = adminPhones.includes(normalizePhoneInput(gateData.phone));
 
   // ─── Навігація ────────────────────────────────────────
@@ -323,6 +325,62 @@ export default function App() {
     () => cart.reduce((sum, item) => sum + item.qty, 0),
     [cart]
   );
+
+  const startAccessSession = useCallback((accessLog) => {
+    const id = Number.parseInt(accessLog?.id, 10);
+    if (!Number.isSafeInteger(id) || id < 1) return;
+
+    const startedAt = Date.parse(accessLog.created_at || '');
+    setAccessSession({
+      id,
+      startedAt: Number.isFinite(startedAt) ? startedAt : Date.now(),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!authorized || !accessSession?.id) return undefined;
+
+    let elapsedMilliseconds = Math.max(0, Date.now() - accessSession.startedAt);
+    let visibleSince = document.visibilityState === 'hidden' ? null : Date.now();
+    let lastSavedSeconds = -1;
+
+    const persistDuration = (ended = false) => {
+      if (visibleSince !== null) {
+        elapsedMilliseconds += Math.max(0, Date.now() - visibleSince);
+        visibleSince = Date.now();
+      }
+
+      const seconds = Math.round(elapsedMilliseconds / 1000);
+      if (!ended && seconds === lastSavedSeconds) return;
+      lastSavedSeconds = seconds;
+
+      updateAccessLogSession(accessSession.id, seconds, { ended })
+        .catch((error) => console.warn('access session duration update error:', error));
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        persistDuration(true);
+        visibleSince = null;
+        return;
+      }
+
+      visibleSince = Date.now();
+    };
+
+    const handlePageHide = () => persistDuration(true);
+
+    const saveInterval = window.setInterval(() => persistDuration(false), 30_000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      window.clearInterval(saveInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      persistDuration(true);
+    };
+  }, [accessSession, authorized]);
 
   useEffect(() => {
     if (!activeCartStorageKey) {
@@ -412,7 +470,9 @@ export default function App() {
               phone: currentUser.phone,
               lastName: currentUser.lastName,
               tgUserId: user?.id,
-            }).catch((error) => console.warn('stored user access log error:', error));
+            })
+              .then(startAccessSession)
+              .catch((error) => console.warn('stored user access log error:', error));
           }
           return;
         }
@@ -945,8 +1005,9 @@ export default function App() {
     // launch. Automatic entry still happens only after server approval.
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
     setGateData(userData);
+    startAccessSession(data?.accessLog);
     setAuthorized(true);
-  }, [hapticNotification]);
+  }, [hapticNotification, startAccessSession]);
 
   const openCart = useCallback(() => {
     haptic('medium');
@@ -957,6 +1018,7 @@ export default function App() {
     haptic('light');
     localStorage.removeItem(USER_STORAGE_KEY);
     setAuthorized(false);
+    setAccessSession(null);
     setAccessChecked(true);
     setGateData({ phone: '', lastName: '' });
     setPage('catalog');

@@ -26,8 +26,9 @@ export function GatePage({ onAuthorized, tgUserId }) {
       .then(async (catalogUser) => {
         if (cancelled || !catalogUser?.is_approved || catalogUser.is_blocked) return;
 
+        let accessLog;
         try {
-          await logAccess({
+          accessLog = await logAccess({
             phone: catalogUser.phone,
             lastName: catalogUser.last_name,
             tgUserId,
@@ -42,6 +43,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
         onAuthorized({
           phone: catalogUser.phone,
           lastName: catalogUser.last_name,
+          accessLog,
         });
       })
       .catch((checkError) => {
@@ -79,6 +81,7 @@ export function GatePage({ onAuthorized, tgUserId }) {
       onAuthorized({
         phone: catalogUser?.phone || normalizePhoneInput(phone),
         lastName: catalogUser?.last_name || lastName.trim(),
+        accessLog: catalogUser?.accessLog,
       });
     } catch (err) {
       console.error('Gate error:', err);
