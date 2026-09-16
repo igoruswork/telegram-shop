@@ -2696,6 +2696,34 @@ body {
   color: var(--brand-price-color);
 }
 
+.admin-access-pagination {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.admin-access-pagination button {
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(var(--brand-rgb), 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--brand-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-access-pagination button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
 .admin-activity-loading,
 .admin-activity-error {
   padding: 18px 12px;

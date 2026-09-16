@@ -395,21 +395,60 @@ export async function fetchCatalogUserAccess(phone) {
   return data;
 }
 
-export async function fetchCatalogUsers(limit = 100) {
+export async function fetchCatalogUsers({ page = 1, pageSize = 50, status = 'all', search = '' } = {}) {
   ensureSupabaseConfigured();
 
-  const { data, error } = await supabase
+  const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const safePageSize = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10) || 50));
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
+  const normalizedSearch = String(search || '')
+    .trim()
+    .slice(0, 120)
+    .replace(/[(),."']/g, ' ')
+    .replace(/[%_*]/g, '')
+    .replace(/\s+/g, ' ');
+
+  let query = supabase
     .from('catalog_users')
-    .select('phone, last_name, tg_user_id, is_approved, is_blocked, created_at, updated_at, last_access_at')
+    .select('phone, last_name, tg_user_id, is_approved, is_blocked, created_at, updated_at, last_access_at', { count: 'exact' });
+
+  if (status === 'approved') {
+    query = query.eq('is_approved', true).eq('is_blocked', false);
+  } else if (status === 'pending') {
+    query = query.eq('is_approved', false).eq('is_blocked', false);
+  } else if (status === 'blocked') {
+    query = query.eq('is_blocked', true);
+  }
+
+  if (normalizedSearch) {
+    const filters = [
+      `last_name.ilike.*${normalizedSearch}*`,
+      `phone.ilike.*${normalizedSearch}*`,
+    ];
+
+    if (/^\d+$/.test(normalizedSearch)) {
+      filters.push(`tg_user_id.eq.${normalizedSearch}`);
+    }
+
+    query = query.or(filters.join(','));
+  }
+
+  const { data, error, count } = await query
     .order('last_access_at', { ascending: false })
-    .limit(limit);
+    .range(from, to);
 
   if (error) {
     console.error('fetchCatalogUsers error:', error);
     throw new Error(toReadableError(error, 'Не вдалося завантажити користувачів.'));
   }
 
-  return data || [];
+  return {
+    data: data || [],
+    page: safePage,
+    pageSize: safePageSize,
+    total: count || 0,
+  };
 }
 
 export async function updateCatalogUserApproval(phone, isApproved) {

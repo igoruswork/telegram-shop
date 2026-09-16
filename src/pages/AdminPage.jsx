@@ -62,6 +62,7 @@ const accessTabs = [
   { id: 'pending', label: 'Очікує' },
   { id: 'blocked', label: 'Заблоковані' },
 ];
+const CATALOG_USERS_PAGE_SIZE = 50;
 
 function normalizeAdminSection(section) {
   return adminSections.some((item) => item.id === section) ? section : DEFAULT_ADMIN_SECTION;
@@ -183,8 +184,10 @@ export function AdminPage({
   const [paymentPreviewExpanded, setPaymentPreviewExpanded] = useState(false);
   const [paymentCardColorDraft, setPaymentCardColorDraft] = useState(paymentCardColor);
   const [catalogUsers, setCatalogUsers] = useState([]);
+  const [catalogUsersTotal, setCatalogUsersTotal] = useState(0);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessTab, setAccessTab] = useState('all');
+  const [accessPage, setAccessPage] = useState(1);
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState('');
   const [editingCatalogUserPhone, setEditingCatalogUserPhone] = useState('');
@@ -201,6 +204,7 @@ export function AdminPage({
   const [adminPhoneError, setAdminPhoneError] = useState('');
   const [adminPhoneSaved, setAdminPhoneSaved] = useState(false);
   const hasLoadedProductsRef = useRef(false);
+  const catalogUsersRequestRef = useRef(0);
   const selectedBrandColor = selectedBrand
     ? (brandColors[selectedBrand] || defaultBrandColor)
     : defaultBrandColor;
@@ -229,19 +233,40 @@ export function AdminPage({
   }, [initialSection]);
 
   const loadCatalogUsers = useCallback(async () => {
+    const requestId = catalogUsersRequestRef.current + 1;
+    catalogUsersRequestRef.current = requestId;
     setAccessLoading(true);
     setAccessError('');
 
     try {
-      const data = await fetchCatalogUsers();
-      setCatalogUsers(data);
+      const result = await fetchCatalogUsers({
+        page: accessPage,
+        pageSize: CATALOG_USERS_PAGE_SIZE,
+        status: accessTab,
+        search: accessSearch,
+      });
+
+      if (requestId !== catalogUsersRequestRef.current) return;
+
+      const totalPages = Math.max(1, Math.ceil(result.total / CATALOG_USERS_PAGE_SIZE));
+      if (result.total > 0 && accessPage > totalPages) {
+        setAccessPage(totalPages);
+        return;
+      }
+
+      setCatalogUsers(result.data);
+      setCatalogUsersTotal(result.total);
     } catch (e) {
+      if (requestId !== catalogUsersRequestRef.current) return;
       setCatalogUsers([]);
+      setCatalogUsersTotal(0);
       setAccessError(e.message);
     } finally {
-      setAccessLoading(false);
+      if (requestId === catalogUsersRequestRef.current) {
+        setAccessLoading(false);
+      }
     }
-  }, []);
+  }, [accessPage, accessSearch, accessTab]);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -318,20 +343,9 @@ export function AdminPage({
     [products]
   );
 
-  const filteredCatalogUsers = useMemo(() => {
-    const query = accessSearch.trim().toLocaleLowerCase('uk-UA');
-
-    return catalogUsers.filter((entry) => {
-      if (accessTab === 'approved' && (!entry.is_approved || entry.is_blocked)) return false;
-      if (accessTab === 'pending' && (entry.is_approved || entry.is_blocked)) return false;
-      if (accessTab === 'blocked' && !entry.is_blocked) return false;
-      if (!query) return true;
-
-      return [entry.last_name, entry.phone, entry.tg_user_id]
-        .filter(Boolean)
-        .some((value) => String(value).toLocaleLowerCase('uk-UA').includes(query));
-    });
-  }, [accessSearch, accessTab, catalogUsers]);
+  const catalogUsersTotalPages = Math.max(1, Math.ceil(catalogUsersTotal / CATALOG_USERS_PAGE_SIZE));
+  const catalogUsersRangeStart = catalogUsersTotal === 0 ? 0 : ((accessPage - 1) * CATALOG_USERS_PAGE_SIZE) + 1;
+  const catalogUsersRangeEnd = Math.min(accessPage * CATALOG_USERS_PAGE_SIZE, catalogUsersTotal);
 
   useEffect(() => {
     if (categoryOptions.length === 0) {
@@ -505,6 +519,7 @@ export function AdminPage({
       setCatalogUsers((current) => current.map((item) => (
         item.phone === updated.phone ? updated : item
       )));
+      loadCatalogUsers();
     } catch (error) {
       setCatalogUsers((current) => current.map((item) => (
         item.phone === catalogUser.phone
@@ -528,6 +543,7 @@ export function AdminPage({
       setCatalogUsers((current) => current.map((item) => (
         item.phone === updated.phone ? updated : item
       )));
+      loadCatalogUsers();
     } catch (error) {
       setCatalogUsers((current) => current.map((item) => (
         item.phone === catalogUser.phone
@@ -1339,10 +1355,16 @@ export function AdminPage({
                 inputMode="search"
                 value={accessSearch}
                 placeholder="Пошук за ПІБ, телефоном або TG ID"
-                onChange={(event) => setAccessSearch(event.target.value)}
+                onChange={(event) => {
+                  setAccessSearch(event.target.value);
+                  setAccessPage(1);
+                }}
               />
               {accessSearch && (
-                <button type="button" aria-label="Очистити пошук" onClick={() => setAccessSearch('')}>×</button>
+                <button type="button" aria-label="Очистити пошук" onClick={() => {
+                  setAccessSearch('');
+                  setAccessPage(1);
+                }}>×</button>
               )}
             </div>
             <div className="admin-access-tabs" role="tablist" aria-label="Статус користувачів">
@@ -1353,7 +1375,10 @@ export function AdminPage({
                   role="tab"
                   aria-selected={accessTab === tab.id}
                   className={accessTab === tab.id ? 'active' : ''}
-                  onClick={() => setAccessTab(tab.id)}
+                  onClick={() => {
+                    setAccessTab(tab.id);
+                    setAccessPage(1);
+                  }}
                 >
                   {tab.label}
                 </button>
@@ -1363,7 +1388,7 @@ export function AdminPage({
           <div className="admin-activity-list">
           {accessLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {accessError && <div className="admin-activity-error">{accessError}</div>}
-          {!accessLoading && !accessError && filteredCatalogUsers.map((entry) => (
+          {!accessLoading && !accessError && catalogUsers.map((entry) => (
             <article
               key={entry.phone}
               className={`admin-access-card ${entry.is_blocked ? 'admin-access-card--blocked' : entry.is_approved ? 'admin-access-card--approved' : 'admin-access-card--pending'}`}
@@ -1419,8 +1444,27 @@ export function AdminPage({
               </div>
             </article>
           ))}
-          {!accessLoading && !accessError && filteredCatalogUsers.length === 0 && (
+          {!accessLoading && !accessError && catalogUsers.length === 0 && (
             <div className="admin-activity-loading">Користувачів не знайдено</div>
+          )}
+          {!accessLoading && !accessError && catalogUsersTotal > 0 && (
+            <nav className="admin-access-pagination" aria-label="Сторінки користувачів">
+              <button
+                type="button"
+                onClick={() => setAccessPage((page) => Math.max(1, page - 1))}
+                disabled={accessPage === 1}
+              >
+                Назад
+              </button>
+              <span>{catalogUsersRangeStart}–{catalogUsersRangeEnd} з {catalogUsersTotal}</span>
+              <button
+                type="button"
+                onClick={() => setAccessPage((page) => Math.min(catalogUsersTotalPages, page + 1))}
+                disabled={accessPage >= catalogUsersTotalPages}
+              >
+                Далі
+              </button>
+            </nav>
           )}
           </div>
         </>
