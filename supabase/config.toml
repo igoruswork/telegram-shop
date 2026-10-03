@@ -1,0 +1,4 @@
+[functions.keycrm-orders]
+# The browser uses the project's existing anon JWT. The handler additionally
+# checks the supplied phone against a service-only allowlist, without a new login.
+verify_jwt = true

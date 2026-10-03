@@ -4,4 +4,6 @@ dist
 .env.local
 .DS_Store
 supabase/.temp/
+/supabase/.env*.local
+/замовлення/
 scripts/image-migration-backups/

@@ -23,6 +23,7 @@ import { isComingSoon, normalizeProductBadge } from '../lib/productDisplay';
 import { parsePrice } from '../lib/pricing';
 import { getBrandDiscount } from '../lib/brandDiscounts';
 import { SafeImage } from '../components/SafeImage';
+import { KeyCrmOrders, KeyCrmOrderAction } from '../components/KeyCrmOrders';
 
 const emptyProductForm = {
   id: '',
@@ -1491,6 +1492,7 @@ export function AdminPage({
 
       {activeSection === 'orders' && (
         <div className="admin-receipt-list">
+          <KeyCrmOrders orderIds={orders.map((order) => order.id)} phone={normalizedCurrentAdminPhone}>
           {ordersLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {ordersError && <div className="admin-activity-error">{ordersError}</div>}
           {!ordersLoading && !ordersError && orders.map((order) => {
@@ -1539,9 +1541,11 @@ export function AdminPage({
                   <span>Разом</span>
                   <strong>{formatPrice(order.total)} ₴</strong>
                 </div>
+                <KeyCrmOrderAction orderId={order.id} />
               </article>
             );
           })}
+          </KeyCrmOrders>
         </div>
       )}
 

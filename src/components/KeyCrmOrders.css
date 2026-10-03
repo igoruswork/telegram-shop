@@ -1,0 +1,22 @@
+.keycrm-panel, .keycrm-order { color: #334155; font-size: 14px; line-height: 1.5; }
+.keycrm-panel { padding: 18px; border: 1px solid #cbd5e1; border-radius: 18px; background: #fff; }
+.keycrm-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.keycrm-panel p, .keycrm-order p { margin: 8px 0; }
+.keycrm-review label { display: flex; flex-direction: column; gap: 4px; }
+.keycrm-review input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; min-height: 42px; border: 1px solid #94a3b8; border-radius: 8px; padding: 8px 10px; background: #fff; color: #0f172a; font: inherit; font-size: 16px; }
+.keycrm-primary, .keycrm-secondary { min-height: 42px; border-radius: 10px; padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.keycrm-primary { color: #fff; background: #075985; border: 1px solid #075985; }
+.keycrm-secondary { color: #075985; background: #f0f9ff; border: 1px solid #7dd3fc; }
+.keycrm-primary:disabled, .keycrm-secondary:disabled { opacity: .5; cursor: not-allowed; }
+.keycrm-order { margin-top: 16px; padding-top: 16px; border-top: 1px dashed #cbd5e1; }
+.keycrm-order small { display: block; margin-top: 6px; color: #64748b; }
+.keycrm-warning { color: #92400e; overflow-wrap: anywhere; }
+.keycrm-success { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px; border-radius: 10px; background: #ecfdf5; color: #166534; }
+.keycrm-review { margin-top: 12px; max-width: 560px; }
+.keycrm-review summary { cursor: pointer; color: #075985; }
+.keycrm-review .keycrm-checkbox { flex-direction: row; align-items: start; gap: 8px; margin: 12px 0; }
+.keycrm-checkbox input { flex: 0 0 auto; width: 18px; height: 18px; }
+@media (max-width: 480px) {
+  .keycrm-order > button { width: 100%; flex-basis: 100%; }
+  .keycrm-success { flex-direction: column; }
+}
