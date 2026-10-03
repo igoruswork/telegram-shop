@@ -170,6 +170,7 @@ export async function createCrmOrder({ orderId, actorPhone, attemptId, store, cr
       source_id: 51,
       manager_id: 33,
       manager_comment: CRM_COMMENT,
+      discount_percent: 50,
       buyer: { full_name: null, phone: null, email: 'b@b.ua' },
       products: items.map((item) => ({ ...item, price: prices.get(item.sku) })),
     };

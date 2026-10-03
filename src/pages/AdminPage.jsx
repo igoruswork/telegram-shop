@@ -24,6 +24,7 @@ import { parsePrice } from '../lib/pricing';
 import { getBrandDiscount } from '../lib/brandDiscounts';
 import { SafeImage } from '../components/SafeImage';
 import { KeyCrmOrders, KeyCrmOrderAction } from '../components/KeyCrmOrders';
+import { OrderIssueMessage, OrderIssueMessages } from '../components/OrderIssueMessage';
 
 const emptyProductForm = {
   id: '',
@@ -135,6 +136,8 @@ export function AdminPage({
   onBrandColorChange,
   brandDiscounts = {},
   onBrandDiscountChange,
+  orderIssueTemplate,
+  onOrderIssueTemplateChange,
   defaultBrandColor,
   paymentDetails,
   paymentIban,
@@ -1493,13 +1496,15 @@ export function AdminPage({
       {activeSection === 'orders' && (
         <div className="admin-receipt-list">
           <KeyCrmOrders orderIds={orders.map((order) => order.id)} phone={normalizedCurrentAdminPhone}>
+          <OrderIssueMessages template={orderIssueTemplate} onSave={onOrderIssueTemplateChange}>
           {ordersLoading && <div className="admin-activity-loading">Завантаження…</div>}
           {ordersError && <div className="admin-activity-error">{ordersError}</div>}
           {!ordersLoading && !ordersError && orders.map((order) => {
             const items = normalizeOrderItems(order.items);
 
             return (
-              <article key={order.id} className="admin-receipt">
+              <div key={order.id} className="admin-order-row">
+              <article className="admin-receipt">
                 <div className="admin-receipt-head">
                   <div>
                     <div className="admin-receipt-title">Чек #{order.id}</div>
@@ -1543,8 +1548,11 @@ export function AdminPage({
                 </div>
                 <KeyCrmOrderAction orderId={order.id} />
               </article>
+              <OrderIssueMessage orderId={order.id} receiptTotal={order.total} />
+              </div>
             );
           })}
+          </OrderIssueMessages>
           </KeyCrmOrders>
         </div>
       )}

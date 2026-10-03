@@ -1,0 +1,26 @@
+.admin-order-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.admin-order-row > * { min-width: 0; }
+.order-issue-message { padding: 18px; border: 1px solid #cbdfe8; border-radius: 16px; background: #f5fbfd; color: #183647; font-size: 14px; line-height: 1.5; }
+.order-issue-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-bottom: 16px; }
+.order-issue-heading > span { color: #527182; font-size: 12px; font-weight: 700; }
+.order-issue-edit { border: 0; background: transparent; color: #075985; font: inherit; font-size: 12px; font-weight: 600; padding: 6px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.order-issue-edit:disabled { opacity: .5; cursor: default; }
+.order-issue-preview { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.order-issue-preview > strong { display: block; font-size: 17px; margin-bottom: 4px; }
+.order-issue-copy { width: 100%; margin-top: 18px; }
+.order-issue-note { font-size: 12px; color: #64748b; margin: 10px 0 0; }
+.order-issue-feedback { color: #166534; }
+.order-issue-message [role="status"] { display: block; font-size: 12px; margin-top: 6px; }
+.order-issue-message [role="status"]:empty { display: none; }
+.order-issue-dialog { box-sizing: border-box; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; background: #fff; color: #334155; font-size: 14px; box-shadow: 0 20px 60px #0f172a33; }
+.order-issue-dialog::backdrop { background: #0f172a80; }
+.order-issue-dialog h2 { margin: 0; color: #0f172a; font-size: 20px; }
+.order-issue-dialog p { margin: 10px 0 16px; line-height: 1.5; }
+.order-issue-dialog label { display: block; margin-bottom: 6px; font-weight: 600; }
+.order-issue-dialog textarea { box-sizing: border-box; width: 100%; min-height: 260px; resize: vertical; padding: 12px; border: 1px solid #94a3b8; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; font-size: 16px; line-height: 1.5; }
+.order-issue-fields, .order-issue-editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.order-issue-fields button { font-size: 12px; padding: 6px 10px; }
+.order-issue-editor-actions { justify-content: flex-end; align-items: center; margin-top: 20px; }
+.order-issue-editor-actions > .order-issue-edit { margin-right: auto; }
+@media (min-width: 960px) { .admin-order-row { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); } }
+@media (max-width: 480px) { .order-issue-message { padding: 14px; } .order-issue-dialog { padding: 18px; } }

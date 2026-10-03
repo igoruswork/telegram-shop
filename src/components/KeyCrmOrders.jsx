@@ -113,12 +113,17 @@ export function KeyCrmOrders({ orderIds, phone, children }) {
   );
 }
 
+export function useKeyCrmRecord(orderId) {
+  const context = useContext(CrmContext);
+  return context?.records[orderId] || (hasPendingCrmAttempt(orderId)
+    ? uncertain(orderId, 'Є непідтверджена спроба. Оновіть стан CRM; повторне створення заблоковане.') : null);
+}
+
 export function KeyCrmOrderAction({ orderId }) {
   const context = useContext(CrmContext);
+  const record = useKeyCrmRecord(orderId);
   if (!context) return null;
-  const { records, ready, configured, busy, runAction } = context;
-  const record = records[orderId] || (hasPendingCrmAttempt(orderId)
-    ? uncertain(orderId, 'Є непідтверджена спроба. Оновіть стан CRM; повторне створення заблоковане.') : null);
+  const { ready, configured, busy, runAction } = context;
   return <CrmOrderControls record={record} enabled={ready && configured} busy={Boolean(busy[orderId])}
     onCreate={() => runAction(orderId, 'create')}
     onReconcile={(crmId) => runAction(orderId, 'reconcile', crmId)} />;

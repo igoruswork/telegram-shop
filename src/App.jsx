@@ -19,6 +19,7 @@ import { CatalogPage } from './pages/CatalogPage';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
 import { isComingSoon } from './lib/productDisplay';
 import { getProductDiscountedPrice, normalizeBrandDiscounts } from './lib/brandDiscounts';
+import { normalizeOrderIssueTemplate, validateOrderIssueTemplate } from './lib/orderIssueTemplate';
 import './styles.css';
 
 const ProductPage = React.lazy(() => import('./pages/ProductPage').then((module) => ({ default: module.ProductPage })));
@@ -208,6 +209,7 @@ function normalizeAppSettings(value) {
     paymentExtraDetails,
     paymentCardVisibility,
     adminSectionOrder,
+    orderIssueTemplate: normalizeOrderIssueTemplate(value?.orderIssueTemplate),
   };
 }
 
@@ -225,10 +227,12 @@ export default function App() {
   const [paymentExtraDetails, setPaymentExtraDetails] = useState('');
   const [paymentCardVisibility, setPaymentCardVisibility] = useState(DEFAULT_PAYMENT_CARD_VISIBILITY);
   const [adminSectionOrder, setAdminSectionOrder] = useState(DEFAULT_ADMIN_SECTION_ORDER);
+  const [orderIssueTemplate, setOrderIssueTemplate] = useState(() => normalizeOrderIssueTemplate());
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [remoteSettingsFound, setRemoteSettingsFound] = useState(false);
   const defaultBrandColor = brandColors.__default || DEFAULT_BRAND_COLOR;
   const saveSettingsTimeoutRef = useRef(null);
+  const settingsSaveChainRef = useRef(Promise.resolve());
   const localSettingsMigrationRef = useRef(false);
   const storedAccessLoggedRef = useRef(false);
   const settingsSnapshotRef = useRef({});
@@ -482,6 +486,7 @@ export default function App() {
     setPaymentExtraDetails(normalized.paymentExtraDetails);
     setPaymentCardVisibility(normalized.paymentCardVisibility);
     setAdminSectionOrder(normalized.adminSectionOrder);
+    setOrderIssueTemplate(normalized.orderIssueTemplate);
     return true;
   }, []);
 
@@ -497,8 +502,15 @@ export default function App() {
       paymentExtraDetails,
       paymentCardVisibility,
       adminSectionOrder,
+      orderIssueTemplate,
     };
-  }, [adminPhones, adminSectionOrder, brandColors, brandDiscounts, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
+  }, [adminPhones, adminSectionOrder, brandColors, brandDiscounts, orderIssueTemplate, paymentCardColor, paymentCardVisibility, paymentDetails, paymentExtraDetails, paymentIban, paymentTaxId]);
+
+  const persistSettings = useCallback((settings) => {
+    const write = settingsSaveChainRef.current.catch(() => {}).then(() => saveAppSettings(settings));
+    settingsSaveChainRef.current = write;
+    return write;
+  }, []);
 
   const queueSaveSettings = useCallback((settings) => {
     const normalized = normalizeAppSettings({ ...settingsSnapshotRef.current, ...settings });
@@ -509,13 +521,13 @@ export default function App() {
 
     saveSettingsTimeoutRef.current = window.setTimeout(async () => {
       try {
-        await saveAppSettings({ ...remoteSettingsRef.current, ...normalized });
+        await persistSettings({ ...remoteSettingsRef.current, ...normalized });
         setRemoteSettingsFound(true);
       } catch (error) {
         console.warn('saveAppSettings error:', error);
       }
     }, 350);
-  }, []);
+  }, [persistSettings]);
 
   useEffect(() => () => {
     if (saveSettingsTimeoutRef.current) {
@@ -716,6 +728,20 @@ export default function App() {
     setAdminSectionOrder(nextOrder);
     queueSaveSettings({ adminSectionOrder: nextOrder });
   }, [queueSaveSettings]);
+
+  const saveOrderIssueTemplate = useCallback(async (value) => {
+    const problem = validateOrderIssueTemplate(value);
+    if (problem) throw new Error(problem);
+    // Include the current settings and cancel an older queued write so it cannot
+    // later replace the confirmed template with a stale value.
+    window.clearTimeout(saveSettingsTimeoutRef.current);
+    const normalized = normalizeAppSettings({ ...settingsSnapshotRef.current, orderIssueTemplate: value });
+    const saved = await persistSettings({ ...remoteSettingsRef.current, ...normalized });
+    remoteSettingsRef.current = saved;
+    settingsSnapshotRef.current = normalized;
+    setOrderIssueTemplate(value);
+    setRemoteSettingsFound(true);
+  }, [persistSettings]);
 
   useEffect(() => {
     if (
@@ -1005,6 +1031,8 @@ export default function App() {
             onBrandColorChange={setBrandColorForBrand}
             brandDiscounts={brandDiscounts}
             onBrandDiscountChange={setBrandDiscountForBrand}
+            orderIssueTemplate={orderIssueTemplate}
+            onOrderIssueTemplateChange={saveOrderIssueTemplate}
             defaultBrandColor={DEFAULT_BRAND_COLOR}
             paymentDetails={paymentDetails}
             paymentIban={paymentIban}

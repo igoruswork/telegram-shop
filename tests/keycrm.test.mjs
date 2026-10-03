@@ -31,7 +31,7 @@ function fixture({ fetcher, transition } = {}) {
       }
       return Response.json(url.includes('/offers?')
         ? { data: [{ sku: '00123', price: '12.50', purchased_price: 3 }], last_page: 1 }
-        : { id: 207456, grand_total: 25 }, { status: 200 });
+        : { id: 207456, grand_total: 12.5 }, { status: 200 });
     },
   });
   let attempt = 0;
@@ -46,11 +46,11 @@ test('CRM sends current prices, agreed source/manager/comment/email, without sav
   const result = await f.run();
   assert.equal(result.state, 'created');
   assert.equal(result.crm_id, '207456');
-  assert.equal(result.crm_total, 25);
+  assert.equal(result.crm_total, 12.5, 'use the confirmed CRM total after its order discount');
   assert.deepEqual(f.order, before);
   const payload = JSON.parse(posts(f)[0].options.body);
   assert.deepEqual(payload, {
-    source_id: 51, manager_id: 33, manager_comment: CRM_COMMENT,
+    source_id: 51, manager_id: 33, manager_comment: CRM_COMMENT, discount_percent: 50,
     buyer: { full_name: null, phone: null, email: 'b@b.ua' },
     products: [{ sku: '00123', name: 'Товар', quantity: 2, price: 12.5 }],
   });
@@ -70,6 +70,23 @@ test('two simultaneous clicks or devices perform one external POST', async () =>
   assert.equal(second.state, 'preflight');
   release();
   assert.equal((await first).state, 'created');
+  assert.equal(posts(f).length, 1);
+});
+
+test('an already discounted receipt is preserved while CRM discounts its current price once', async () => {
+  const f = fixture({ fetcher: async (url) => url.includes('/offers?')
+    ? Response.json({ data: [{ sku: '00123', price: 128 }], last_page: 1 })
+    : Response.json({ id: 207612, grand_total: 64 }, { status: 201 }) });
+  f.order.items[0] = { sku: '00123', name: 'Бальзам', qty: 1, price: 64 };
+  f.order.total = 64;
+  const result = await f.run();
+  const payload = JSON.parse(posts(f)[0].options.body);
+  assert.equal(payload.products[0].price, 128, 'send the full live CRM price, never the discounted receipt price');
+  assert.equal(payload.discount_percent, 50);
+  assert.equal(payload.products[0].discount_percent, undefined, 'no second discount at product level');
+  assert.equal(result.crm_total, 64);
+  assert.equal(f.order.items[0].price, 64);
+  assert.equal(f.order.total, 64);
   assert.equal(posts(f).length, 1);
 });
 

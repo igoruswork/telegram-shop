@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { copyToClipboard } from '../lib/clipboard';
 
 function getCardStyle(color) {
   const value = /^#[0-9a-fA-F]{6}$/.test(color || '') ? color : '#B8A477';
@@ -16,24 +17,6 @@ function getCardStyle(color) {
     '--payment-card-ink-rgb': dark ? '255, 255, 255' : '10, 31, 46',
     '--payment-card-surface': dark ? 'rgba(0, 0, 0, .15)' : 'rgba(255, 255, 255, .5)',
   };
-}
-
-async function copyToClipboard(value) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return;
-    }
-  } catch { /* Older webviews can still support the selection fallback. */ }
-  const input = document.createElement('textarea');
-  input.value = value;
-  input.setAttribute('readonly', '');
-  input.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
-  document.body.appendChild(input);
-  input.select();
-  try {
-    if (!document.execCommand('copy')) throw new Error('Copy unavailable');
-  } finally { input.remove(); }
 }
 
 function CopyIcon({ copied }) {
