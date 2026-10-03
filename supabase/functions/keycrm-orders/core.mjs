@@ -169,7 +169,7 @@ export async function createCrmOrder({ orderId, actorPhone, attemptId, store, cr
     payload = {
       source_id: 1,
       manager_comment: CRM_COMMENT,
-      buyer: { full_name: null, phone: null },
+      buyer: { full_name: null, phone: null, email: 'a@a.ua' },
       products: items.map((item) => ({ ...item, price: prices.get(item.sku) })),
     };
     // Defence in depth if another price adapter is introduced later.

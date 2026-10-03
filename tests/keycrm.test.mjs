@@ -40,7 +40,7 @@ function fixture({ fetcher, transition } = {}) {
 
 const posts = (f) => f.calls.filter((call) => call.options.method === 'POST');
 
-test('CRM sends current prices, exact comment/source and no customer data; receipt stays intact', async () => {
+test('CRM sends current prices, exact comment/source and agreed fixed email, without saved buyer data', async () => {
   const f = fixture();
   const before = structuredClone(f.order);
   const result = await f.run();
@@ -51,7 +51,7 @@ test('CRM sends current prices, exact comment/source and no customer data; recei
   const payload = JSON.parse(posts(f)[0].options.body);
   assert.deepEqual(payload, {
     source_id: 1, manager_comment: CRM_COMMENT,
-    buyer: { full_name: null, phone: null },
+    buyer: { full_name: null, phone: null, email: 'a@a.ua' },
     products: [{ sku: '00123', name: 'Товар', quantity: 2, price: 12.5 }],
   });
   assert.equal(posts(f).length, 1);
@@ -150,7 +150,7 @@ test('422 rejection never substitutes buyer details or retries automatically', a
     ? Response.json({ error: 'buyer required' }, { status: 422 }) : undefined });
   assert.equal((await f.run()).state, 'failed');
   assert.equal(posts(f).length, 1);
-  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null });
+  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null, email: 'a@a.ua' });
   await f.run();
   assert.equal(posts(f).length, 2, 'only a new explicit invocation retries a definitive rejection');
 });
@@ -173,7 +173,7 @@ test('buyer validation is reported only when it appears in the real API response
   assert.match(result.message, /buyer.full_name: At least one buyer field is required/);
   assert.match(result.message, /products.0.quantity: Must be positive/);
   assert.equal(posts(f).length, 1);
-  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null });
+  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null, email: 'a@a.ua' });
 });
 
 test('validation diagnostics are bounded and redact credentials before persistence', () => {
