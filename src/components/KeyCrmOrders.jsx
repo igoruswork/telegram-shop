@@ -139,7 +139,6 @@ export function CrmOrderControls({ record, enabled, busy, onCreate, onReconcile 
   return <div className="keycrm-order" aria-busy={busy}>
     <div aria-live="polite">
       {created && <div className="keycrm-success"><strong>Створено в CRM · #{record.crm_id}</strong>
-        <span>Фактична сума CRM: <b>{Number(record.crm_total).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} ₴</b></span>
       </div>}
       {pending && <p>{busy ? 'Отримуємо актуальні ціни та передаємо замовлення…' : 'Спроба ще не завершена. Оновіть стан CRM.'}</p>}
       {review && <strong className="keycrm-warning">Потребує перевірки</strong>}
