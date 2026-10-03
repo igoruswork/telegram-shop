@@ -167,9 +167,10 @@ export async function createCrmOrder({ orderId, actorPhone, attemptId, store, cr
     const items = orderItems(order);
     const prices = await crm.offers([...new Set(items.map((item) => item.sku))]);
     payload = {
-      source_id: 1,
+      source_id: 51,
+      manager_id: 33,
       manager_comment: CRM_COMMENT,
-      buyer: { full_name: null, phone: null, email: 'a@a.ua' },
+      buyer: { full_name: null, phone: null, email: 'b@b.ua' },
       products: items.map((item) => ({ ...item, price: prices.get(item.sku) })),
     };
     // Defence in depth if another price adapter is introduced later.
@@ -246,7 +247,10 @@ export async function reconcileCrmOrder({ orderId, crmId, actorPhone, store, crm
   if (row.crm_id && String(row.crm_id) !== crmId) throw new CrmError('Для цієї спроби вже відомий інший CRM-ID.');
   const response = await crm.getOrder(crmId);
   const data = response.data;
-  if (!response.ok || positiveId(data?.id) !== crmId || Number(data?.source_id) !== 1
+  // Reconcile against the original attempt, including orders sent before a
+  // source change. New defaults must not change an uncertain attempt's identity.
+  const sourceId = positiveId(row.request_payload.source_id);
+  if (!response.ok || positiveId(data?.id) !== crmId || !sourceId || positiveId(data?.source_id) !== sourceId
     || productSignature(data?.products) !== productSignature(row.request_payload.products)
     || money(data?.grand_total) === null) {
     throw new CrmError('CRM-ID, джерело, товари, кількість, ціни або сума не збігаються. Стан не змінено.');

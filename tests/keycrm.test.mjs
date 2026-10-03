@@ -40,7 +40,7 @@ function fixture({ fetcher, transition } = {}) {
 
 const posts = (f) => f.calls.filter((call) => call.options.method === 'POST');
 
-test('CRM sends current prices, exact comment/source and agreed fixed email, without saved buyer data', async () => {
+test('CRM sends current prices, agreed source/manager/comment/email, without saved buyer data', async () => {
   const f = fixture();
   const before = structuredClone(f.order);
   const result = await f.run();
@@ -50,8 +50,8 @@ test('CRM sends current prices, exact comment/source and agreed fixed email, wit
   assert.deepEqual(f.order, before);
   const payload = JSON.parse(posts(f)[0].options.body);
   assert.deepEqual(payload, {
-    source_id: 1, manager_comment: CRM_COMMENT,
-    buyer: { full_name: null, phone: null, email: 'a@a.ua' },
+    source_id: 51, manager_id: 33, manager_comment: CRM_COMMENT,
+    buyer: { full_name: null, phone: null, email: 'b@b.ua' },
     products: [{ sku: '00123', name: 'Товар', quantity: 2, price: 12.5 }],
   });
   assert.equal(posts(f).length, 1);
@@ -150,7 +150,7 @@ test('422 rejection never substitutes buyer details or retries automatically', a
     ? Response.json({ error: 'buyer required' }, { status: 422 }) : undefined });
   assert.equal((await f.run()).state, 'failed');
   assert.equal(posts(f).length, 1);
-  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null, email: 'a@a.ua' });
+  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null, email: 'b@b.ua' });
   await f.run();
   assert.equal(posts(f).length, 2, 'only a new explicit invocation retries a definitive rejection');
 });
@@ -173,7 +173,7 @@ test('buyer validation is reported only when it appears in the real API response
   assert.match(result.message, /buyer.full_name: At least one buyer field is required/);
   assert.match(result.message, /products.0.quantity: Must be positive/);
   assert.equal(posts(f).length, 1);
-  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null, email: 'a@a.ua' });
+  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null, email: 'b@b.ua' });
 });
 
 test('validation diagnostics are bounded and redact credentials before persistence', () => {
@@ -203,8 +203,8 @@ test('even non-2xx containing an order ID stays locked', async () => {
   assert.equal(posts(f).length, 1);
 });
 
-test('manual reconciliation reads the CRM order and requires source/items/prices to match', async () => {
-  let sourceId = 2;
+for (const savedSource of [1, 51]) test(`manual reconciliation matches frozen source ${savedSource}, including legacy attempts`, async () => {
+  let sourceId = savedSource === 1 ? 51 : 1;
   const f = fixture({ fetcher: async (url, options) => {
     if (options.method === 'POST') throw new Error('timeout');
     if (url.includes('/order/')) return Response.json({
@@ -213,11 +213,28 @@ test('manual reconciliation reads the CRM order and requires source/items/prices
     });
   } });
   await f.run();
+  // Model a persisted request from the corresponding deployed configuration.
+  f.row().request_payload.source_id = savedSource;
   const reconcile = () => reconcileCrmOrder({ orderId: '941', crmId: '207456', actorPhone: 'admin', store: f.store, crm: f.crm });
   await assert.rejects(reconcile(), /не збігаються/);
   assert.equal(f.row().state, 'needs_review');
-  sourceId = 1;
+  sourceId = savedSource;
   assert.equal((await reconcile()).state, 'created');
+  assert.equal(posts(f).length, 1);
+});
+
+test('manual reconciliation cannot guess a missing source in the frozen request', async () => {
+  const f = fixture({ fetcher: async (url, options) => {
+    if (options.method === 'POST') throw new Error('timeout');
+    if (url.includes('/order/')) return Response.json({
+      id: 207456, source_id: 51, grand_total: 25,
+      products: [{ sku: '00123', quantity: 2, price: '12.50' }],
+    });
+  } });
+  await f.run();
+  delete f.row().request_payload.source_id;
+  await assert.rejects(reconcileCrmOrder({ orderId: '941', crmId: '207456', actorPhone: 'admin', store: f.store, crm: f.crm }), /не збігаються/);
+  assert.equal(f.row().state, 'needs_review');
   assert.equal(posts(f).length, 1);
 });
 
