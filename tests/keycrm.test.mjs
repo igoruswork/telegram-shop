@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CRM_COMMENT, createCrmOrder, makeCrmClient, money, positiveId, reconcileCrmOrder } from '../supabase/functions/keycrm-orders/core.mjs';
+import { CRM_COMMENT, createCrmOrder, makeCrmClient, money, positiveId, publicRecord, reconcileCrmOrder, validationDetails } from '../supabase/functions/keycrm-orders/core.mjs';
 
 function fixture({ fetcher, transition } = {}) {
   let row = null;
@@ -153,6 +153,46 @@ test('422 rejection never substitutes buyer details or retries automatically', a
   assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null });
   await f.run();
   assert.equal(posts(f).length, 2, 'only a new explicit invocation retries a definitive rejection');
+});
+
+test('422 preserves the actual field error without guessing it is the buyer', async () => {
+  const f = fixture({ fetcher: async (_url, options) => options.method === 'POST'
+    ? Response.json({ message: 'The given data was invalid.', errors: { source_id: ['The selected source id is invalid.'] } }, { status: 422 }) : undefined });
+  const result = await f.run();
+  assert.equal(result.state, 'failed');
+  assert.match(result.message, /source_id: The selected source id is invalid/);
+  assert.doesNotMatch(result.message, /покупця/);
+  assert.equal(f.row().message, result.message, 'diagnostic survives a later status GET');
+  assert.equal(posts(f).length, 1);
+});
+
+test('buyer validation is reported only when it appears in the real API response', async () => {
+  const f = fixture({ fetcher: async (_url, options) => options.method === 'POST'
+    ? Response.json({ errors: { 'buyer.full_name': ['At least one buyer field is required.'], 'products.0.quantity': ['Must be positive.'] } }, { status: 422 }) : undefined });
+  const result = await f.run();
+  assert.match(result.message, /buyer.full_name: At least one buyer field is required/);
+  assert.match(result.message, /products.0.quantity: Must be positive/);
+  assert.equal(posts(f).length, 1);
+  assert.deepEqual(JSON.parse(posts(f)[0].options.body).buyer, { full_name: null, phone: null });
+});
+
+test('validation diagnostics are bounded and redact credentials before persistence', () => {
+  const secret = 'fake-test-token';
+  const detail = validationDetails({ errors: { buyer: [`bad ${secret}, Bearer other-token, ghp_othersecret, test@example.com`],
+    products: ['x'.repeat(3000), 'second', 'third', 'fourth', 'fifth', 'sixth'] }, request: { Authorization: secret } }, secret);
+  assert.doesNotMatch(detail, /fake-test-token|other-token|ghp_othersecret|test@example.com|Authorization/);
+  assert.match(detail, /\[приховано\]/);
+  assert.ok(detail.length <= 1200);
+  assert.equal(validationDetails({ message: '<html>Gateway error</html>' }, secret), '');
+  assert.equal(validationDetails({ error: 'buyer required' }, secret), 'buyer required');
+  assert.equal(validationDetails({ errors: ['Invalid request'] }, secret), 'Invalid request');
+  assert.equal(validationDetails(null, secret), '');
+});
+
+test('old generic 422 records no longer present the buyer guess as a diagnosis', () => {
+  const record = publicRecord({ local_order_id: 941, state: 'failed', message: 'KeyCRM відхилив запит (HTTP 422). Перевірте, чи KeyCRM дозволяє порожні дані покупця. Дані покупця не підставлялися.' });
+  assert.match(record.message, /Точна причина цієї попередньої спроби не збережена/);
+  assert.equal(record.state, 'failed');
 });
 
 test('even non-2xx containing an order ID stays locked', async () => {

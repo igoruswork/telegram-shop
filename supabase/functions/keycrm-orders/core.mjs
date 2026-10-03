@@ -2,6 +2,7 @@
 export const CRM_COMMENT = '⌛️⌛️💴💵💶💷';
 const API = 'https://openapi.keycrm.app/v1';
 const SAFE_REJECTIONS = new Set([400, 401, 403, 404, 405, 413, 415, 422, 429]);
+const LEGACY_BUYER_HINT = 'KeyCRM відхилив запит (HTTP 422). Перевірте, чи KeyCRM дозволяє порожні дані покупця. Дані покупця не підставлялися.';
 
 export class CrmError extends Error {}
 
@@ -43,8 +44,50 @@ export function orderItems(order) {
 
 export function publicRecord(record) {
   if (!record) return null;
-  return Object.fromEntries(['local_order_id', 'state', 'crm_id', 'crm_total', 'message', 'updated_at']
+  const result = Object.fromEntries(['local_order_id', 'state', 'crm_id', 'crm_total', 'message', 'updated_at']
     .map((key) => [key, record[key] ?? null]));
+  // The old 422 message was a guess, not the upstream validation response.
+  if (result.message === LEGACY_BUYER_HINT) {
+    result.message = 'KeyCRM відхилив запит (HTTP 422). Точна причина цієї попередньої спроби не збережена. Підказка про покупця не підтверджувала причину відмови.';
+  }
+  return result;
+}
+
+export function validationDetails(data, apiKey) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
+  const clean = (value) => {
+    if (typeof value !== 'string') return '';
+    // Save only bounded validation text, never the response body/headers. An
+    // upstream service could echo credentials in an error, so redact first.
+    let text = apiKey ? value.replaceAll(apiKey, '[приховано]') : value;
+    text = text.replace(/Bearer\s+[^\s"'<>]+/gi, 'Bearer [приховано]')
+      .replace(/\b(?:sbp_|ghp_|sk_live_|sk_test_)[A-Za-z0-9_-]+\b/g, '[приховано]')
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email приховано]')
+      .replace(/[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    if (/<(?:html|head|body|script)\b/i.test(text)) return '';
+    return text.slice(0, 300);
+  };
+  const details = [];
+  const add = (field, value) => {
+    const text = clean(value);
+    const detail = text && (field ? `${clean(field)}: ${text}` : text);
+    if (detail && details.length < 6 && !details.includes(detail)) details.push(detail);
+  };
+  const fields = data.errors;
+  if (fields && typeof fields === 'object' && !Array.isArray(fields)) {
+    for (const [field, values] of Object.entries(fields).slice(0, 30)) {
+      if (!/^[a-zA-Z_][\w-]*(?:\.(?:[a-zA-Z_][\w-]*|\d+|\*)){0,4}$/.test(field)) continue;
+      for (const value of (Array.isArray(values) ? values.slice(0, 6) : [values])) add(field, value);
+    }
+  } else if (Array.isArray(fields)) {
+    for (const value of fields.slice(0, 6)) add('', value);
+  }
+  if (!details.length) {
+    add('', data.message);
+    add('', data.error);
+  }
+  return details.join('; ').slice(0, 1200);
 }
 
 export function makeCrmClient({ apiKey, fetchImpl = fetch, reserve, timeoutMs = 20000 }) {
@@ -57,7 +100,10 @@ export function makeCrmClient({ apiKey, fetchImpl = fetch, reserve, timeoutMs = 
     });
     let data;
     try { data = await response.json(); } catch { data = null; }
-    return { status: response.status, ok: response.ok, data };
+    return {
+      status: response.status, ok: response.ok, data,
+      rejectionDetails: response.ok ? '' : validationDetails(data, apiKey),
+    };
   }
   return {
     reserve,
@@ -154,8 +200,10 @@ export async function createCrmOrder({ orderId, actorPhone, attemptId, store, cr
   const crmId = positiveId(response.data?.id);
   // An ID in ANY response may mean an order exists; never unlock that attempt.
   if (!response.ok && SAFE_REJECTIONS.has(response.status) && !crmId) {
-    const buyerHint = response.status === 422 ? ' Перевірте, чи KeyCRM дозволяє порожні дані покупця. Дані покупця не підставлялися.' : '';
-    const message = `KeyCRM відхилив запит (HTTP ${response.status}).${buyerHint}`;
+    const detail = response.rejectionDetails
+      ? ` Відповідь KeyCRM: ${response.rejectionDetails}`
+      : ' API не повернув конкретної причини у підтримуваному форматі.';
+    const message = `KeyCRM відхилив запит (HTTP ${response.status}).${detail}`;
     try {
       const saved = await store.transition(row, ['posting', 'needs_review'], { state: 'failed', message });
       if (saved) return publicRecord(saved);
