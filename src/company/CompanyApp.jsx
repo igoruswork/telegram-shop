@@ -12,6 +12,7 @@ import {
   getAncestors,
   getDescendantIds,
   initials,
+  inkOn,
   matchesQuery,
   moveSibling,
   normalizeDoc,
@@ -46,13 +47,23 @@ function writePref(key, value) {
   }
 }
 
+// telegram-web-app.js also loads in a normal browser, where it reports
+// platform "unknown" and a hard-coded light colour scheme.
+function telegramApp() {
+  const tg = window.Telegram?.WebApp;
+  return tg && (tg.initData || (tg.platform && tg.platform !== 'unknown')) ? tg : null;
+}
+
+const THEME_COLORS = { light: '#eef5fb', dark: '#0d1520' };
+
 function useTheme() {
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
+    const tg = telegramApp();
     const apply = () => {
       const scheme = tg?.colorScheme
         || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       document.documentElement.dataset.theme = scheme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[scheme] || THEME_COLORS.light);
     };
     apply();
     tg?.onEvent?.('themeChanged', apply);
@@ -89,12 +100,17 @@ function haptic(type = 'light') {
 
 // ─── Small building blocks ──────────────────────────────────
 
+// Unit colour plus a text colour that stays readable on top of it.
+function tone(color) {
+  return { '--c': color, '--ink': inkOn(color) };
+}
+
 function Avatar({ node, color, size = 40 }) {
   const label = node.type === 'unit' ? null : initials(node.name);
   return (
     <span
       className={`co-avatar ${node.type === 'unit' ? 'is-unit' : ''} ${node.photo ? 'has-photo' : ''}`}
-      style={{ '--c': color, width: size, height: size, fontSize: size * 0.36 }}
+      style={{ ...tone(color), width: size, height: size, fontSize: size * 0.36 }}
       aria-hidden="true"
     >
       {node.photo && node.type !== 'unit'
@@ -119,24 +135,71 @@ function IconButton({ icon, label, onClick, active, className = '', disabled, si
   );
 }
 
-function Sheet({ open, onClose, title, children, wide, footer }) {
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([hidden]), select:not([disabled]), textarea:not([disabled])';
+
+// Modal behaviour shared by sheets and dialogs: Escape closes the top-most
+// layer only, Tab stays inside it, and focus returns to the opener on close.
+function useModal(open, onClose) {
+  const ref = useRef(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     if (!open) return undefined;
+    const el = ref.current;
+    const opener = document.activeElement;
+    if (el && !el.contains(document.activeElement)) el.focus({ preventScroll: true });
+
     const onKey = (event) => {
-      if (event.key === 'Escape') onClose();
+      const layers = document.querySelectorAll('[data-co-modal]');
+      if (!el || layers[layers.length - 1] !== el) return;
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = [...el.querySelectorAll(FOCUSABLE)].filter((item) => item.offsetParent !== null);
+      if (!items.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !el.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !el.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
-    document.body.classList.add('co-no-scroll');
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.classList.remove('co-no-scroll');
+      if (opener?.isConnected) opener.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
+
+  return ref;
+}
+
+function Sheet({ open, onClose, title, children, wide, footer }) {
+  const ref = useModal(open, onClose);
 
   if (!open) return null;
   return (
     <div className="co-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className={`co-sheet ${wide ? 'is-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        ref={ref}
+        className={`co-sheet ${wide ? 'is-wide' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        data-co-modal
+      >
         <div className="co-sheet-grip" />
         <div className="co-sheet-head">
           <h2>{title}</h2>
@@ -144,6 +207,18 @@ function Sheet({ open, onClose, title, children, wide, footer }) {
         </div>
         <div className="co-sheet-body">{children}</div>
         {footer ? <div className="co-sheet-foot">{footer}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function Dialog({ onClose, title, children }) {
+  const ref = useModal(true, onClose);
+  return (
+    <div className="co-overlay is-center" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div ref={ref} className="co-dialog" role="alertdialog" aria-modal="true" aria-label={title} tabIndex={-1} data-co-modal>
+        <h3>{title}</h3>
+        {children}
       </div>
     </div>
   );
@@ -168,7 +243,7 @@ function OrgCard({ node, ctx, compact }) {
         compact ? 'is-compact' : '',
         highlight ? 'is-highlight' : '',
       ].join(' ')}
-      style={{ '--c': color }}
+      style={tone(color)}
       data-node-id={node.id}
     >
       <button type="button" className="co-card-main" onClick={() => onOpen(node.id)}>
@@ -226,7 +301,7 @@ function OrgBranch({ node, ctx }) {
     return (
       <div className="co-branch">
         <OrgCard node={node} ctx={ctx} />
-        <div className="co-stack" style={{ '--c': resolveColor(ctx.doc, node.id) }}>
+        <div className="co-stack" style={tone(resolveColor(ctx.doc, node.id))}>
           {kids.map((kid) => (
             <div className="co-stack-item" key={kid.id}>
               <OrgCard node={kid} ctx={ctx} compact />
@@ -425,7 +500,7 @@ function TreeView({ ctx, focusId }) {
       </div>
       <div className="co-zoom" role="group" aria-label="Масштаб">
         <IconButton icon="zoomOut" label="Зменшити" onClick={() => zoomAround((z) => z - 0.15)} />
-        <button type="button" className="co-zoom-value" onClick={() => setZoom(1)} title="100%">
+        <button type="button" className="co-zoom-value" onClick={() => setZoom(1)} title="Скинути до 100%" aria-label={`Масштаб ${Math.round(zoom * 100)}%. Скинути до 100%`}>
           {Math.round(zoom * 100)}%
         </button>
         <IconButton icon="zoomIn" label="Збільшити" onClick={() => zoomAround((z) => z + 0.15)} />
@@ -444,7 +519,7 @@ function ListNode({ node, ctx, depth }) {
   const total = node.type === 'unit' ? countPeople(ctx.doc, node.id) : kids.length;
 
   return (
-    <li className={`co-li ${node.type === 'unit' ? 'is-unit' : ''}`} style={{ '--c': color }}>
+    <li className={`co-li ${node.type === 'unit' ? 'is-unit' : ''}`} style={tone(color)}>
       <div className={`co-li-row ${ctx.highlightId === node.id ? 'is-highlight' : ''}`} data-node-id={node.id}>
         {kids.length ? (
           <button
@@ -506,26 +581,85 @@ function ListView({ ctx }) {
 
 // ─── Search results ─────────────────────────────────────────
 
-function SearchResults({ doc, query, onOpen }) {
+// Wraps the matched part of `text` in <mark>.
+function Highlight({ text, query }) {
+  const value = text || '';
+  const at = query ? value.toLowerCase().indexOf(query) : -1;
+  if (at < 0) return value;
+  return (
+    <>
+      {value.slice(0, at)}
+      <mark>{value.slice(at, at + query.length)}</mark>
+      {value.slice(at + query.length)}
+    </>
+  );
+}
+
+const SNIPPET_FIELDS = [
+  ['brands', 'Бренди'],
+  ['duties', 'Питання'],
+  ['telegram', 'Telegram'],
+  ['email', 'Пошта'],
+  ['phone', 'Телефон'],
+];
+
+// When the match is in a field the row does not show, quote it.
+function matchSnippet(node, q) {
+  if (`${node.name} ${node.title}`.toLowerCase().includes(q)) return null;
+  for (const [field, label] of SNIPPET_FIELDS) {
+    const line = String(node[field] || '').split('\n').find((l) => l.toLowerCase().includes(q));
+    if (!line) continue;
+    const at = line.toLowerCase().indexOf(q);
+    const start = Math.max(0, at - 24);
+    return { label, text: `${start ? '…' : ''}${line.slice(start, at + q.length + 48).trim()}` };
+  }
+  return null;
+}
+
+function pluralResults(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'результат';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'результати';
+  return 'результатів';
+}
+
+function SearchResults({ doc, query, onOpen, onClear }) {
+  const q = query.trim().toLowerCase();
   const results = doc.nodes.filter((node) => matchesQuery(node, query));
   if (!results.length) {
-    return <div className="co-empty">Нікого не знайдено за запитом «{query}»</div>;
+    return (
+      <div className="co-empty">
+        <span className="co-empty-icon"><Icon name="search" size={24} /></span>
+        <p><strong>Нічого не знайдено</strong></p>
+        <p>За запитом «{query.trim()}» немає збігів. Спробуйте ім'я, посаду або бренд.</p>
+        <button type="button" className="co-btn" onClick={onClear}>Очистити пошук</button>
+      </div>
+    );
   }
   return (
     <div className="co-results">
+      <p className="co-results-count" role="status">{results.length} {pluralResults(results.length)}</p>
       {results.map((node) => {
         const color = resolveColor(doc, node.id);
         const path = getAncestors(doc, node.id)
           .filter((a) => a.type === 'unit')
           .map((a) => a.title)
           .join(' › ');
+        const snippet = matchSnippet(node, q);
         return (
-          <button key={node.id} type="button" className="co-result" onClick={() => onOpen(node.id)} style={{ '--c': color }}>
+          <button key={node.id} type="button" className="co-result" onClick={() => onOpen(node.id)} style={tone(color)}>
             <Avatar node={node} color={color} size={40} />
             <span className="co-card-text">
-              <span className="co-card-name">{node.type === 'unit' ? node.title : node.name}</span>
-              <span className="co-card-title">{node.type === 'unit' ? 'Підрозділ' : node.title}</span>
-              {path ? <span className="co-card-brands">{path}</span> : null}
+              <span className="co-card-name">
+                <Highlight text={node.type === 'unit' ? node.title : node.name || 'Вакансія'} query={q} />
+              </span>
+              <span className="co-card-title">
+                {node.type === 'unit' ? 'Підрозділ' : <Highlight text={node.title} query={q} />}
+              </span>
+              {snippet ? (
+                <span className="co-card-brands">{snippet.label}: <Highlight text={snippet.text} query={q} /></span>
+              ) : path ? <span className="co-card-brands">{path}</span> : null}
             </span>
             <Icon name="chevron" size={16} className="co-muted" />
           </button>
@@ -583,7 +717,7 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onDelete, onMove, edi
   };
 
   return (
-    <div className="co-details" style={{ '--c': color }}>
+    <div className="co-details" style={tone(color)}>
       <div className="co-details-hero">
         <Avatar node={node} color={color} size={64} />
         <div>
@@ -692,7 +826,7 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onDelete, onMove, edi
 function PersonLink({ doc, node, onOpen }) {
   const color = resolveColor(doc, node.id);
   return (
-    <button type="button" className="co-person-link" onClick={() => onOpen(node.id)} style={{ '--c': color }}>
+    <button type="button" className="co-person-link" onClick={() => onOpen(node.id)} style={tone(color)}>
       <Avatar node={node} color={color} size={34} />
       <span className="co-card-text">
         <span className="co-card-name">{node.type === 'unit' ? node.title : node.name || 'Вакансія'}</span>
@@ -1075,6 +1209,7 @@ export default function CompanyApp() {
     : new Set()));
   const [saveState, setSaveState] = useState(isRemoteEnabled ? 'loading' : 'idle');
   const [toast, setToast] = useState('');
+  const searchRef = useRef(null);
   const saveTimer = useRef(null);
   const toastTimer = useRef(null);
   const dirty = useRef(false);
@@ -1159,6 +1294,49 @@ export default function CompanyApp() {
     scheduleSave(previous);
     notify('Дію скасовано');
   };
+
+  // "/" jumps to search from anywhere outside a text field.
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+      if (document.querySelector('[data-co-modal]')) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Inside Telegram the native Back button closes the top-most layer.
+  const layerOpen = Boolean(openId || form || settingsOpen || deleteId || confirm);
+  const closeLayer = useRef(null);
+  closeLayer.current = () => {
+    if (confirm) setConfirm(null);
+    else if (deleteId) setDeleteId(null);
+    else if (form) setForm(null);
+    else if (settingsOpen) setSettingsOpen(false);
+    else setOpenId(null);
+  };
+  useEffect(() => {
+    const back = telegramApp()?.BackButton;
+    if (!back || !layerOpen) return undefined;
+    const onBack = () => closeLayer.current();
+    try {
+      back.onClick(onBack);
+      back.show();
+    } catch {
+      return undefined;
+    }
+    return () => {
+      try {
+        back.offClick(onBack);
+        back.hide();
+      } catch {
+        // ignore
+      }
+    };
+  }, [layerOpen]);
 
   // Close a sheet if its node disappeared (delete / undo / import).
   useEffect(() => {
@@ -1309,23 +1487,31 @@ export default function CompanyApp() {
           <label className="co-search">
             <Icon name="search" size={17} />
             <input
+              ref={searchRef}
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return;
+                if (query) setQuery('');
+                else e.currentTarget.blur();
+              }}
               placeholder="Пошук: ім'я, посада, бренд…"
               aria-label="Пошук"
+              enterKeyHint="search"
+              autoComplete="off"
             />
             {query ? (
-              <button type="button" onClick={() => setQuery('')} aria-label="Очистити пошук">
+              <button type="button" onClick={() => { setQuery(''); searchRef.current?.focus(); }} aria-label="Очистити пошук">
                 <Icon name="close" size={15} />
               </button>
-            ) : null}
+            ) : <kbd className="co-kbd" aria-hidden="true">/</kbd>}
           </label>
-          <div className="co-view-toggle" role="tablist" aria-label="Вигляд">
-            <button type="button" role="tab" aria-selected={view === 'tree'} className={view === 'tree' ? 'is-active' : ''} onClick={() => changeView('tree')}>
+          <div className="co-view-toggle" role="group" aria-label="Вигляд">
+            <button type="button" aria-pressed={view === 'tree'} title="Схема" className={view === 'tree' ? 'is-active' : ''} onClick={() => changeView('tree')}>
               <Icon name="tree" size={16} /> <span>Схема</span>
             </button>
-            <button type="button" role="tab" aria-selected={view === 'list'} className={view === 'list' ? 'is-active' : ''} onClick={() => changeView('list')}>
+            <button type="button" aria-pressed={view === 'list'} title="Список" className={view === 'list' ? 'is-active' : ''} onClick={() => changeView('list')}>
               <Icon name="list" size={16} /> <span>Список</span>
             </button>
           </div>
@@ -1337,11 +1523,12 @@ export default function CompanyApp() {
             <button type="button" onClick={() => setEditMode(false)}>Готово</button>
           </div>
         ) : null}
+        {saveState === 'loading' ? <div className="co-progress" role="progressbar" aria-label="Завантаження структури" /> : null}
       </header>
 
       <main className="co-main">
         {query.trim() ? (
-          <SearchResults doc={doc} query={query} onOpen={openNode} />
+          <SearchResults doc={doc} query={query} onOpen={openNode} onClear={() => setQuery('')} />
         ) : !index.root ? (
           <div className="co-empty">
             <p>Структура порожня.</p>
@@ -1419,55 +1606,52 @@ export default function CompanyApp() {
       </Sheet>
 
       {canEdit && deleting ? (
-        <div className="co-overlay is-center" onMouseDown={(e) => e.target === e.currentTarget && setDeleteId(null)}>
-          <div className="co-dialog" role="alertdialog" aria-modal="true">
-            <h3>Видалити «{deleting.type === 'unit' ? deleting.title : deleting.name || deleting.title}»?</h3>
-            {deletingKids ? (
-              <>
-                <p>У картці є підлеглі ({deletingAll}). Що з ними зробити?</p>
-                <div className="co-dialog-actions is-column">
-                  {deleting.parentId || deletingKids === 1 ? (
-                    <button type="button" className="co-btn is-primary" onClick={() => doDelete('reassign')}>
-                      Перевести підлеглих на рівень вище
-                    </button>
-                  ) : null}
-                  <button type="button" className="co-btn is-danger" onClick={() => doDelete('cascade')}>
-                    Видалити разом з усіма підлеглими
+        <Dialog
+          onClose={() => setDeleteId(null)}
+          title={`Видалити «${deleting.type === 'unit' ? deleting.title : deleting.name || deleting.title}»?`}
+        >
+          {deletingKids ? (
+            <>
+              <p>У картці є підлеглі ({deletingAll}). Що з ними зробити?</p>
+              <div className="co-dialog-actions is-column">
+                {deleting.parentId || deletingKids === 1 ? (
+                  <button type="button" className="co-btn is-primary" onClick={() => doDelete('reassign')}>
+                    Перевести підлеглих на рівень вище
                   </button>
-                  <button type="button" className="co-btn" onClick={() => setDeleteId(null)}>Скасувати</button>
-                </div>
-              </>
-            ) : (
-              <div className="co-dialog-actions">
+                ) : null}
+                <button type="button" className="co-btn is-danger" onClick={() => doDelete('cascade')}>
+                  Видалити разом з усіма підлеглими
+                </button>
                 <button type="button" className="co-btn" onClick={() => setDeleteId(null)}>Скасувати</button>
-                <button type="button" className="co-btn is-danger" onClick={() => doDelete('reassign')}>Видалити</button>
               </div>
-            )}
-          </div>
-        </div>
+            </>
+          ) : (
+            <div className="co-dialog-actions">
+              <button type="button" className="co-btn" onClick={() => setDeleteId(null)}>Скасувати</button>
+              <button type="button" className="co-btn is-danger" onClick={() => doDelete('reassign')}>Видалити</button>
+            </div>
+          )}
+        </Dialog>
       ) : null}
 
       {canEdit && confirm ? (
-        <div className="co-overlay is-center" onMouseDown={(e) => e.target === e.currentTarget && setConfirm(null)}>
-          <div className="co-dialog" role="alertdialog" aria-modal="true">
-            <h3>{confirm.title}</h3>
-            <p>{confirm.text}</p>
-            <div className="co-dialog-actions">
-              <button type="button" className="co-btn" onClick={() => setConfirm(null)}>Скасувати</button>
-              <button
-                type="button"
-                className={`co-btn ${confirm.danger ? 'is-danger' : 'is-primary'}`}
-                onClick={() => {
-                  confirm.action();
-                  setConfirm(null);
-                  setSettingsOpen(false);
-                }}
-              >
-                Підтвердити
-              </button>
-            </div>
+        <Dialog onClose={() => setConfirm(null)} title={confirm.title}>
+          <p>{confirm.text}</p>
+          <div className="co-dialog-actions">
+            <button type="button" className="co-btn" onClick={() => setConfirm(null)}>Скасувати</button>
+            <button
+              type="button"
+              className={`co-btn ${confirm.danger ? 'is-danger' : 'is-primary'}`}
+              onClick={() => {
+                confirm.action();
+                setConfirm(null);
+                setSettingsOpen(false);
+              }}
+            >
+              Підтвердити
+            </button>
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       <div className={`co-toast ${toast ? 'is-visible' : ''}`} role="status" aria-live="polite">{toast}</div>

@@ -196,6 +196,19 @@ export function resolveColor(doc, id) {
   return ROOT_COLOR;
 }
 
+// Readable text colour for content placed on a solid `color` fill.
+// White stays the default; fills too light for it (amber, green…) get dark ink.
+export function inkOn(color) {
+  const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(cleanString(color).trim());
+  if (!match) return '#ffffff';
+  const hex = match[1].length === 3 ? match[1].replace(/./g, '$&$&') : match[1];
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 1.05 / (luminance + 0.05) >= 3 ? '#ffffff' : '#10202d';
+}
+
 export function countPeople(doc, id) {
   const ids = getDescendantIds(doc, id);
   return doc.nodes.filter((n) => ids.has(n.id) && n.type === 'person').length;
