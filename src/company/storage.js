@@ -5,6 +5,7 @@
 //   supabase/migrations/20261110000000_company_structure_settings.sql.
 import { createClient } from '@supabase/supabase-js';
 import { normalizeDoc } from './model.js';
+import { normalizePhoneInput } from '../lib/phone.js';
 import seed from './seed.json';
 
 const SETTINGS_KEY = 'company_structure';
@@ -41,6 +42,20 @@ export function writeCache(doc, synced) {
   } catch {
     // Private mode / quota: the page still works for this session.
   }
+}
+
+// Match the shop's approval and admin list for the current local shop user.
+// This controls the company UI; it is not an API authorization check.
+export async function isApprovedCompanyAdmin(phone) {
+  if (!supabase || !phone) return false;
+  const [settings, account] = await Promise.all([
+    supabase.from('app_settings').select('value').eq('key', 'catalog').maybeSingle(),
+    supabase.from('catalog_users').select('is_approved, is_blocked').eq('phone', phone).maybeSingle(),
+  ]);
+  const adminPhones = settings.data?.value?.adminPhones || settings.data?.value?.admin_phones;
+  return !settings.error && !account.error && account.data?.is_approved === true
+    && !account.data.is_blocked && Array.isArray(adminPhones)
+    && adminPhones.some((number) => normalizePhoneInput(number) === phone);
 }
 
 export async function fetchRemote() {

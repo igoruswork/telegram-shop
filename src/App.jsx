@@ -17,6 +17,7 @@ import {
 import { GatePage } from './pages/GatePage';
 import { CatalogPage } from './pages/CatalogPage';
 import { isPhoneComplete, normalizePhoneInput } from './lib/phone';
+import { loadStoredUser, USER_STORAGE_KEY } from './lib/shopSession';
 import { isComingSoon } from './lib/productDisplay';
 import { getProductDiscountedPrice, normalizeBrandDiscounts } from './lib/brandDiscounts';
 import { normalizeOrderIssueTemplate, validateOrderIssueTemplate } from './lib/orderIssueTemplate';
@@ -45,7 +46,6 @@ const DEFAULT_ADMIN_SECTION_ORDER = [
 const BRAND_COLORS_STORAGE_KEY = 'telegram-shop-brand-colors';
 const CATALOG_CACHE_STORAGE_KEY = 'telegram-shop-catalog-cache:v2';
 const CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
-const USER_STORAGE_KEY = 'telegram-shop-user';
 const CART_STORAGE_PREFIX = 'telegram-shop-cart:';
 
 function loadStoredBrandColors() {
@@ -68,26 +68,6 @@ function normalizeAdminPhones(value) {
 
   const uniquePhones = [...new Set(phones)];
   return uniquePhones.length ? uniquePhones : DEFAULT_ADMIN_PHONES;
-}
-
-function loadStoredUser() {
-  try {
-    const raw = localStorage.getItem(USER_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    const phone = normalizePhoneInput(parsed?.phone);
-    const lastName = String(parsed?.lastName || parsed?.last_name || '').trim();
-
-    if (!isPhoneComplete(phone) || !lastName) return null;
-
-    return {
-      phone,
-      lastName,
-    };
-  } catch {
-    return null;
-  }
 }
 
 function cartStorageKey(phone) {

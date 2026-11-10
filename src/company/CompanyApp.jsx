@@ -22,7 +22,8 @@ import {
   telegramHandle,
   updateNode,
 } from './model';
-import { fetchRemote, isRemoteEnabled, readCache, saveDoc, seedDoc, writeCache } from './storage';
+import { fetchRemote, isApprovedCompanyAdmin, isRemoteEnabled, readCache, saveDoc, seedDoc, writeCache } from './storage';
+import { loadStoredUser, USER_STORAGE_KEY } from '../lib/shopSession';
 import { copyToClipboard } from '../lib/clipboard';
 
 const VIEW_KEY = 'company-structure:view';
@@ -929,8 +930,40 @@ function SettingsPanel({ doc, editMode, setEditMode, saveState, onMeta, onImport
 
 // ─── App ────────────────────────────────────────────────────
 
+function useCompanyAdmin() {
+  const [allowed, setAllowed] = useState(null);
+
+  useEffect(() => {
+    let requestId = 0;
+    const check = async () => {
+      const id = ++requestId;
+      const phone = loadStoredUser()?.phone;
+      setAllowed(phone ? null : false);
+      if (!phone) return;
+      const verified = await isApprovedCompanyAdmin(phone).catch(() => false);
+      if (id === requestId) setAllowed(verified && loadStoredUser()?.phone === phone);
+    };
+    const onStorage = (event) => {
+      if (event.key === USER_STORAGE_KEY || event.key === null) check();
+    };
+    const onPageShow = (event) => { if (event.persisted) check(); };
+    check();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      requestId++;
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, []);
+
+  return allowed;
+}
+
 export default function CompanyApp() {
   useTheme();
+  const adminAccess = useCompanyAdmin();
+  const canEdit = adminAccess === true;
   const cached = useMemo(() => readCache(), []);
   const [doc, setDoc] = useState(() => cached?.doc || seedDoc());
   const [history, setHistory] = useState([]);
@@ -940,7 +973,8 @@ export default function CompanyApp() {
   const [focusId, setFocusId] = useState(null);
   const [form, setForm] = useState(null); // { draft, isNew }
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [editing, setEditMode] = useState(false);
+  const editMode = canEdit && editing;
   const [deleteId, setDeleteId] = useState(null);
   const [confirm, setConfirm] = useState(null); // { title, text, action, danger }
   // On phones start with units folded so the whole department fits on screen.
@@ -965,18 +999,29 @@ export default function CompanyApp() {
     toastTimer.current = setTimeout(() => setToast(''), 2200);
   }, []);
 
-  // Initial sync with the shared copy.
   useEffect(() => {
-    if (!isRemoteEnabled) return;
+    if (canEdit) return;
+    clearTimeout(saveTimer.current);
+    setSettingsOpen(false);
+    setEditMode(false);
+    setForm(null);
+    setDeleteId(null);
+    setConfirm(null);
+  }, [canEdit]);
+
+  // Only a verified admin can upload an unsynced draft from this device.
+  useEffect(() => {
+    if (!isRemoteEnabled || adminAccess === null) return;
     let cancelled = false;
     fetchRemote()
       .then((remote) => {
         if (cancelled) return;
         if (dirty.current) return; // user already editing; their save wins
-        const localUnsynced = cached && !cached.synced;
+        const localUnsynced = canEdit && cached && !cached.synced;
         if (remote && !(localUnsynced && cached.doc.updatedAt > remote.updatedAt)) {
           setDoc(remote);
-          writeCache(remote, true);
+          // Keep any local admin draft intact while viewing as a guest.
+          if (canEdit || !cached || cached.synced) writeCache(remote, true);
           setSaveState('remote');
         } else if (localUnsynced) {
           setSaveState('saving');
@@ -992,9 +1037,10 @@ export default function CompanyApp() {
     return () => {
       cancelled = true;
     };
-  }, [cached]);
+  }, [adminAccess, cached, canEdit]);
 
   const scheduleSave = useCallback((next) => {
+    if (!canEdit) return;
     dirty.current = true;
     setSaveState('saving');
     writeCache(next, false);
@@ -1002,7 +1048,7 @@ export default function CompanyApp() {
     saveTimer.current = setTimeout(() => {
       saveDoc(next).then((result) => setSaveState(result));
     }, 700);
-  }, []);
+  }, [canEdit]);
 
   const commit = useCallback((next, message) => {
     if (next === doc) return;
@@ -1157,12 +1203,14 @@ export default function CompanyApp() {
             {editMode && history.length ? (
               <IconButton icon="undo" label="Скасувати дію" onClick={undo} />
             ) : null}
-            <IconButton
-              icon="settings"
-              label="Налаштування"
-              active={settingsOpen || editMode}
-              onClick={() => setSettingsOpen(true)}
-            />
+            {canEdit ? (
+              <IconButton
+                icon="settings"
+                label="Налаштування"
+                active={settingsOpen || editMode}
+                onClick={() => setSettingsOpen(true)}
+              />
+            ) : null}
           </div>
         </div>
         <div className="co-toolbar">
@@ -1205,9 +1253,11 @@ export default function CompanyApp() {
         ) : !index.root ? (
           <div className="co-empty">
             <p>Структура порожня.</p>
-            <button type="button" className="co-btn is-primary" onClick={() => setForm({ isNew: true, draft: emptyNode({ type: 'person' }) })}>
-              <Icon name="plus" size={16} /> Додати керівника
-            </button>
+            {canEdit ? (
+              <button type="button" className="co-btn is-primary" onClick={() => setForm({ isNew: true, draft: emptyNode({ type: 'person' }) })}>
+                <Icon name="plus" size={16} /> Додати керівника
+              </button>
+            ) : null}
           </div>
         ) : view === 'tree' ? (
           <TreeView ctx={ctx} focusId={focusId} />
@@ -1233,7 +1283,7 @@ export default function CompanyApp() {
       </Sheet>
 
       <Sheet
-        open={Boolean(form)}
+        open={canEdit && Boolean(form)}
         onClose={() => setForm(null)}
         title={form?.isNew ? 'Нова картка' : 'Редагування'}
         wide
@@ -1250,7 +1300,7 @@ export default function CompanyApp() {
         ) : null}
       </Sheet>
 
-      <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Налаштування">
+      <Sheet open={canEdit && settingsOpen} onClose={() => setSettingsOpen(false)} title="Налаштування">
         <SettingsPanel
           doc={doc}
           editMode={editMode}
@@ -1276,7 +1326,7 @@ export default function CompanyApp() {
         />
       </Sheet>
 
-      {deleting ? (
+      {canEdit && deleting ? (
         <div className="co-overlay is-center" onMouseDown={(e) => e.target === e.currentTarget && setDeleteId(null)}>
           <div className="co-dialog" role="alertdialog" aria-modal="true">
             <h3>Видалити «{deleting.type === 'unit' ? deleting.title : deleting.name || deleting.title}»?</h3>
@@ -1305,7 +1355,7 @@ export default function CompanyApp() {
         </div>
       ) : null}
 
-      {confirm ? (
+      {canEdit && confirm ? (
         <div className="co-overlay is-center" onMouseDown={(e) => e.target === e.currentTarget && setConfirm(null)}>
           <div className="co-dialog" role="alertdialog" aria-modal="true">
             <h3>{confirm.title}</h3>
