@@ -15,6 +15,7 @@ import {
   matchesQuery,
   moveSibling,
   normalizeDoc,
+  PHOTO_MAX_LENGTH,
   phoneHref,
   removeNode,
   resolveColor,
@@ -92,11 +93,13 @@ function Avatar({ node, color, size = 40 }) {
   const label = node.type === 'unit' ? null : initials(node.name);
   return (
     <span
-      className={`co-avatar ${node.type === 'unit' ? 'is-unit' : ''}`}
+      className={`co-avatar ${node.type === 'unit' ? 'is-unit' : ''} ${node.photo ? 'has-photo' : ''}`}
       style={{ '--c': color, width: size, height: size, fontSize: size * 0.36 }}
       aria-hidden="true"
     >
-      {label || <Icon name={node.type === 'unit' ? 'users' : 'briefcase'} size={size * 0.48} />}
+      {node.photo && node.type !== 'unit'
+        ? <img src={node.photo} alt="" loading="lazy" draggable="false" />
+        : label || <Icon name={node.type === 'unit' ? 'users' : 'briefcase'} size={size * 0.48} />}
     </span>
   );
 }
@@ -264,6 +267,8 @@ function OrgBranch({ node, ctx }) {
   );
 }
 
+// The displayed 100% is 85% of the original canvas size.
+const ZOOM_BASE_SCALE = 0.85;
 const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 1.6;
 
@@ -301,10 +306,11 @@ function TreeView({ ctx, focusId }) {
     if (!viewport || !canvas) return;
     const width = canvas.scrollWidth;
     const height = canvas.scrollHeight;
-    const next = clampZoom(Math.min((viewport.clientWidth - 24) / width, (viewport.clientHeight - 24) / height, 1));
+    const fittedScale = Math.min((viewport.clientWidth - 24) / width, (viewport.clientHeight - 24) / height);
+    const next = clampZoom(Math.min(fittedScale / ZOOM_BASE_SCALE, 1));
     setZoom(next);
     requestAnimationFrame(() => {
-      viewport.scrollLeft = (width * next - viewport.clientWidth) / 2;
+      viewport.scrollLeft = (width * next * ZOOM_BASE_SCALE - viewport.clientWidth) / 2;
       viewport.scrollTop = 0;
     });
   }, []);
@@ -413,7 +419,7 @@ function TreeView({ ctx, focusId }) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <div className="co-tree-canvas" ref={canvasRef} style={{ zoom }}>
+        <div className="co-tree-canvas" ref={canvasRef} style={{ zoom: zoom * ZOOM_BASE_SCALE }}>
           {root ? <OrgBranch node={root} ctx={ctx} /> : null}
         </div>
       </div>
@@ -716,8 +722,93 @@ function parentOptions(doc, excludeId) {
   return result;
 }
 
+// Center-crops an image file to a small square JPEG data URL for the avatar.
+async function fileToAvatar(file, size = 160) {
+  if (!file?.type?.startsWith('image/')) throw new Error('Оберіть файл зображення.');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Не вдалося прочитати зображення.'));
+      image.src = url;
+    });
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, size, size);
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(
+      img,
+      (img.naturalWidth - side) / 2,
+      (img.naturalHeight - side) / 2,
+      side,
+      side,
+      0,
+      0,
+      size,
+      size
+    );
+    for (const quality of [0.85, 0.75, 0.6]) {
+      const data = canvas.toDataURL('image/jpeg', quality);
+      if (data.length <= PHOTO_MAX_LENGTH) return data;
+    }
+    throw new Error('Фото завелике.');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function PhotoField({ form, setForm, color }) {
+  const inputRef = useRef(null);
+  const [error, setError] = useState('');
+  const pick = async (file) => {
+    setError('');
+    try {
+      const photo = await fileToAvatar(file);
+      setForm((f) => ({ ...f, photo }));
+    } catch (err) {
+      setError(err.message || 'Не вдалося завантажити фото.');
+    }
+  };
+  return (
+    <div className="co-photo-field">
+      <button type="button" className="co-photo-pick" onClick={() => inputRef.current?.click()} aria-label="Обрати фото">
+        <Avatar node={form} color={color} size={72} />
+        <span className="co-photo-badge"><Icon name="camera" size={14} /></span>
+      </button>
+      <div className="co-photo-actions">
+        <button type="button" className="co-btn" onClick={() => inputRef.current?.click()}>
+          <Icon name="upload" size={16} /> {form.photo ? 'Змінити фото' : 'Додати фото'}
+        </button>
+        {form.photo ? (
+          <button type="button" className="co-link-btn is-danger" onClick={() => setForm((f) => ({ ...f, photo: '' }))}>
+            Прибрати фото
+          </button>
+        ) : <span className="co-hint">Квадратна обрізка по центру, до 160×160</span>}
+        {error ? <span className="co-hint is-error">{error}</span> : null}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) pick(file);
+        }}
+      />
+    </div>
+  );
+}
+
 function NodeForm({ doc, draft, isNew, onCancel, onSave }) {
   const [form, setForm] = useState(draft);
+  const photoColor = resolveColor(doc, draft.parentId || draft.id);
   const set = (field) => (event) => setForm((f) => ({ ...f, [field]: event.target.value }));
   const options = useMemo(() => parentOptions(doc, isNew ? null : draft.id), [doc, draft.id, isNew]);
   const isRoot = !isNew && !draft.parentId;
@@ -792,6 +883,7 @@ function NodeForm({ doc, draft, isNew, onCancel, onSave }) {
         </>
       ) : (
         <>
+          <PhotoField form={form} setForm={setForm} color={photoColor} />
           <div className="co-grid-2">
             <label className="co-field">
               <span>ПІБ *</span>

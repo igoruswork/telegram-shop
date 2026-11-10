@@ -49,12 +49,22 @@ export function emptyNode(overrides = {}) {
     email: '',
     duties: '',
     color: '',
+    photo: '',
     ...overrides,
   };
 }
 
 function cleanString(value) {
   return typeof value === 'string' ? value : value == null ? '' : String(value);
+}
+
+// Only small inline images or https links are accepted as avatars.
+export const PHOTO_MAX_LENGTH = 60000;
+export function safePhoto(value) {
+  const photo = cleanString(value).trim();
+  if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo) && photo.length <= PHOTO_MAX_LENGTH) return photo;
+  if (/^https:\/\/[^\s"'<>]+$/.test(photo)) return photo;
+  return '';
 }
 
 export function normalizeNode(raw) {
@@ -72,6 +82,7 @@ export function normalizeNode(raw) {
     email: cleanString(source.email),
     duties: cleanString(source.duties),
     color: cleanString(source.color),
+    photo: safePhoto(source.photo),
   };
 }
 

@@ -117,3 +117,13 @@ test('fillMerges never copies unit names down column A', () => {
   const rows = fillMerges([['Unit', 'x'], ['', '']], [{ s: { r: 0, c: 0 }, e: { r: 1, c: 1 } }]);
   assert.equal(rows[1][0], '');
 });
+
+test('safePhoto keeps small inline images and https links only', async () => {
+  const { safePhoto, normalizeNode } = await import('../src/company/model.js');
+  assert.equal(safePhoto('data:image/jpeg;base64,AAAA'), 'data:image/jpeg;base64,AAAA');
+  assert.equal(safePhoto('https://example.com/a.jpg'), 'https://example.com/a.jpg');
+  assert.equal(safePhoto('javascript:alert(1)'), '');
+  assert.equal(safePhoto('data:image/svg+xml;base64,AAAA'), '');
+  assert.equal(safePhoto(`data:image/png;base64,${'A'.repeat(70000)}`), '');
+  assert.equal(normalizeNode({ id: 'x', photo: 'http://insecure/a.jpg' }).photo, '');
+});

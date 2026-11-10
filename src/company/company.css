@@ -319,6 +319,23 @@ button:disabled {
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 35%, transparent);
 }
 
+.co-avatar {
+  overflow: hidden;
+}
+
+.co-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}
+
+.co-avatar.has-photo {
+  background: var(--co-surface-2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 45%, transparent);
+}
+
 .co-avatar.is-unit {
   border-radius: 30%;
   color: #fff;
@@ -620,9 +637,9 @@ button:disabled {
   content: '';
   position: absolute;
   left: -14px;
-  top: -8px;
+  top: -10px;
   width: 14px;
-  height: calc(50% + 8px);
+  height: calc(50% + 10px);
   border-left: 2px solid var(--co-line);
   border-bottom: 2px solid var(--co-line);
   border-bottom-left-radius: 10px;
@@ -637,8 +654,8 @@ button:disabled {
   content: '';
   position: absolute;
   left: -14px;
-  top: 50%;
-  bottom: -8px;
+  top: calc(50% - 12px);
+  bottom: -10px;
   border-left: 2px solid var(--co-line);
 }
 
@@ -1505,4 +1522,48 @@ button:disabled {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ─── Photo picker ───────────────────────────────────── */
+
+.co-photo-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.co-photo-pick {
+  position: relative;
+  flex: none;
+  border-radius: 50%;
+}
+
+.co-photo-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--co-accent);
+  color: var(--co-accent-ink);
+  box-shadow: 0 0 0 3px var(--co-surface);
+}
+
+.co-photo-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.co-link-btn.is-danger {
+  color: var(--co-danger);
+}
+
+.co-hint.is-error {
+  color: var(--co-danger);
 }
