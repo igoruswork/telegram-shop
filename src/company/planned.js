@@ -48,7 +48,18 @@ function withWarehouseUnits(doc) {
   return next;
 }
 
+const BIRTHDAYS = [{ person: 'Надія', birthday: '11.11' }];
+
+function withBirthdays(doc) {
+  let next = doc;
+  for (const { person, birthday } of BIRTHDAYS) {
+    const target = next.nodes.find((n) => n.type === 'person' && n.name === person);
+    if (target && !target.birthday) next = updateNode(next, target.id, { birthday });
+  }
+  return next;
+}
+
 /** Every step is skipped once it is already in the document. */
 export function plannedStructure(doc) {
-  return withWarehouseUnits(withTopLevel(doc));
+  return withBirthdays(withWarehouseUnits(withTopLevel(doc)));
 }

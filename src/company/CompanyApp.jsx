@@ -9,15 +9,18 @@ import {
   displayName,
   dutyLines,
   emptyNode,
+  formatBirthday,
   formatPhone,
   getAncestors,
   getDescendantIds,
   initials,
   insertAbove,
+  isBirthdayToday,
   isBlank,
   inkOn,
   matchesQuery,
   moveSibling,
+  normalizeBirthday,
   normalizeDoc,
   PHOTO_MAX_LENGTH,
   phoneHref,
@@ -112,6 +115,56 @@ function haptic(type = 'light') {
 // Unit colour plus a text colour that stays readable on top of it.
 function tone(color) {
   return { '--c': color, '--ink': inkOn(color) };
+}
+
+const PARTY_COLORS = ['#f43f5e', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
+const partyColor = (i) => PARTY_COLORS[i % PARTY_COLORS.length];
+
+// Birthday decoration: balloons float up from the card, two party poppers
+// shoot confetti from its top corners and streamers unroll below it.
+function Party() {
+  return (
+    <span className="co-party" aria-hidden="true">
+      {Array.from({ length: 6 }, (_, i) => (
+        <i
+          key={`b${i}`}
+          className="co-balloon"
+          style={{ '--k': partyColor(i), '--x': `${6 + i * 17}%`, '--sway': `${(i % 2 ? -1 : 1) * (10 + i * 3)}px`, '--d': `${(i * 0.9) % 5}s` }}
+        />
+      ))}
+      {Array.from({ length: 20 }, (_, i) => {
+        const left = i % 2 === 0;
+        const spread = 18 + ((i * 37) % 90);
+        return (
+          <i
+            key={`c${i}`}
+            className={`co-confetti ${left ? 'is-left' : 'is-right'} ${i % 3 === 0 ? 'is-round' : ''}`}
+            style={{
+              '--k': partyColor(i + 2),
+              '--dx': `${(left ? 1 : -1) * spread}px`,
+              '--dy': `${-(26 + ((i * 53) % 64))}px`,
+              '--r': `${(i % 2 ? -1 : 1) * (240 + i * 31)}deg`,
+              '--d': `${(i % 5) * 0.05}s`,
+            }}
+          />
+        );
+      })}
+      {Array.from({ length: 4 }, (_, i) => (
+        <svg
+          key={`s${i}`}
+          className="co-streamer"
+          viewBox="0 0 14 58"
+          width="14"
+          height="58"
+          style={{ '--k': partyColor(i * 2 + 1), '--x': `${14 + i * 24}%`, '--d': `${0.3 + i * 0.25}s` }}
+        >
+          <path d="M7 1c8 5 8 9 0 14s-8 9 0 14 8 9 0 14-8 9 0 14" pathLength="100" />
+        </svg>
+      ))}
+      <span className="co-popper is-left">🎉</span>
+      <span className="co-popper is-right">🎉</span>
+    </span>
+  );
 }
 
 function Avatar({ node, color, size = 40 }) {
@@ -242,6 +295,7 @@ function OrgCard({ node, ctx, compact }) {
   const kids = index.children.get(node.id) || [];
   const people = node.type === 'unit' ? countPeople(doc, node.id) : kids.length;
   const highlight = ctx.highlightId === node.id;
+  const party = isBirthdayToday(node, ctx.today);
 
   return (
     <div
@@ -251,11 +305,14 @@ function OrgCard({ node, ctx, compact }) {
         isRoot ? 'is-root' : '',
         compact ? 'is-compact' : '',
         isBlank(node) ? 'is-blank' : '',
+        party ? 'has-party' : '',
         highlight ? 'is-highlight' : '',
       ].join(' ')}
       style={tone(color)}
       data-node-id={node.id}
+      title={party ? 'Сьогодні день народження' : undefined}
     >
+      {party ? <Party /> : null}
       <button type="button" className="co-card-main" onClick={() => onOpen(node.id)}>
         {node.type === 'unit' ? (
           <>
@@ -543,7 +600,11 @@ function ListNode({ node, ctx, depth }) {
 
   return (
     <li className={`co-li ${node.type === 'unit' ? 'is-unit' : ''} ${isBlank(node) ? 'is-blank' : ''}`} style={tone(color)}>
-      <div className={`co-li-row ${ctx.highlightId === node.id ? 'is-highlight' : ''}`} data-node-id={node.id}>
+      <div
+        className={`co-li-row ${ctx.highlightId === node.id ? 'is-highlight' : ''} ${isBirthdayToday(node, ctx.today) ? 'has-party' : ''}`}
+        data-node-id={node.id}
+      >
+        {isBirthdayToday(node, ctx.today) ? <Party /> : null}
         {kids.length ? (
           <button
             type="button"
@@ -718,7 +779,7 @@ function ContactRow({ icon, label, value, href, onClick, onCopy }) {
   );
 }
 
-function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onAddBlank, onAddAbove, onDelete, onMove, editMode, notify }) {
+function NodeDetails({ doc, nodeId, today, onOpen, onEdit, onAdd, onAddBlank, onAddAbove, onDelete, onMove, editMode, notify }) {
   const index = useMemo(() => buildIndex(doc), [doc]);
   const node = index.byId.get(nodeId);
   if (!node) return null;
@@ -748,7 +809,8 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onAddBlank, onAddAbov
 
   return (
     <div className="co-details" style={tone(color)}>
-      <div className="co-details-hero">
+      <div className={`co-details-hero ${isBirthdayToday(node, today) ? 'has-party' : ''}`}>
+        {isBirthdayToday(node, today) ? <Party /> : null}
         <Avatar node={node} color={color} size={64} />
         <div>
           <div className="co-details-name">{displayName(node)}</div>
@@ -757,6 +819,12 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onAddBlank, onAddAbov
               ? `Підрозділ · ${countPeople(doc, node.id)} ${pluralPeople(countPeople(doc, node.id))}`
               : isBlank(node) ? 'Картку ще не заповнено' : node.title}
           </div>
+          {node.type === 'person' && node.birthday ? (
+            <div className={`co-birthday ${isBirthdayToday(node, today) ? 'is-today' : ''}`}>
+              <Icon name="cake" size={15} />
+              {isBirthdayToday(node, today) ? `Сьогодні день народження 🎉` : `День народження: ${formatBirthday(node.birthday)}`}
+            </div>
+          ) : null}
           {ancestors.length ? (
             <div className="co-crumbs">
               {ancestors.map((a) => (
@@ -989,7 +1057,8 @@ function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
   const options = useMemo(() => parentOptions(doc, isNew ? null : draft.id), [doc, draft.id, isNew]);
   const isRoot = above || (!isNew && !draft.parentId);
   // A person card may be saved empty: a placeholder to fill in later.
-  const valid = form.type === 'unit' ? Boolean(form.title.trim()) : true;
+  const birthdayOk = form.type === 'unit' || !String(form.birthday || '').trim() || Boolean(normalizeBirthday(form.birthday));
+  const valid = form.type === 'unit' ? Boolean(form.title.trim()) : birthdayOk;
   const parentIsUnit = doc.nodes.find((n) => n.id === form.parentId)?.type === 'unit';
 
   const submit = (event) => {
@@ -1004,6 +1073,7 @@ function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
       telegram: form.telegram.trim(),
       phone: form.phone.trim(),
       email: form.email.trim(),
+      birthday: form.type === 'person' ? normalizeBirthday(form.birthday) : '',
       duties: form.duties.trim(),
     });
   };
@@ -1105,6 +1175,23 @@ function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
               <input value={form.email} onChange={set('email')} placeholder="name@company.com" inputMode="email" autoCapitalize="none" />
             </label>
           </div>
+          <label className="co-field co-field-short">
+            <span>День народження</span>
+            <input
+              value={form.birthday || ''}
+              onChange={set('birthday')}
+              placeholder="ДД.ММ, напр. 11.11"
+              inputMode="decimal"
+              maxLength={6}
+              autoComplete="off"
+              aria-invalid={!birthdayOk}
+            />
+            {birthdayOk ? (
+              <span className="co-hint">Лише день і місяць. У цей день картку прикрасять кульки, хлопавки й серпантин.</span>
+            ) : (
+              <span className="co-hint is-error">Введіть день і місяць, наприклад 11.11</span>
+            )}
+          </label>
           <label className="co-field">
             <span>З яких питань звертатись</span>
             <textarea rows={6} value={form.duties} onChange={set('duties')} placeholder="Кожен пункт з нового рядка" />
@@ -1275,6 +1362,13 @@ export default function CompanyApp() {
   const [saveState, setSaveState] = useState(isRemoteEnabled ? 'loading' : 'idle');
   const [toast, setToast] = useState('');
   const searchRef = useRef(null);
+  // Birthday decorations follow the calendar day, also across midnight.
+  const [dayKey, setDayKey] = useState(() => new Date().toDateString());
+  useEffect(() => {
+    const timer = setInterval(() => setDayKey(new Date().toDateString()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const today = useMemo(() => new Date(dayKey), [dayKey]);
   const saveTimer = useRef(null);
   const toastTimer = useRef(null);
   const dirty = useRef(false);
@@ -1472,6 +1566,7 @@ export default function CompanyApp() {
     index,
     editMode,
     highlightId: focusId,
+    today,
     onOpen: openNode,
     onAdd: (id) => startAdd(id),
     onEdit: startEdit,
@@ -1641,6 +1736,7 @@ export default function CompanyApp() {
             onOpen={openNode}
             onEdit={startEdit}
             onAdd={(id) => startAdd(id)}
+            today={today}
             onAddBlank={addBlank}
             onAddAbove={startAddAbove}
             onDelete={requestDelete}

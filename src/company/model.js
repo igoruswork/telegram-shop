@@ -8,7 +8,8 @@
 //     id, parentId (null for root), type: 'unit' | 'person',
 //     title (position or unit name), name, brands, telegram, phone, email,
 //     duties (multi-line text), color (units only, optional),
-//     head (people only: shown inside the parent unit's block)
+//     head (people only: shown inside the parent unit's block),
+//     birthday (people only: 'DD.MM', no year)
 //   }>,
 //   updatedAt: ISO string
 // }
@@ -52,6 +53,7 @@ export function emptyNode(overrides = {}) {
     color: '',
     photo: '',
     head: false,
+    birthday: '',
     ...overrides,
   };
 }
@@ -67,6 +69,45 @@ export function safePhoto(value) {
   if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo) && photo.length <= PHOTO_MAX_LENGTH) return photo;
   if (/^https:\/\/[^\s"'<>]+$/.test(photo)) return photo;
   return '';
+}
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const MONTHS_GENITIVE = [
+  'січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
+  'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня',
+];
+
+/** Reads "11.11", "1.3.", "01/03" or "1-3" as { day, month }; null if not a date. */
+export function parseBirthday(value) {
+  const match = /^\s*(\d{1,2})\s*[./\-\s]\s*(\d{1,2})\s*\.?\s*$/.exec(cleanString(value));
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12 || day < 1 || day > DAYS_IN_MONTH[month - 1]) return null;
+  return { day, month };
+}
+
+/** Canonical 'DD.MM', or '' when the value is not a valid day and month. */
+export function normalizeBirthday(value) {
+  const date = parseBirthday(value);
+  return date ? `${String(date.day).padStart(2, '0')}.${String(date.month).padStart(2, '0')}` : '';
+}
+
+/** "11 листопада" */
+export function formatBirthday(value) {
+  const date = parseBirthday(value);
+  return date ? `${date.day} ${MONTHS_GENITIVE[date.month - 1]}` : '';
+}
+
+/** 29.02 is celebrated on 28.02 in years without a leap day. */
+export function isBirthdayToday(node, today = new Date()) {
+  const date = node?.type === 'person' ? parseBirthday(node.birthday) : null;
+  if (!date) return false;
+  const day = today.getDate();
+  const month = today.getMonth() + 1;
+  if (date.month === month && date.day === day) return true;
+  const leap = new Date(today.getFullYear(), 1, 29).getMonth() === 1;
+  return !leap && date.month === 2 && date.day === 29 && month === 2 && day === 28;
 }
 
 export function normalizeNode(raw) {
@@ -87,6 +128,7 @@ export function normalizeNode(raw) {
     photo: safePhoto(source.photo),
     // Shown inside the parent unit's block (unit lead, co-owner).
     head: source.head === true && source.type !== 'unit',
+    birthday: source.type === 'unit' ? '' : normalizeBirthday(source.birthday),
   };
 }
 

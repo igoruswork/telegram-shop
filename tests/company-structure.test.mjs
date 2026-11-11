@@ -5,8 +5,11 @@ import {
   addTopLevel,
   buildIndex,
   countPeople,
+  formatBirthday,
   insertAbove,
+  isBirthdayToday,
   isBlank,
+  normalizeBirthday,
   dutyLines,
   getDescendantIds,
   moveSibling,
@@ -189,4 +192,32 @@ test('plannedStructure adds the warehouse branch under the first top manager', (
   assert.equal(managers.slice(2).every((n) => !children.get(n.id).length), true);
   assert.equal(countPeople(next, root.id), 9);
   assert.equal(plannedStructure(next), next);
+});
+
+test('birthday keeps day and month only and matches the current date', () => {
+  assert.equal(normalizeBirthday('11.11.'), '11.11');
+  assert.equal(normalizeBirthday(' 1/3 '), '01.03');
+  assert.equal(normalizeBirthday('31.04'), '');
+  assert.equal(normalizeBirthday('11.11.1990'), '');
+  assert.equal(normalizeBirthday('hello'), '');
+  assert.equal(formatBirthday('01.03'), '1 березня');
+
+  const [nadia] = normalizeDoc({ nodes: [{ id: 'a', name: 'Надія', birthday: '11.11.' }] }).nodes;
+  assert.equal(nadia.birthday, '11.11');
+  assert.equal(isBirthdayToday(nadia, new Date(2026, 10, 11)), true);
+  assert.equal(isBirthdayToday(nadia, new Date(2026, 10, 12)), false);
+  assert.equal(isBirthdayToday({ type: 'unit', birthday: '11.11' }, new Date(2026, 10, 11)), false);
+
+  const leapDay = { type: 'person', birthday: '29.02' };
+  assert.equal(isBirthdayToday(leapDay, new Date(2027, 1, 28)), true);
+  assert.equal(isBirthdayToday(leapDay, new Date(2028, 1, 28)), false);
+  assert.equal(isBirthdayToday(leapDay, new Date(2028, 1, 29)), true);
+});
+
+test('plannedStructure sets the test birthday without overwriting an existing one', () => {
+  const doc = normalizeDoc({ nodes: [{ id: 'r', name: 'CMO' }] });
+  const next = plannedStructure(doc);
+  assert.equal(next.nodes.find((n) => n.name === 'Надія').birthday, '11.11');
+  const edited = normalizeDoc({ ...next, nodes: next.nodes.map((n) => (n.name === 'Надія' ? { ...n, birthday: '05.06' } : n)) });
+  assert.equal(plannedStructure(edited), edited);
 });

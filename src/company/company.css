@@ -1851,3 +1851,177 @@ mark {
   font-size: 13px;
   line-height: 1.4;
 }
+
+/* ─── Birthday ───────────────────────────────────────── */
+
+.co-birthday {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--co-text-2);
+}
+
+.co-birthday.is-today {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.co-field-short input {
+  max-width: 200px;
+}
+
+.co-field input[aria-invalid='true'] {
+  border-color: var(--co-danger);
+}
+
+.co-field > .co-hint {
+  font-weight: 500;
+  color: var(--co-text-3);
+}
+
+.co-field > .co-hint.is-error {
+  color: var(--co-danger);
+}
+
+.co-card.has-party,
+.co-li-row.has-party {
+  z-index: 2;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28), var(--co-shadow);
+}
+
+.co-li-row.has-party,
+.co-details-hero.has-party {
+  position: relative;
+}
+
+.co-party {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.co-party > * {
+  position: absolute;
+  opacity: 0;
+}
+
+.co-balloon {
+  left: var(--x);
+  bottom: 70%;
+  width: 16px;
+  height: 20px;
+  border-radius: 50% 50% 50% 50% / 44% 44% 56% 56%;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.75) 0 12%, transparent 13%), var(--k);
+  animation: co-balloon 5.4s ease-in var(--d) infinite;
+}
+
+.co-balloon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 16px;
+  background: color-mix(in srgb, var(--k) 70%, var(--co-text-3));
+}
+
+@keyframes co-balloon {
+  0% { transform: translate(0, 24px) scale(0.4); opacity: 0; }
+  12% { transform: translate(0, 0) scale(1); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(var(--sway), -150px) scale(1.05) rotate(8deg); opacity: 0; }
+}
+
+.co-popper {
+  top: -14px;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 1 !important;
+  animation: co-popper 6s ease-out infinite;
+}
+
+.co-popper.is-left {
+  left: -10px;
+  transform-origin: 20% 80%;
+}
+
+.co-popper.is-right {
+  right: -10px;
+  scale: -1 1;
+  transform-origin: 20% 80%;
+}
+
+@keyframes co-popper {
+  0% { transform: scale(0.7) rotate(-18deg); }
+  5% { transform: scale(1.35) rotate(8deg); }
+  12%, 100% { transform: scale(1) rotate(0); }
+}
+
+.co-confetti {
+  top: -6px;
+  width: 6px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--k);
+  animation: co-confetti 6s cubic-bezier(0.15, 0.7, 0.3, 1) var(--d) infinite;
+}
+
+.co-confetti.is-left {
+  left: 4px;
+}
+
+.co-confetti.is-right {
+  right: 4px;
+}
+
+.co-confetti.is-round {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+@keyframes co-confetti {
+  0% { transform: translate(0, 0) rotate(0); opacity: 0; }
+  3% { opacity: 1; }
+  22% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 1; }
+  42% { transform: translate(calc(var(--dx) * 1.15), calc(var(--dy) + 90px)) rotate(calc(var(--r) * 1.6)); opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.co-streamer {
+  left: var(--x);
+  top: 92%;
+  overflow: visible;
+  transform-origin: 50% 0;
+  animation: co-streamer 6s ease-out var(--d) infinite;
+}
+
+.co-streamer path {
+  fill: none;
+  stroke: var(--k);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: co-streamer-draw 6s ease-out var(--d) infinite;
+}
+
+@keyframes co-streamer {
+  0% { opacity: 0; transform: rotate(-6deg); }
+  5% { opacity: 1; }
+  35% { transform: rotate(6deg); }
+  60% { opacity: 1; transform: rotate(-4deg); }
+  80%, 100% { opacity: 0; transform: translateY(18px) rotate(3deg); }
+}
+
+@keyframes co-streamer-draw {
+  0% { stroke-dashoffset: 100; }
+  30%, 100% { stroke-dashoffset: 0; }
+}
