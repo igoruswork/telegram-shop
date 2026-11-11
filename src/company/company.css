@@ -1910,8 +1910,22 @@ mark {
 .co-party > * {
   position: absolute;
   opacity: 0;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
+.co-card.has-party,
+.co-li-row.has-party {
+  animation: co-party-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes co-party-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2), var(--co-shadow); }
+  50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.34), var(--co-shadow); }
+}
+
+/* Balloons: a steady rise (translate) with an independent gentle sway
+   (transform), so neither motion ever snaps. */
 .co-balloon {
   left: var(--x);
   bottom: 70%;
@@ -1919,7 +1933,10 @@ mark {
   height: 20px;
   border-radius: 50% 50% 50% 50% / 44% 44% 56% 56%;
   background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.75) 0 12%, transparent 13%), var(--k);
-  animation: co-balloon 5.4s ease-in var(--d) infinite;
+  transform-origin: 50% 180%;
+  animation:
+    co-balloon-rise 8s cubic-bezier(0.33, 0, 0.67, 1) var(--d) infinite,
+    co-balloon-sway 3.4s ease-in-out var(--d) infinite alternate;
 }
 
 .co-balloon::after {
@@ -1932,11 +1949,16 @@ mark {
   background: color-mix(in srgb, var(--k) 70%, var(--co-text-3));
 }
 
-@keyframes co-balloon {
-  0% { transform: translate(0, 24px) scale(0.4); opacity: 0; }
-  12% { transform: translate(0, 0) scale(1); opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translate(var(--sway), -150px) scale(1.05) rotate(8deg); opacity: 0; }
+@keyframes co-balloon-rise {
+  0% { translate: 0 26px; scale: 0.5; opacity: 0; }
+  14% { scale: 1; opacity: 1; }
+  70% { opacity: 1; }
+  100% { translate: var(--sway) -170px; scale: 1.06; opacity: 0; }
+}
+
+@keyframes co-balloon-sway {
+  from { transform: rotate(-7deg); }
+  to { transform: rotate(7deg); }
 }
 
 .co-popper {
@@ -1944,7 +1966,7 @@ mark {
   font-size: 20px;
   line-height: 1;
   opacity: 1 !important;
-  animation: co-popper 6s ease-out infinite;
+  animation: co-popper 7s infinite;
 }
 
 .co-popper.is-left {
@@ -1959,18 +1981,22 @@ mark {
 }
 
 @keyframes co-popper {
-  0% { transform: scale(0.7) rotate(-18deg); }
-  5% { transform: scale(1.35) rotate(8deg); }
-  12%, 100% { transform: scale(1) rotate(0); }
+  0% { transform: scale(1) rotate(0); animation-timing-function: ease-in; }
+  3% { transform: scale(0.86) rotate(-12deg); animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+  9% { transform: scale(1.22) rotate(7deg); animation-timing-function: ease-in-out; }
+  16% { transform: scale(0.97) rotate(-2deg); animation-timing-function: ease-in-out; }
+  24%, 100% { transform: scale(1) rotate(0); }
 }
 
+/* Confetti: a quick burst that decelerates to its apex, then a slow
+   accelerating fall with a long fade. */
 .co-confetti {
   top: -6px;
   width: 6px;
   height: 10px;
   border-radius: 1px;
   background: var(--k);
-  animation: co-confetti 6s cubic-bezier(0.15, 0.7, 0.3, 1) var(--d) infinite;
+  animation: co-confetti 7s calc(0.2s + var(--d)) infinite;
 }
 
 .co-confetti.is-left {
@@ -1988,19 +2014,37 @@ mark {
 }
 
 @keyframes co-confetti {
-  0% { transform: translate(0, 0) rotate(0); opacity: 0; }
-  3% { opacity: 1; }
-  22% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 1; }
-  42% { transform: translate(calc(var(--dx) * 1.15), calc(var(--dy) + 90px)) rotate(calc(var(--r) * 1.6)); opacity: 0; }
-  100% { opacity: 0; }
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.1, 0.75, 0.3, 1);
+  }
+  2% { opacity: 1; }
+  20% {
+    transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--r));
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.6);
+  }
+  44% { opacity: 0.85; }
+  62% {
+    transform: translate3d(calc(var(--dx) * 1.25), calc(var(--dy) + 120px), 0) rotate(calc(var(--r) * 1.9));
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(calc(var(--dx) * 1.25), calc(var(--dy) + 120px), 0) rotate(calc(var(--r) * 1.9));
+    opacity: 0;
+  }
 }
 
+/* Streamers: unroll once per cycle while swaying like a pendulum. */
 .co-streamer {
   left: var(--x);
   top: 92%;
   overflow: visible;
   transform-origin: 50% 0;
-  animation: co-streamer 6s ease-out var(--d) infinite;
+  animation:
+    co-streamer-fade 7s ease-in-out var(--d) infinite,
+    co-streamer-sway 2.8s ease-in-out var(--d) infinite alternate;
 }
 
 .co-streamer path {
@@ -2010,18 +2054,22 @@ mark {
   stroke-linecap: round;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
-  animation: co-streamer-draw 6s ease-out var(--d) infinite;
+  animation: co-streamer-draw 7s cubic-bezier(0.4, 0, 0.2, 1) var(--d) infinite;
 }
 
-@keyframes co-streamer {
-  0% { opacity: 0; transform: rotate(-6deg); }
-  5% { opacity: 1; }
-  35% { transform: rotate(6deg); }
-  60% { opacity: 1; transform: rotate(-4deg); }
-  80%, 100% { opacity: 0; transform: translateY(18px) rotate(3deg); }
+@keyframes co-streamer-fade {
+  0% { opacity: 0; translate: 0 -4px; }
+  10% { opacity: 1; translate: 0 0; }
+  62% { opacity: 1; translate: 0 0; }
+  88%, 100% { opacity: 0; translate: 0 22px; }
+}
+
+@keyframes co-streamer-sway {
+  from { transform: rotate(-7deg); }
+  to { transform: rotate(7deg); }
 }
 
 @keyframes co-streamer-draw {
   0% { stroke-dashoffset: 100; }
-  30%, 100% { stroke-dashoffset: 0; }
+  38%, 100% { stroke-dashoffset: 0; }
 }
