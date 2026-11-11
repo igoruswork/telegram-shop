@@ -1,7 +1,8 @@
 // The planned company-wide structure, built on top of the current document:
 // a company block above the current head, six more top-manager slots, and the
-// warehouse branch under the first of them. Used for the local preview.
-import { addTopLevel, addTree, buildIndex, isBlank, updateNode } from './model.js';
+// warehouse branch under the first of them. /company/?top on the dev server
+// previews whatever is not in the live data yet.
+import { addTopLevel, addTree, buildIndex, emptyNode, insertAbove, isBlank, updateNode } from './model.js';
 
 const blanks = (count) => Array.from({ length: count }, () => ({}));
 
@@ -20,11 +21,34 @@ const WAREHOUSE_DEPUTIES = [
   },
 ];
 
-export function plannedStructure(doc) {
+// A unit block above each warehouse deputy.
+const WAREHOUSE_UNITS = [
+  { person: 'Ігор Яблонський', title: 'Роздрібний склад', color: '#10b981' },
+  { person: 'Світлана Шевченко', title: 'Гуртовий склад', color: '#6366f1' },
+];
+
+function withTopLevel(doc) {
   const next = addTopLevel(doc);
   if (next === doc) return doc; // already has the top level
   const { root, children } = buildIndex(next);
   const manager = children.get(root.id).find(isBlank);
   if (!manager) return next;
   return addTree(updateNode(next, manager.id, WAREHOUSE_MANAGER), manager.id, WAREHOUSE_DEPUTIES);
+}
+
+function withWarehouseUnits(doc) {
+  let next = doc;
+  for (const { person, title, color } of WAREHOUSE_UNITS) {
+    const { byId } = buildIndex(next);
+    const target = next.nodes.find((n) => n.type === 'person' && n.name === person);
+    const parent = target && byId.get(target.parentId);
+    if (!target || (parent?.type === 'unit' && parent.title === title)) continue;
+    next = insertAbove(next, target.id, emptyNode({ type: 'unit', title, color }));
+  }
+  return next;
+}
+
+/** Every step is skipped once it is already in the document. */
+export function plannedStructure(doc) {
+  return withWarehouseUnits(withTopLevel(doc));
 }

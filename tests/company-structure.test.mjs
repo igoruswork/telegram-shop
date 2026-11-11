@@ -180,7 +180,9 @@ test('plannedStructure adds the warehouse branch under the first top manager', (
   const { root, children } = buildIndex(next);
   const managers = children.get(root.id);
   assert.deepEqual([managers[1].name, managers[1].title], ['Сергій Моторний', 'Завідувач складом готової продукції']);
-  const deputies = children.get(managers[1].id);
+  const units = children.get(managers[1].id);
+  assert.deepEqual(units.map((n) => [n.type, n.title]), [['unit', 'Роздрібний склад'], ['unit', 'Гуртовий склад']]);
+  const deputies = units.map((unit) => children.get(unit.id)[0]);
   assert.deepEqual(deputies.map((n) => n.name), ['Ігор Яблонський', 'Світлана Шевченко']);
   assert.deepEqual(children.get(deputies[0].id).map((n) => n.name), ['Людмила', 'Наталія', 'Надія', 'Дмитро', 'Каріна']);
   assert.equal(children.get(deputies[1].id).filter(isBlank).length, 18);
