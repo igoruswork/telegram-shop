@@ -7,7 +7,8 @@
 //   nodes: Array<{
 //     id, parentId (null for root), type: 'unit' | 'person',
 //     title (position or unit name), name, brands, telegram, phone, email,
-//     duties (multi-line text), color (units only, optional)
+//     duties (multi-line text), color (units only, optional),
+//     head (people only: shown inside the parent unit's block)
 //   }>,
 //   updatedAt: ISO string
 // }
@@ -50,6 +51,7 @@ export function emptyNode(overrides = {}) {
     duties: '',
     color: '',
     photo: '',
+    head: false,
     ...overrides,
   };
 }
@@ -83,6 +85,8 @@ export function normalizeNode(raw) {
     duties: cleanString(source.duties),
     color: cleanString(source.color),
     photo: safePhoto(source.photo),
+    // Shown inside the parent unit's block (unit lead, co-owner).
+    head: source.head === true && source.type !== 'unit',
   };
 }
 
@@ -209,9 +213,20 @@ export function inkOn(color) {
   return 1.05 / (luminance + 0.05) >= 3 ? '#ffffff' : '#10202d';
 }
 
+/** A person card without a name yet: a placeholder slot (may carry a role). */
+export function isBlank(node) {
+  return node?.type === 'person' && !cleanString(node.name).trim();
+}
+
+export function displayName(node) {
+  if (node.type === 'unit') return node.title || 'Без назви';
+  return node.name || node.title || 'Порожня картка';
+}
+
+/** People below `id`; placeholder cards are not counted. */
 export function countPeople(doc, id) {
   const ids = getDescendantIds(doc, id);
-  return doc.nodes.filter((n) => ids.has(n.id) && n.type === 'person').length;
+  return doc.nodes.filter((n) => ids.has(n.id) && n.type === 'person' && !isBlank(n)).length;
 }
 
 function touch(doc, nodes) {
@@ -236,6 +251,61 @@ export function addNode(doc, node) {
   }
   nodes.splice(insertAt, 0, clean);
   return touch(doc, nodes);
+}
+
+/** Inserts node between `id` and its parent, so `id` now reports to it. */
+export function insertAbove(doc, id, node) {
+  const target = doc.nodes.find((n) => n.id === id);
+  if (!target) return doc;
+  const clean = { ...normalizeNode(node), parentId: target.parentId, head: false };
+  const nodes = [];
+  for (const n of doc.nodes) {
+    if (n.id === id) nodes.push(clean, { ...n, parentId: clean.id, head: false });
+    else nodes.push(n);
+  }
+  return touch(doc, nodes);
+}
+
+/**
+ * Puts a company unit above a single top manager and adds `managers` blank
+ * top-manager cards next to them (plus `owners` blank cards inside the unit,
+ * none by default). Does nothing if the root is already a unit.
+ */
+export function addTopLevel(doc, {
+  managers = 6,
+  owners = 0,
+  title = '',
+  managerTitle = 'Топ-менеджер',
+  ownerTitle = 'Співвласник',
+} = {}) {
+  const root = getRoot(doc);
+  if (!root || root.type === 'unit') return doc;
+  const unit = emptyNode({ type: 'unit', title: title || doc.subtitle || 'Компанія', color: '#475569' });
+  let next = insertAbove(doc, root.id, unit);
+  if (owners > 0) {
+    const nodes = [...next.nodes];
+    const heads = Array.from({ length: owners }, () => emptyNode({ parentId: unit.id, head: true, title: ownerTitle }));
+    nodes.splice(nodes.findIndex((n) => n.id === root.id), 0, ...heads);
+    next = { ...next, nodes };
+  }
+  for (let i = 0; i < managers; i += 1) {
+    next = addNode(next, emptyNode({ parentId: unit.id, title: managerTitle }));
+  }
+  return next;
+}
+
+/**
+ * Adds a nested branch under parentId. Each item is a node's fields plus an
+ * optional `children` array of the same shape; `{}` is a blank card.
+ */
+export function addTree(doc, parentId, items) {
+  let next = doc;
+  for (const { children, ...fields } of items) {
+    const node = emptyNode({ ...fields, parentId });
+    next = addNode(next, node);
+    if (children?.length) next = addTree(next, node.id, children);
+  }
+  return next;
 }
 
 /** Updates fields; a parent change is ignored if it would create a cycle. */

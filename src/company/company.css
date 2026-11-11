@@ -1749,3 +1749,105 @@ mark {
     display: none;
   }
 }
+
+/* ─── Blank cards, unit heads ────────────────────────── */
+
+.co-card.is-blank {
+  background: color-mix(in srgb, var(--co-surface) 55%, transparent);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--c) 45%, var(--co-line));
+  box-shadow: none;
+}
+
+.co-card.is-blank::before {
+  display: none;
+}
+
+.co-card.is-blank .co-card-name,
+.co-li.is-blank > .co-li-row .co-card-name {
+  color: var(--co-text-3);
+  font-weight: 700;
+}
+
+.co-card.is-blank .co-avatar,
+.co-li.is-blank > .co-li-row .co-avatar {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 40%, var(--co-line));
+  color: var(--co-text-3);
+}
+
+.co-li.is-blank > .co-li-row {
+  background: color-mix(in srgb, var(--co-surface) 55%, transparent);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+/* A unit with its heads (leads, co-owners) framed as one block. */
+.co-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--c) 9%, var(--co-surface));
+  border: 1.5px solid color-mix(in srgb, var(--c) 35%, transparent);
+}
+
+.co-heads {
+  display: flex;
+  gap: 10px;
+}
+
+.co-group .co-card.is-root {
+  box-shadow: none;
+}
+
+.co-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  vertical-align: 1px;
+}
+
+.co-card-title:empty {
+  display: none;
+}
+
+.co-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--co-surface-2);
+  border: 1px solid var(--co-border);
+  cursor: pointer;
+}
+
+.co-check input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: var(--co-accent);
+}
+
+.co-check span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.co-check small {
+  color: var(--co-text-2);
+  font-size: 13px;
+  line-height: 1.4;
+}

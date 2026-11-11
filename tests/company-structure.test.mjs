@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addNode,
+  addTopLevel,
+  buildIndex,
+  countPeople,
+  insertAbove,
+  isBlank,
   dutyLines,
   getDescendantIds,
   moveSibling,
@@ -12,6 +17,7 @@ import {
   updateNode,
 } from '../src/company/model.js';
 import { fillMerges, rowsToDoc } from '../src/company/importRows.js';
+import { plannedStructure } from '../src/company/planned.js';
 
 function sample() {
   return normalizeDoc({
@@ -126,4 +132,59 @@ test('safePhoto keeps small inline images and https links only', async () => {
   assert.equal(safePhoto('data:image/svg+xml;base64,AAAA'), '');
   assert.equal(safePhoto(`data:image/png;base64,${'A'.repeat(70000)}`), '');
   assert.equal(normalizeNode({ id: 'x', photo: 'http://insecure/a.jpg' }).photo, '');
+});
+
+test('blank cards are placeholders and are not counted as people', () => {
+  const doc = normalizeDoc({ nodes: [
+    { id: 'u', type: 'unit', title: 'Unit' },
+    { id: 'a', parentId: 'u', name: 'Ann' },
+    { id: 'b', parentId: 'u' },
+    { id: 'c', parentId: 'u', title: 'Designer' },
+  ] });
+  assert.equal(isBlank(doc.nodes[2]), true);
+  assert.equal(isBlank(doc.nodes[3]), true);
+  assert.equal(countPeople(doc, 'u'), 1);
+});
+
+test('insertAbove puts a new card between a node and its parent', () => {
+  const doc = normalizeDoc({ nodes: [{ id: 'r', name: 'Root' }, { id: 'k', parentId: 'r', name: 'Kid' }] });
+  const next = insertAbove(doc, 'r', { id: 'top', type: 'unit', title: 'Owners' });
+  const { root, byId } = buildIndex(next);
+  assert.equal(root.id, 'top');
+  assert.equal(byId.get('r').parentId, 'top');
+  assert.equal(byId.get('k').parentId, 'r');
+  assert.deepEqual(normalizeDoc(next).nodes.map((n) => n.parentId), next.nodes.map((n) => n.parentId));
+});
+
+test('addTopLevel puts a company unit above the root with blank top managers, once', () => {
+  const doc = normalizeDoc({ subtitle: 'ProCare', nodes: [{ id: 'r', name: 'CMO' }, { id: 'k', parentId: 'r', name: 'Kid' }] });
+  const next = addTopLevel(doc);
+  const { root, children } = buildIndex(next);
+  const kids = children.get(root.id);
+  assert.equal(root.type, 'unit');
+  assert.equal(root.title, 'ProCare');
+  assert.equal(kids.length, 7);
+  assert.equal(kids[0].id, 'r');
+  assert.equal(kids.filter((n) => n.head).length, 0);
+  assert.deepEqual(kids.slice(1).map((n) => [isBlank(n), n.title]), Array(6).fill([true, 'Топ-менеджер']));
+  assert.equal(countPeople(next, root.id), 2);
+  assert.equal(addTopLevel(next), next);
+
+  const withOwners = buildIndex(addTopLevel(doc, { owners: 3 }));
+  assert.equal(withOwners.children.get(withOwners.root.id).filter((n) => n.head).length, 3);
+});
+
+test('plannedStructure adds the warehouse branch under the first top manager', () => {
+  const doc = normalizeDoc({ nodes: [{ id: 'r', name: 'CMO' }] });
+  const next = plannedStructure(doc);
+  const { root, children } = buildIndex(next);
+  const managers = children.get(root.id);
+  assert.deepEqual([managers[1].name, managers[1].title], ['Сергій Моторний', 'Завідувач складом готової продукції']);
+  const deputies = children.get(managers[1].id);
+  assert.deepEqual(deputies.map((n) => n.name), ['Ігор Яблонський', 'Світлана Шевченко']);
+  assert.deepEqual(children.get(deputies[0].id).map((n) => n.name), ['Людмила', 'Наталія', 'Надія', 'Дмитро', 'Каріна']);
+  assert.equal(children.get(deputies[1].id).filter(isBlank).length, 18);
+  assert.equal(managers.slice(2).every((n) => !children.get(n.id).length), true);
+  assert.equal(countPeople(next, root.id), 9);
+  assert.equal(plannedStructure(next), next);
 });

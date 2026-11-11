@@ -6,12 +6,15 @@ import {
   brandList,
   buildIndex,
   countPeople,
+  displayName,
   dutyLines,
   emptyNode,
   formatPhone,
   getAncestors,
   getDescendantIds,
   initials,
+  insertAbove,
+  isBlank,
   inkOn,
   matchesQuery,
   moveSibling,
@@ -27,9 +30,15 @@ import {
 import { fetchRemote, isApprovedCompanyAdmin, isRemoteEnabled, readCache, saveDoc, seedDoc, writeCache } from './storage';
 import { loadStoredUser, USER_STORAGE_KEY } from '../lib/shopSession';
 import { copyToClipboard } from '../lib/clipboard';
+import { plannedStructure } from './planned';
 
 const VIEW_KEY = 'company-structure:view';
 const HISTORY_LIMIT = 40;
+
+// Dev server only: /company/?top shows the planned structure (see
+// planned.js) on top of the live data, without saving anything.
+const PREVIEW_TOP = import.meta.env.DEV && new URLSearchParams(window.location.search).has('top');
+const prepareDoc = (doc) => (PREVIEW_TOP ? plannedStructure(doc) : doc);
 
 function readPref(key, fallback) {
   try {
@@ -115,7 +124,7 @@ function Avatar({ node, color, size = 40 }) {
     >
       {node.photo && node.type !== 'unit'
         ? <img src={node.photo} alt="" loading="lazy" draggable="false" />
-        : label || <Icon name={node.type === 'unit' ? 'users' : 'briefcase'} size={size * 0.48} />}
+        : label || <Icon name={node.type === 'unit' ? 'users' : isBlank(node) ? 'user' : 'briefcase'} size={size * 0.48} />}
     </span>
   );
 }
@@ -241,6 +250,7 @@ function OrgCard({ node, ctx, compact }) {
         node.type === 'unit' ? 'is-unit' : 'is-person',
         isRoot ? 'is-root' : '',
         compact ? 'is-compact' : '',
+        isBlank(node) ? 'is-blank' : '',
         highlight ? 'is-highlight' : '',
       ].join(' ')}
       style={tone(color)}
@@ -259,8 +269,8 @@ function OrgCard({ node, ctx, compact }) {
           <>
             <Avatar node={node} color={color} size={isRoot ? 48 : compact ? 34 : 40} />
             <span className="co-card-text">
-              <span className="co-card-name">{node.name || 'Вакансія'}</span>
-              <span className="co-card-title">{node.title || '—'}</span>
+              <span className="co-card-name">{displayName(node)}</span>
+              <span className="co-card-title">{isBlank(node) ? 'не заповнено' : node.title || '—'}</span>
               {!compact && node.brands ? <span className="co-card-brands">{node.brands}</span> : null}
             </span>
           </>
@@ -284,23 +294,36 @@ function pluralPeople(count) {
   return 'людей';
 }
 
+// People flagged as unit heads (leads, co-owners) sit inside the unit's block.
+function unitHeads(node, kids, index) {
+  if (node.type !== 'unit') return [];
+  return kids.filter((kid) => kid.head && kid.type === 'person' && !(index.children.get(kid.id) || []).length);
+}
+
 function OrgBranch({ node, ctx }) {
-  const kids = ctx.index.children.get(node.id) || [];
+  const allKids = ctx.index.children.get(node.id) || [];
+  const heads = unitHeads(node, allKids, ctx.index);
+  const kids = heads.length ? allKids.filter((kid) => !heads.includes(kid)) : allKids;
   const isLeaf = (child) => !(ctx.index.children.get(child.id) || []).length;
 
-  if (!kids.length) {
-    return (
-      <div className="co-branch">
-        <OrgCard node={node} ctx={ctx} />
+  const card = heads.length ? (
+    <div className="co-group" style={tone(resolveColor(ctx.doc, node.id))}>
+      <OrgCard node={node} ctx={ctx} />
+      <div className="co-heads">
+        {heads.map((head) => <OrgCard key={head.id} node={head} ctx={ctx} />)}
       </div>
-    );
+    </div>
+  ) : <OrgCard node={node} ctx={ctx} />;
+
+  if (!kids.length) {
+    return <div className="co-branch">{card}</div>;
   }
 
   // Only leaves below: stack them vertically to keep the chart narrow.
   if (kids.every(isLeaf) && node.parentId) {
     return (
       <div className="co-branch">
-        <OrgCard node={node} ctx={ctx} />
+        {card}
         <div className="co-stack" style={tone(resolveColor(ctx.doc, node.id))}>
           {kids.map((kid) => (
             <div className="co-stack-item" key={kid.id}>
@@ -322,7 +345,7 @@ function OrgBranch({ node, ctx }) {
 
   return (
     <div className="co-branch">
-      <OrgCard node={node} ctx={ctx} />
+      {card}
       <div className="co-row">
         {groups.map((group) => (
           <div className="co-col" key={group.items[0].id}>
@@ -519,7 +542,7 @@ function ListNode({ node, ctx, depth }) {
   const total = node.type === 'unit' ? countPeople(ctx.doc, node.id) : kids.length;
 
   return (
-    <li className={`co-li ${node.type === 'unit' ? 'is-unit' : ''}`} style={tone(color)}>
+    <li className={`co-li ${node.type === 'unit' ? 'is-unit' : ''} ${isBlank(node) ? 'is-blank' : ''}`} style={tone(color)}>
       <div className={`co-li-row ${ctx.highlightId === node.id ? 'is-highlight' : ''}`} data-node-id={node.id}>
         {kids.length ? (
           <button
@@ -541,9 +564,10 @@ function ListNode({ node, ctx, depth }) {
             <Avatar node={node} color={color} size={depth === 0 ? 44 : 38} />
           )}
           <span className="co-card-text">
-            <span className="co-card-name">{node.type === 'unit' ? node.title : node.name || 'Вакансія'}</span>
+            <span className="co-card-name">{displayName(node)}</span>
             <span className="co-card-title">
-              {node.type === 'unit' ? `${total} ${pluralPeople(total)}` : node.title}
+              {node.type === 'unit' ? `${total} ${pluralPeople(total)}` : isBlank(node) ? 'не заповнено' : node.title}
+              {node.head ? <span className="co-tag">керівництво</span> : null}
             </span>
           </span>
           {node.type !== 'unit' && kids.length ? <span className="co-badge">{kids.length}</span> : null}
@@ -652,10 +676,10 @@ function SearchResults({ doc, query, onOpen, onClear }) {
             <Avatar node={node} color={color} size={40} />
             <span className="co-card-text">
               <span className="co-card-name">
-                <Highlight text={node.type === 'unit' ? node.title : node.name || 'Вакансія'} query={q} />
+                <Highlight text={displayName(node)} query={q} />
               </span>
               <span className="co-card-title">
-                {node.type === 'unit' ? 'Підрозділ' : <Highlight text={node.title} query={q} />}
+                {node.type === 'unit' ? 'Підрозділ' : isBlank(node) ? 'не заповнено' : <Highlight text={node.title} query={q} />}
               </span>
               {snippet ? (
                 <span className="co-card-brands">{snippet.label}: <Highlight text={snippet.text} query={q} /></span>
@@ -694,13 +718,19 @@ function ContactRow({ icon, label, value, href, onClick, onCopy }) {
   );
 }
 
-function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onDelete, onMove, editMode, notify }) {
+function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onAddBlank, onAddAbove, onDelete, onMove, editMode, notify }) {
   const index = useMemo(() => buildIndex(doc), [doc]);
   const node = index.byId.get(nodeId);
   if (!node) return null;
   const color = resolveColor(doc, node.id);
   const ancestors = getAncestors(doc, node.id);
-  const manager = [...ancestors].reverse().find((a) => a.type === 'person');
+  // Reports to the nearest person above, or to the heads of the parent unit.
+  const parent = index.byId.get(node.parentId);
+  const boss = [...ancestors].reverse().find((a) => a.type === 'person');
+  const unitBosses = parent && !node.head
+    ? unitHeads(parent, index.children.get(parent.id) || [], index).filter((h) => !isBlank(h))
+    : [];
+  const managers = unitBosses.length ? unitBosses : boss ? [boss] : [];
   const kids = index.children.get(node.id) || [];
   const handle = telegramHandle(node.telegram);
   const lines = dutyLines(node.duties);
@@ -721,15 +751,17 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onDelete, onMove, edi
       <div className="co-details-hero">
         <Avatar node={node} color={color} size={64} />
         <div>
-          <div className="co-details-name">{node.type === 'unit' ? node.title : node.name || 'Вакансія'}</div>
+          <div className="co-details-name">{displayName(node)}</div>
           <div className="co-details-title">
-            {node.type === 'unit' ? `Підрозділ · ${countPeople(doc, node.id)} ${pluralPeople(countPeople(doc, node.id))}` : node.title}
+            {node.type === 'unit'
+              ? `Підрозділ · ${countPeople(doc, node.id)} ${pluralPeople(countPeople(doc, node.id))}`
+              : isBlank(node) ? 'Картку ще не заповнено' : node.title}
           </div>
           {ancestors.length ? (
             <div className="co-crumbs">
               {ancestors.map((a) => (
                 <button key={a.id} type="button" onClick={() => onOpen(a.id)}>
-                  {a.type === 'unit' ? a.title : a.name}
+                  {displayName(a)}
                 </button>
               ))}
             </div>
@@ -786,10 +818,12 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onDelete, onMove, edi
         </div>
       ) : null}
 
-      {manager && node.type === 'person' ? (
+      {managers.length && node.type === 'person' ? (
         <div className="co-section">
-          <div className="co-section-title">Керівник</div>
-          <PersonLink doc={doc} node={manager} onOpen={onOpen} />
+          <div className="co-section-title">{managers.length > 1 ? 'Керівники' : 'Керівник'}</div>
+          <div className="co-people">
+            {managers.map((m) => <PersonLink key={m.id} doc={doc} node={m} onOpen={onOpen} />)}
+          </div>
         </div>
       ) : null}
 
@@ -810,6 +844,14 @@ function NodeDetails({ doc, nodeId, onOpen, onEdit, onAdd, onDelete, onMove, edi
           <button type="button" className="co-btn" onClick={() => onAdd(node.id)}>
             <Icon name="plus" size={16} /> Підлеглий
           </button>
+          <button type="button" className="co-btn" onClick={() => onAddBlank(node.id)}>
+            <Icon name="user" size={16} /> Порожня картка
+          </button>
+          {!node.parentId ? (
+            <button type="button" className="co-btn" onClick={() => onAddAbove(node.id)}>
+              <Icon name="levelUp" size={16} /> Рівень вище
+            </button>
+          ) : null}
           {node.parentId ? (
             <>
               <IconButton icon="up" label="Вище серед колег" disabled={pos <= 0} onClick={() => onMove(node.id, -1)} />
@@ -829,8 +871,8 @@ function PersonLink({ doc, node, onOpen }) {
     <button type="button" className="co-person-link" onClick={() => onOpen(node.id)} style={tone(color)}>
       <Avatar node={node} color={color} size={34} />
       <span className="co-card-text">
-        <span className="co-card-name">{node.type === 'unit' ? node.title : node.name || 'Вакансія'}</span>
-        <span className="co-card-title">{node.type === 'unit' ? 'Підрозділ' : node.title}</span>
+        <span className="co-card-name">{displayName(node)}</span>
+        <span className="co-card-title">{node.type === 'unit' ? 'Підрозділ' : isBlank(node) ? 'не заповнено' : node.title}</span>
       </span>
       <Icon name="chevron" size={16} className="co-muted" />
     </button>
@@ -848,7 +890,7 @@ function parentOptions(doc, excludeId) {
     if (exclude.has(node.id)) return;
     result.push({
       id: node.id,
-      label: `${'— '.repeat(depth)}${node.type === 'unit' ? `▣ ${node.title}` : `${node.name || 'Вакансія'}${node.title ? ` · ${node.title}` : ''}`}`,
+      label: `${'— '.repeat(depth)}${node.type === 'unit' ? `▣ ${node.title}` : `${displayName(node)}${node.name && node.title ? ` · ${node.title}` : ''}`}`,
     });
     for (const kid of index.children.get(node.id) || []) walk(kid, depth + 1);
   };
@@ -940,19 +982,22 @@ function PhotoField({ form, setForm, color }) {
   );
 }
 
-function NodeForm({ doc, draft, isNew, onCancel, onSave }) {
+function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
   const [form, setForm] = useState(draft);
   const photoColor = resolveColor(doc, draft.parentId || draft.id);
   const set = (field) => (event) => setForm((f) => ({ ...f, [field]: event.target.value }));
   const options = useMemo(() => parentOptions(doc, isNew ? null : draft.id), [doc, draft.id, isNew]);
-  const isRoot = !isNew && !draft.parentId;
-  const valid = form.type === 'unit' ? form.title.trim() : form.name.trim() || form.title.trim();
+  const isRoot = above || (!isNew && !draft.parentId);
+  // A person card may be saved empty: a placeholder to fill in later.
+  const valid = form.type === 'unit' ? Boolean(form.title.trim()) : true;
+  const parentIsUnit = doc.nodes.find((n) => n.id === form.parentId)?.type === 'unit';
 
   const submit = (event) => {
     event.preventDefault();
     if (!valid) return;
     onSave({
       ...form,
+      head: form.type === 'person' && parentIsUnit && form.head === true,
       title: form.title.trim(),
       name: form.name.trim(),
       brands: form.brands.trim(),
@@ -1018,9 +1063,23 @@ function NodeForm({ doc, draft, isNew, onCancel, onSave }) {
       ) : (
         <>
           <PhotoField form={form} setForm={setForm} color={photoColor} />
+          {parentIsUnit && !above ? (
+            <label className="co-check">
+              <input
+                type="checkbox"
+                checked={form.head === true}
+                onChange={(event) => setForm((f) => ({ ...f, head: event.target.checked }))}
+              />
+              <span>
+                <strong>Керівництво підрозділу</strong>
+                <small>Картка стоїть у блоці підрозділу, решта підпорядковується їй (керівник, співвласник)</small>
+              </span>
+            </label>
+          ) : null}
+          <p className="co-hint">Усі поля необов'язкові: можна зберегти порожню картку й заповнити пізніше.</p>
           <div className="co-grid-2">
             <label className="co-field">
-              <span>ПІБ *</span>
+              <span>ПІБ</span>
               <input value={form.name} onChange={set('name')} placeholder="Прізвище Ім'я" autoFocus />
             </label>
             <label className="co-field">
@@ -1072,7 +1131,7 @@ const SAVE_LABELS = {
   loading: 'Завантаження…',
 };
 
-function SettingsPanel({ doc, editMode, setEditMode, saveState, onMeta, onImportExcel, onImportJson, onExport, onReset, onAddTop }) {
+function SettingsPanel({ doc, editMode, setEditMode, saveState, onMeta, onImportExcel, onImportJson, onExport, onReset, onAddTop, onAddBlank, onAddAbove }) {
   const excelRef = useRef(null);
   const jsonRef = useRef(null);
   return (
@@ -1102,6 +1161,12 @@ function SettingsPanel({ doc, editMode, setEditMode, saveState, onMeta, onImport
         </button>
         <button type="button" className="co-tile" onClick={() => onAddTop('person')}>
           <Icon name="briefcase" /> Новий співробітник
+        </button>
+        <button type="button" className="co-tile" onClick={onAddBlank}>
+          <Icon name="user" /> Порожня картка
+        </button>
+        <button type="button" className="co-tile" onClick={onAddAbove}>
+          <Icon name="levelUp" /> Рівень над керівником
         </button>
         <button type="button" className="co-tile" onClick={() => excelRef.current?.click()}>
           <Icon name="file" /> Імпорт з Excel
@@ -1189,9 +1254,9 @@ function useCompanyAdmin() {
 export default function CompanyApp() {
   useTheme();
   const adminAccess = useCompanyAdmin();
-  const canEdit = adminAccess === true;
+  const canEdit = adminAccess === true && !PREVIEW_TOP;
   const cached = useMemo(() => readCache(), []);
-  const [doc, setDoc] = useState(() => cached?.doc || seedDoc());
+  const [doc, setDoc] = useState(() => prepareDoc(cached?.doc || seedDoc()));
   const [history, setHistory] = useState([]);
   const [view, setView] = useState(() => readPref(VIEW_KEY, window.innerWidth < 760 ? 'list' : 'tree'));
   const [query, setQuery] = useState('');
@@ -1205,7 +1270,7 @@ export default function CompanyApp() {
   const [confirm, setConfirm] = useState(null); // { title, text, action, danger }
   // On phones start with units folded so the whole department fits on screen.
   const [collapsed, setCollapsed] = useState(() => (window.innerWidth < 760
-    ? new Set((cached?.doc || seedDoc()).nodes.filter((n) => n.type === 'unit').map((n) => n.id))
+    ? new Set((cached?.doc || seedDoc()).nodes.filter((n) => n.type === 'unit' && n.parentId).map((n) => n.id))
     : new Set()));
   const [saveState, setSaveState] = useState(isRemoteEnabled ? 'loading' : 'idle');
   const [toast, setToast] = useState('');
@@ -1216,7 +1281,7 @@ export default function CompanyApp() {
 
   const index = useMemo(() => buildIndex(doc), [doc]);
   const stats = useMemo(() => ({
-    people: doc.nodes.filter((n) => n.type === 'person').length,
+    people: doc.nodes.filter((n) => n.type === 'person' && !isBlank(n)).length,
     units: doc.nodes.filter((n) => n.type === 'unit').length,
   }), [doc]);
 
@@ -1246,9 +1311,9 @@ export default function CompanyApp() {
         if (dirty.current) return; // user already editing; their save wins
         const localUnsynced = canEdit && cached && !cached.synced;
         if (remote && !(localUnsynced && cached.doc.updatedAt > remote.updatedAt)) {
-          setDoc(remote);
+          setDoc(prepareDoc(remote));
           // Keep any local admin draft intact while viewing as a guest.
-          if (canEdit || !cached || cached.synced) writeCache(remote, true);
+          if (!PREVIEW_TOP && (canEdit || !cached || cached.synced)) writeCache(remote, true);
           setSaveState('remote');
         } else if (localUnsynced) {
           setSaveState('saving');
@@ -1364,8 +1429,25 @@ export default function CompanyApp() {
     if (node) setForm({ isNew: false, draft: { ...node } });
   }, [index]);
 
+  // One tap: an empty placeholder card under `parentId`.
+  const addBlank = useCallback((parentId) => {
+    const blank = emptyNode({ parentId: parentId || index.root?.id || null });
+    commit(addNode(doc, blank), 'Порожню картку додано');
+    setCollapsed((s) => { const c = new Set(s); c.delete(blank.parentId); return c; });
+    setFocusId(blank.id);
+  }, [commit, doc, index]);
+
+  // A new card above the current head of the structure.
+  const startAddAbove = useCallback(() => {
+    if (!index.root) return;
+    setForm({ isNew: true, above: index.root.id, draft: emptyNode({ type: 'unit' }) });
+  }, [index]);
+
   const saveForm = (values) => {
-    if (form.isNew) {
+    if (form.above) {
+      commit(insertAbove(doc, form.above, values), 'Рівень додано');
+      setFocusId(values.id);
+    } else if (form.isNew) {
       const next = addNode(doc, values);
       commit(next, values.type === 'unit' ? 'Підрозділ додано' : 'Співробітника додано');
       const added = next.nodes.find((n) => n.id === values.id);
@@ -1523,6 +1605,12 @@ export default function CompanyApp() {
             <button type="button" onClick={() => setEditMode(false)}>Готово</button>
           </div>
         ) : null}
+        {PREVIEW_TOP ? (
+          <div className="co-edit-banner">
+            <span><Icon name="users" size={15} /> Попередній перегляд</span>
+            <span className="co-edit-status">Нову структуру ще не збережено</span>
+          </div>
+        ) : null}
         {saveState === 'loading' ? <div className="co-progress" role="progressbar" aria-label="Завантаження структури" /> : null}
       </header>
 
@@ -1553,6 +1641,8 @@ export default function CompanyApp() {
             onOpen={openNode}
             onEdit={startEdit}
             onAdd={(id) => startAdd(id)}
+            onAddBlank={addBlank}
+            onAddAbove={startAddAbove}
             onDelete={requestDelete}
             onMove={(id, dir) => commit(moveSibling(doc, id, dir))}
             editMode={editMode}
@@ -1564,7 +1654,7 @@ export default function CompanyApp() {
       <Sheet
         open={canEdit && Boolean(form)}
         onClose={() => setForm(null)}
-        title={form?.isNew ? 'Нова картка' : 'Редагування'}
+        title={form?.above ? 'Новий рівень над керівником' : form?.isNew ? 'Нова картка' : 'Редагування'}
         wide
       >
         {form ? (
@@ -1573,6 +1663,7 @@ export default function CompanyApp() {
             doc={doc}
             draft={form.draft}
             isNew={form.isNew}
+            above={Boolean(form.above)}
             onCancel={() => setForm(null)}
             onSave={saveForm}
           />
@@ -1601,6 +1692,16 @@ export default function CompanyApp() {
             setSettingsOpen(false);
             setEditMode(true);
             startAdd(index.root?.id, type);
+          }}
+          onAddBlank={() => {
+            setSettingsOpen(false);
+            setEditMode(true);
+            addBlank(index.root?.id);
+          }}
+          onAddAbove={() => {
+            setSettingsOpen(false);
+            setEditMode(true);
+            startAddAbove();
           }}
         />
       </Sheet>
