@@ -9,7 +9,10 @@
 //     title (position or unit name), name, brands, telegram, phone, email,
 //     duties (multi-line text), color (units only, optional),
 //     head (people only: shown inside the parent unit's block),
-//     birthday (people only: 'DD.MM', no year)
+//     birthday (people only: 'DD.MM', no year),
+//     hired (people only: 'DD.MM.YYYY', the day they joined),
+//     large (people only: a bigger card on the chart),
+//     count (people only: a shared card for `count` people in one role, 0 = one person)
 //   }>,
 //   updatedAt: ISO string
 // }
@@ -54,6 +57,9 @@ export function emptyNode(overrides = {}) {
     photo: '',
     head: false,
     birthday: '',
+    count: 0,
+    hired: '',
+    large: false,
     ...overrides,
   };
 }
@@ -110,6 +116,60 @@ export function isBirthdayToday(node, today = new Date()) {
   return !leap && date.month === 2 && date.day === 29 && month === 2 && day === 28;
 }
 
+/** Reads "28.08.2024", "28/8/24" or "2024-08-28" as { day, month, year }; null if not a date. */
+export function parseHired(value) {
+  const text = cleanString(value).trim();
+  let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+  let day; let month; let year;
+  if (match) [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  else {
+    match = /^(\d{1,2})\s*[./\-\s]\s*(\d{1,2})\s*[./\-\s]\s*(\d{2}|\d{4})$/.exec(text);
+    if (!match) return null;
+    [day, month, year] = [Number(match[1]), Number(match[2]), Number(match[3])];
+    if (year < 100) year += 2000;
+  }
+  if (year < 1950 || year > 2100 || month < 1 || month > 12 || day < 1) return null;
+  if (day > new Date(year, month, 0).getDate()) return null;
+  return { day, month, year };
+}
+
+/** Canonical 'DD.MM.YYYY', or '' when the value is not a valid date. */
+export function normalizeHired(value) {
+  const date = parseHired(value);
+  return date ? `${String(date.day).padStart(2, '0')}.${String(date.month).padStart(2, '0')}.${date.year}` : '';
+}
+
+/** "28 серпня 2024" */
+export function formatHired(value) {
+  const date = parseHired(value);
+  return date ? `${date.day} ${MONTHS_GENITIVE[date.month - 1]} ${date.year}` : '';
+}
+
+/**
+ * Full years with the company when today is the anniversary of the hire date
+ * (from the first year on), otherwise 0. 29.02 is marked on 28.02 in years
+ * without a leap day.
+ */
+export function workAnniversary(node, today = new Date()) {
+  const date = node?.type === 'person' ? parseHired(node.hired) : null;
+  if (!date) return 0;
+  const years = today.getFullYear() - date.year;
+  if (years < 1) return 0;
+  const day = today.getDate();
+  const month = today.getMonth() + 1;
+  if (date.month === month && date.day === day) return years;
+  const leap = new Date(today.getFullYear(), 1, 29).getMonth() === 1;
+  return !leap && date.month === 2 && date.day === 29 && month === 2 && day === 28 ? years : 0;
+}
+
+export const COUNT_MAX = 999;
+
+/** Whole number of people on a shared card, 0 when it is not one. */
+export function normalizeCount(value) {
+  const count = Math.floor(Number(value));
+  return Number.isFinite(count) && count > 0 ? Math.min(count, COUNT_MAX) : 0;
+}
+
 export function normalizeNode(raw) {
   const node = emptyNode();
   const source = raw && typeof raw === 'object' ? raw : {};
@@ -129,6 +189,9 @@ export function normalizeNode(raw) {
     // Shown inside the parent unit's block (unit lead, co-owner).
     head: source.head === true && source.type !== 'unit',
     birthday: source.type === 'unit' ? '' : normalizeBirthday(source.birthday),
+    count: source.type === 'unit' ? 0 : normalizeCount(source.count),
+    hired: source.type === 'unit' ? '' : normalizeHired(source.hired),
+    large: source.large === true && source.type !== 'unit',
   };
 }
 
@@ -257,18 +320,35 @@ export function inkOn(color) {
 
 /** A person card without a name yet: a placeholder slot (may carry a role). */
 export function isBlank(node) {
-  return node?.type === 'person' && !cleanString(node.name).trim();
+  return node?.type === 'person' && !cleanString(node.name).trim() && !isGroup(node);
+}
+
+/** One card standing for several people in the same role ("Комірник — 19"). */
+export function isGroup(node) {
+  return node?.type === 'person' && node.count > 0;
 }
 
 export function displayName(node) {
   if (node.type === 'unit') return node.title || 'Без назви';
+  if (isGroup(node)) return node.title || node.name || 'Загальна картка';
   return node.name || node.title || 'Порожня картка';
+}
+
+/** How many people a card stands for: placeholders 0, shared cards their count. */
+export function headcount(node) {
+  if (node?.type !== 'person') return 0;
+  if (isGroup(node)) return node.count;
+  return isBlank(node) ? 0 : 1;
+}
+
+export function totalPeople(doc) {
+  return doc.nodes.reduce((sum, n) => sum + headcount(n), 0);
 }
 
 /** People below `id`; placeholder cards are not counted. */
 export function countPeople(doc, id) {
   const ids = getDescendantIds(doc, id);
-  return doc.nodes.filter((n) => ids.has(n.id) && n.type === 'person' && !isBlank(n)).length;
+  return doc.nodes.reduce((sum, n) => sum + (ids.has(n.id) ? headcount(n) : 0), 0);
 }
 
 function touch(doc, nodes) {

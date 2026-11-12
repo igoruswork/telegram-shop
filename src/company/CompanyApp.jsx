@@ -17,6 +17,12 @@ import {
   insertAbove,
   isBirthdayToday,
   isBlank,
+  isGroup,
+  normalizeCount,
+  normalizeHired,
+  formatHired,
+  workAnniversary,
+  totalPeople,
   inkOn,
   matchesQuery,
   moveSibling,
@@ -41,6 +47,12 @@ const HISTORY_LIMIT = 40;
 // Dev server only: /company/?top shows the planned structure (see
 // planned.js) on top of the live data, without saving anything.
 const PREVIEW_TOP = import.meta.env.DEV && new URLSearchParams(window.location.search).has('top');
+// Dev server only: /company/?date=10.11.2026 shows the page as on that day.
+const PREVIEW_DATE = (() => {
+  if (!import.meta.env.DEV) return null;
+  const match = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(new URLSearchParams(window.location.search).get('date') || '');
+  return match ? new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])) : null;
+})();
 const prepareDoc = (doc) => (PREVIEW_TOP ? plannedStructure(doc) : doc);
 
 function readPref(key, fallback) {
@@ -122,6 +134,32 @@ const partyColor = (i) => PARTY_COLORS[i % PARTY_COLORS.length];
 
 // Birthday decoration: balloons float up from the card, two party poppers
 // shoot confetti from its top corners and streamers unroll below it.
+function pluralYears(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'рік';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'роки';
+  return 'років';
+}
+
+// Work anniversary: a ribbon with the years and stars twinkling around the card.
+function Jubilee({ years }) {
+  return (
+    <span className="co-jubilee" aria-hidden="true">
+      <span className="co-jubilee-ribbon">🏆 {years} {pluralYears(years)} з нами</span>
+      {Array.from({ length: 8 }, (_, i) => (
+        <i
+          key={i}
+          className="co-star"
+          style={{ '--x': `${4 + ((i * 29) % 92)}%`, '--y': `${i % 2 ? -14 : 86 + ((i * 7) % 22)}%`, '--d': `${i * 0.45}s`, '--s': 0.7 + (i % 3) * 0.25 }}
+        >
+          ★
+        </i>
+      ))}
+    </span>
+  );
+}
+
 function Party() {
   return (
     <span className="co-party" aria-hidden="true">
@@ -168,14 +206,14 @@ function Party() {
 }
 
 function Avatar({ node, color, size = 40 }) {
-  const label = node.type === 'unit' ? null : initials(node.name);
+  const label = node.type === 'unit' ? null : isGroup(node) ? String(node.count) : initials(node.name);
   return (
     <span
-      className={`co-avatar ${node.type === 'unit' ? 'is-unit' : ''} ${node.photo ? 'has-photo' : ''}`}
+      className={`co-avatar ${node.type === 'unit' ? 'is-unit' : ''} ${isGroup(node) ? 'is-group' : ''} ${node.photo ? 'has-photo' : ''}`}
       style={{ ...tone(color), width: size, height: size, fontSize: size * 0.36 }}
       aria-hidden="true"
     >
-      {node.photo && node.type !== 'unit'
+      {node.photo && node.type !== 'unit' && !isGroup(node)
         ? <img src={node.photo} alt="" loading="lazy" draggable="false" />
         : label || <Icon name={node.type === 'unit' ? 'users' : isBlank(node) ? 'user' : 'briefcase'} size={size * 0.48} />}
     </span>
@@ -296,6 +334,7 @@ function OrgCard({ node, ctx, compact }) {
   const people = node.type === 'unit' ? countPeople(doc, node.id) : kids.length;
   const highlight = ctx.highlightId === node.id;
   const party = isBirthdayToday(node, ctx.today);
+  const jubilee = workAnniversary(node, ctx.today);
 
   return (
     <div
@@ -305,14 +344,18 @@ function OrgCard({ node, ctx, compact }) {
         isRoot ? 'is-root' : '',
         compact ? 'is-compact' : '',
         isBlank(node) ? 'is-blank' : '',
+        isGroup(node) ? 'is-group' : '',
         party ? 'has-party' : '',
+        jubilee ? 'has-jubilee' : '',
+        node.large && !isRoot && !compact ? 'is-large' : '',
         highlight ? 'is-highlight' : '',
       ].join(' ')}
       style={tone(color)}
       data-node-id={node.id}
-      title={party ? 'Сьогодні день народження' : undefined}
+      title={party ? 'Сьогодні день народження' : jubilee ? `Сьогодні ${jubilee} ${pluralYears(jubilee)} у компанії` : undefined}
     >
       {party ? <Party /> : null}
+      {jubilee ? <Jubilee years={jubilee} /> : null}
       <button type="button" className="co-card-main" onClick={() => onOpen(node.id)}>
         {node.type === 'unit' ? (
           <>
@@ -324,10 +367,10 @@ function OrgCard({ node, ctx, compact }) {
           </>
         ) : (
           <>
-            <Avatar node={node} color={color} size={isRoot ? 48 : compact ? 34 : 40} />
+            <Avatar node={node} color={color} size={isRoot ? 48 : compact ? 34 : node.large ? 56 : 40} />
             <span className="co-card-text">
               <span className="co-card-name">{displayName(node)}</span>
-              <span className="co-card-title">{isBlank(node) ? 'не заповнено' : node.title || '—'}</span>
+              <span className="co-card-title">{roleLine(node) || '—'}</span>
               {!compact && node.brands ? <span className="co-card-brands">{node.brands}</span> : null}
             </span>
           </>
@@ -341,6 +384,12 @@ function OrgCard({ node, ctx, compact }) {
       ) : null}
     </div>
   );
+}
+
+// Second line of a person card: role, "19 людей" for a shared card, or a placeholder note.
+function roleLine(node) {
+  if (isGroup(node)) return `${node.count} ${pluralPeople(node.count)}`;
+  return isBlank(node) ? 'не заповнено' : node.title;
 }
 
 function pluralPeople(count) {
@@ -601,10 +650,11 @@ function ListNode({ node, ctx, depth }) {
   return (
     <li className={`co-li ${node.type === 'unit' ? 'is-unit' : ''} ${isBlank(node) ? 'is-blank' : ''}`} style={tone(color)}>
       <div
-        className={`co-li-row ${ctx.highlightId === node.id ? 'is-highlight' : ''} ${isBirthdayToday(node, ctx.today) ? 'has-party' : ''}`}
+        className={`co-li-row ${ctx.highlightId === node.id ? 'is-highlight' : ''} ${isBirthdayToday(node, ctx.today) ? 'has-party' : ''} ${workAnniversary(node, ctx.today) ? 'has-jubilee' : ''}`}
         data-node-id={node.id}
       >
         {isBirthdayToday(node, ctx.today) ? <Party /> : null}
+        {workAnniversary(node, ctx.today) ? <Jubilee years={workAnniversary(node, ctx.today)} /> : null}
         {kids.length ? (
           <button
             type="button"
@@ -627,7 +677,7 @@ function ListNode({ node, ctx, depth }) {
           <span className="co-card-text">
             <span className="co-card-name">{displayName(node)}</span>
             <span className="co-card-title">
-              {node.type === 'unit' ? `${total} ${pluralPeople(total)}` : isBlank(node) ? 'не заповнено' : node.title}
+              {node.type === 'unit' ? `${total} ${pluralPeople(total)}` : roleLine(node)}
               {node.head ? <span className="co-tag">керівництво</span> : null}
             </span>
           </span>
@@ -740,7 +790,7 @@ function SearchResults({ doc, query, onOpen, onClear }) {
                 <Highlight text={displayName(node)} query={q} />
               </span>
               <span className="co-card-title">
-                {node.type === 'unit' ? 'Підрозділ' : isBlank(node) ? 'не заповнено' : <Highlight text={node.title} query={q} />}
+                {node.type === 'unit' ? 'Підрозділ' : isGroup(node) || isBlank(node) ? roleLine(node) : <Highlight text={node.title} query={q} />}
               </span>
               {snippet ? (
                 <span className="co-card-brands">{snippet.label}: <Highlight text={snippet.text} query={q} /></span>
@@ -809,20 +859,29 @@ function NodeDetails({ doc, nodeId, today, onOpen, onEdit, onAdd, onAddBlank, on
 
   return (
     <div className="co-details" style={tone(color)}>
-      <div className={`co-details-hero ${isBirthdayToday(node, today) ? 'has-party' : ''}`}>
+      <div className={`co-details-hero ${isBirthdayToday(node, today) ? 'has-party' : ''} ${workAnniversary(node, today) ? 'has-jubilee' : ''}`}>
         {isBirthdayToday(node, today) ? <Party /> : null}
+        {workAnniversary(node, today) ? <Jubilee years={workAnniversary(node, today)} /> : null}
         <Avatar node={node} color={color} size={64} />
         <div>
           <div className="co-details-name">{displayName(node)}</div>
           <div className="co-details-title">
             {node.type === 'unit'
               ? `Підрозділ · ${countPeople(doc, node.id)} ${pluralPeople(countPeople(doc, node.id))}`
-              : isBlank(node) ? 'Картку ще не заповнено' : node.title}
+              : isBlank(node) ? 'Картку ще не заповнено' : isGroup(node) ? `Загальна картка · ${roleLine(node)}` : node.title}
           </div>
           {node.type === 'person' && node.birthday ? (
             <div className={`co-birthday ${isBirthdayToday(node, today) ? 'is-today' : ''}`}>
               <Icon name="cake" size={15} />
               {isBirthdayToday(node, today) ? `Сьогодні день народження 🎉` : `День народження: ${formatBirthday(node.birthday)}`}
+            </div>
+          ) : null}
+          {node.type === 'person' && node.hired ? (
+            <div className={`co-birthday co-hired ${workAnniversary(node, today) ? 'is-today' : ''}`}>
+              <Icon name="briefcase" size={15} />
+              {workAnniversary(node, today)
+                ? `Сьогодні ${workAnniversary(node, today)} ${pluralYears(workAnniversary(node, today))} у компанії 🏆`
+                : `У компанії з ${formatHired(node.hired)}`}
             </div>
           ) : null}
           {ancestors.length ? (
@@ -915,6 +974,9 @@ function NodeDetails({ doc, nodeId, today, onOpen, onEdit, onAdd, onAddBlank, on
           <button type="button" className="co-btn" onClick={() => onAddBlank(node.id)}>
             <Icon name="user" size={16} /> Порожня картка
           </button>
+          <button type="button" className="co-btn" onClick={() => onAdd(node.id, 'group')}>
+            <Icon name="users" size={16} /> Загальна картка
+          </button>
           {!node.parentId ? (
             <button type="button" className="co-btn" onClick={() => onAddAbove(node.id)}>
               <Icon name="levelUp" size={16} /> Рівень вище
@@ -940,7 +1002,7 @@ function PersonLink({ doc, node, onOpen }) {
       <Avatar node={node} color={color} size={34} />
       <span className="co-card-text">
         <span className="co-card-name">{displayName(node)}</span>
-        <span className="co-card-title">{node.type === 'unit' ? 'Підрозділ' : isBlank(node) ? 'не заповнено' : node.title}</span>
+        <span className="co-card-title">{node.type === 'unit' ? 'Підрозділ' : roleLine(node)}</span>
       </span>
       <Icon name="chevron" size={16} className="co-muted" />
     </button>
@@ -1058,7 +1120,8 @@ function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
   const isRoot = above || (!isNew && !draft.parentId);
   // A person card may be saved empty: a placeholder to fill in later.
   const birthdayOk = form.type === 'unit' || !String(form.birthday || '').trim() || Boolean(normalizeBirthday(form.birthday));
-  const valid = form.type === 'unit' ? Boolean(form.title.trim()) : birthdayOk;
+  const hiredOk = form.type === 'unit' || !String(form.hired || '').trim() || Boolean(normalizeHired(form.hired));
+  const valid = form.type === 'unit' ? Boolean(form.title.trim()) : birthdayOk && hiredOk;
   const parentIsUnit = doc.nodes.find((n) => n.id === form.parentId)?.type === 'unit';
 
   const submit = (event) => {
@@ -1074,6 +1137,9 @@ function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
       phone: form.phone.trim(),
       email: form.email.trim(),
       birthday: form.type === 'person' ? normalizeBirthday(form.birthday) : '',
+      count: form.type === 'person' ? normalizeCount(form.count) : 0,
+      hired: form.type === 'person' ? normalizeHired(form.hired) : '',
+      large: form.type === 'person' && form.large === true,
       duties: form.duties.trim(),
     });
   };
@@ -1157,6 +1223,48 @@ function NodeForm({ doc, draft, isNew, above, onCancel, onSave }) {
               <input value={form.title} onChange={set('title')} placeholder="Напр. Brand Manager" />
             </label>
           </div>
+          <label className="co-field co-field-short">
+            <span>Дата прийому на роботу</span>
+            <input
+              value={form.hired || ''}
+              onChange={set('hired')}
+              placeholder="ДД.ММ.РРРР, напр. 28.08.2024"
+              inputMode="decimal"
+              maxLength={10}
+              autoComplete="off"
+              aria-invalid={!hiredOk}
+            />
+            {hiredOk ? (
+              <span className="co-hint">Щороку в цей день картка отримає стрічку «N років з нами» і зірочки.</span>
+            ) : (
+              <span className="co-hint is-error">Введіть дату повністю, наприклад 28.08.2024</span>
+            )}
+          </label>
+          <label className="co-check">
+            <input
+              type="checkbox"
+              checked={form.large === true}
+              onChange={(event) => setForm((f) => ({ ...f, large: event.target.checked }))}
+            />
+            <span>
+              <strong>Велика картка</strong>
+              <small>Картка на схемі більша за інші — для власників і ключових керівників</small>
+            </span>
+          </label>
+          <label className="co-field co-field-short">
+            <span>Кількість людей</span>
+            <input
+              type="number"
+              min="0"
+              max="999"
+              step="1"
+              value={form.count || ''}
+              onChange={set('count')}
+              placeholder="1"
+              inputMode="numeric"
+            />
+            <span className="co-hint">Для загальної картки, коли людей багато: вкажіть посаду й кількість, напр. «Комірник» і 19. ПІБ тоді не потрібен.</span>
+          </label>
           <label className="co-field">
             <span>Бренди</span>
             <input value={form.brands} onChange={set('brands')} placeholder="Shelly, Barbers, Joly Lab" />
@@ -1251,6 +1359,9 @@ function SettingsPanel({ doc, editMode, setEditMode, saveState, onMeta, onImport
         </button>
         <button type="button" className="co-tile" onClick={onAddBlank}>
           <Icon name="user" /> Порожня картка
+        </button>
+        <button type="button" className="co-tile" onClick={() => onAddTop('group')}>
+          <Icon name="users" /> Загальна картка
         </button>
         <button type="button" className="co-tile" onClick={onAddAbove}>
           <Icon name="levelUp" /> Рівень над керівником
@@ -1368,14 +1479,14 @@ export default function CompanyApp() {
     const timer = setInterval(() => setDayKey(new Date().toDateString()), 60000);
     return () => clearInterval(timer);
   }, []);
-  const today = useMemo(() => new Date(dayKey), [dayKey]);
+  const today = useMemo(() => PREVIEW_DATE || new Date(dayKey), [dayKey]);
   const saveTimer = useRef(null);
   const toastTimer = useRef(null);
   const dirty = useRef(false);
 
   const index = useMemo(() => buildIndex(doc), [doc]);
   const stats = useMemo(() => ({
-    people: doc.nodes.filter((n) => n.type === 'person' && !isBlank(n)).length,
+    people: totalPeople(doc),
     units: doc.nodes.filter((n) => n.type === 'unit').length,
   }), [doc]);
 
@@ -1513,9 +1624,10 @@ export default function CompanyApp() {
   }, []);
 
   const startAdd = useCallback((parentId, type) => {
-    const parent = index.byId.get(parentId);
-    const defaultType = type || (parent?.type === 'unit' || !parent ? 'person' : 'person');
-    setForm({ isNew: true, draft: emptyNode({ type: defaultType, parentId: parentId || index.root?.id || null }) });
+    // 'group' opens the person form pre-set as a shared card for several people.
+    const group = type === 'group';
+    const defaultType = group ? 'person' : type || 'person';
+    setForm({ isNew: true, draft: emptyNode({ type: defaultType, count: group ? 2 : 0, parentId: parentId || index.root?.id || null }) });
   }, [index]);
 
   const startEdit = useCallback((id) => {
@@ -1568,7 +1680,7 @@ export default function CompanyApp() {
     highlightId: focusId,
     today,
     onOpen: openNode,
-    onAdd: (id) => startAdd(id),
+    onAdd: (id, type) => startAdd(id, type),
     onEdit: startEdit,
     collapsed,
     toggle: (id) => setCollapsed((s) => {
@@ -1735,7 +1847,7 @@ export default function CompanyApp() {
             nodeId={openId}
             onOpen={openNode}
             onEdit={startEdit}
-            onAdd={(id) => startAdd(id)}
+            onAdd={(id, type) => startAdd(id, type)}
             today={today}
             onAddBlank={addBlank}
             onAddAbove={startAddAbove}

@@ -2073,3 +2073,128 @@ mark {
   0% { stroke-dashoffset: 100; }
   38%, 100% { stroke-dashoffset: 0; }
 }
+
+/* ─── Shared cards: one card for several people in a role ─── */
+
+.co-avatar.is-group {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c) 16%, var(--co-surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 45%, transparent);
+  color: var(--co-text);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A second edge behind the card hints at the stack of people. */
+.co-card.is-group {
+  box-shadow: 4px 4px 0 -1px var(--co-surface), 4px 4px 0 0 color-mix(in srgb, var(--c) 35%, var(--co-line));
+}
+
+/* ─── Large cards (owners, key directors) ────────────── */
+
+.co-card.is-large {
+  width: 300px;
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--c) 55%, var(--co-line));
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--c) 22%, transparent);
+}
+
+.co-card.is-large .co-card-main {
+  padding: 16px;
+  gap: 14px;
+}
+
+.co-card.is-large .co-card-name {
+  font-size: 18px;
+}
+
+.co-card.is-large .co-card-title {
+  font-size: 14px;
+}
+
+/* ─── Work anniversary ───────────────────────────────── */
+
+.co-card.has-jubilee,
+.co-li-row.has-jubilee {
+  z-index: 2;
+  border-color: #6366f1;
+  animation: co-jubilee-glow 3.6s ease-in-out infinite;
+}
+
+.co-li-row.has-jubilee,
+.co-details-hero.has-jubilee {
+  position: relative;
+}
+
+@keyframes co-jubilee-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), var(--co-shadow); }
+  50% { box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.36), var(--co-shadow); }
+}
+
+.co-jubilee {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.co-jubilee-ribbon {
+  position: absolute;
+  top: -11px;
+  right: 10px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(110deg, #4f46e5, #7c3aed 45%, #a5b4fc 50%, #7c3aed 55%, #4f46e5);
+  background-size: 260% 100%;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35);
+  animation: co-jubilee-shine 4s linear infinite;
+}
+
+/* With a birthday on the same day the ribbon moves aside from the poppers. */
+.has-party > .co-jubilee .co-jubilee-ribbon {
+  right: 50%;
+  transform: translateX(50%);
+}
+
+@keyframes co-jubilee-shine {
+  from { background-position: 130% 0; }
+  to { background-position: -130% 0; }
+}
+
+.co-star {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1;
+  color: #f5b301;
+  text-shadow: 0 0 6px rgba(245, 179, 1, 0.6);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: co-star-twinkle 3.6s ease-in-out var(--d) infinite;
+}
+
+@keyframes co-star-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(-30deg); }
+  45% { opacity: 1; transform: scale(var(--s)) rotate(0deg); }
+  70% { opacity: 0.85; transform: scale(calc(var(--s) * 0.85)) rotate(18deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .co-card.has-jubilee,
+  .co-li-row.has-jubilee,
+  .co-jubilee-ribbon {
+    animation: none;
+  }
+  .co-star {
+    animation: none;
+    opacity: 0.9;
+    transform: scale(var(--s));
+  }
+}

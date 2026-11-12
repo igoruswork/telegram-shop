@@ -2,7 +2,9 @@
 // a company block above the current head, six more top-manager slots, and the
 // warehouse branch under the first of them. /company/?top on the dev server
 // previews whatever is not in the live data yet.
-import { addTopLevel, addTree, buildIndex, emptyNode, insertAbove, isBlank, updateNode } from './model.js';
+import { addTopLevel, addTree, buildIndex, emptyNode, insertAbove, isBlank, isGroup, removeNode, updateNode } from './model.js';
+import { OFFICE_CEO, OFFICE_TOP, WAREHOUSE_STAFF } from './office2026.js';
+import { LARGE_CARDS, OFFICE_DATES } from './officeDates.js';
 
 const blanks = (count) => Array.from({ length: count }, () => ({}));
 
@@ -59,7 +61,64 @@ function withBirthdays(doc) {
   return next;
 }
 
+const childless = (index, node) => !(index.children.get(node.id) || []).length;
+
+// Shared cards (Комірник — 19, …) take the place of the blank slots under the deputy.
+function withWarehouseStaff(doc) {
+  const deputy = doc.nodes.find((n) => n.type === 'person' && n.name === 'Світлана Шевченко');
+  if (!deputy) return doc;
+  const index = buildIndex(doc);
+  const kids = index.children.get(deputy.id) || [];
+  if (kids.some(isGroup)) return doc;
+  let next = doc;
+  for (const kid of kids) {
+    if (isBlank(kid) && !kid.title && childless(index, kid)) next = removeNode(next, kid.id, 'cascade');
+  }
+  return addTree(next, deputy.id, WAREHOUSE_STAFF);
+}
+
+// The rest of the office from "Офіс ProCare 2026": the CEO as the head of the
+// company block and every director's branch next to the existing ones.
+// People already in the document are left exactly as they are.
+function withOffice(doc) {
+  const index = buildIndex(doc);
+  const { root } = index;
+  if (!root || root.type !== 'unit') return doc;
+  if (doc.nodes.some((n) => n.type === 'person' && n.name === OFFICE_CEO.name)) return doc;
+  let next = doc;
+  for (const kid of index.children.get(root.id) || []) {
+    if (isBlank(kid) && kid.title === 'Топ-менеджер' && childless(index, kid)) next = removeNode(next, kid.id, 'cascade');
+  }
+  // The head goes first among the root's children.
+  const ceo = emptyNode({ ...OFFICE_CEO, parentId: root.id, head: true });
+  const nodes = [...next.nodes];
+  nodes.splice(nodes.findIndex((n) => n.parentId === root.id), 0, ceo);
+  return addTree({ ...next, nodes }, root.id, OFFICE_TOP);
+}
+
+// Fills in what is still empty; dates and sizes already set by hand stay.
+function withDates(doc) {
+  const byName = new Map(doc.nodes.filter((n) => n.type === 'person' && n.name).map((n) => [n.name, n]));
+  let next = doc;
+  for (const [name, birthday, hired] of OFFICE_DATES) {
+    const node = byName.get(name);
+    if (!node) continue;
+    const patch = {};
+    if (birthday && !node.birthday) patch.birthday = birthday;
+    if (hired && !node.hired) patch.hired = hired;
+    if (Object.keys(patch).length) next = updateNode(next, node.id, patch);
+  }
+  // Only while the page has no large cards yet, so unticking one later sticks.
+  if (!next.nodes.some((n) => n.large)) {
+    for (const name of LARGE_CARDS) {
+      const node = byName.get(name);
+      if (node) next = updateNode(next, node.id, { large: true });
+    }
+  }
+  return next;
+}
+
 /** Every step is skipped once it is already in the document. */
 export function plannedStructure(doc) {
-  return withBirthdays(withWarehouseUnits(withTopLevel(doc)));
+  return withDates(withOffice(withWarehouseStaff(withBirthdays(withWarehouseUnits(withTopLevel(doc))))));
 }

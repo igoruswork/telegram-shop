@@ -9,6 +9,12 @@ import {
   insertAbove,
   isBirthdayToday,
   isBlank,
+  isGroup,
+  displayName,
+  totalPeople,
+  formatHired,
+  normalizeHired,
+  workAnniversary,
   normalizeBirthday,
   dutyLines,
   getDescendantIds,
@@ -177,21 +183,68 @@ test('addTopLevel puts a company unit above the root with blank top managers, on
   assert.equal(withOwners.children.get(withOwners.root.id).filter((n) => n.head).length, 3);
 });
 
-test('plannedStructure adds the warehouse branch under the first top manager', () => {
+test('plannedStructure adds the warehouse branch and the rest of the office', () => {
   const doc = normalizeDoc({ nodes: [{ id: 'r', name: 'CMO' }] });
   const next = plannedStructure(doc);
   const { root, children } = buildIndex(next);
-  const managers = children.get(root.id);
-  assert.deepEqual([managers[1].name, managers[1].title], ['Сергій Моторний', 'Завідувач складом готової продукції']);
-  const units = children.get(managers[1].id);
+  const top = children.get(root.id);
+  assert.deepEqual([top[0].name, top[0].head, top[1].name], ['Каган Олександр', true, 'CMO']);
+  assert.equal(top.some(isBlank), false);
+  const manager = top.find((n) => n.name === 'Сергій Моторний');
+  assert.equal(manager.title, 'Завідувач складом готової продукції');
+  const units = children.get(manager.id);
   assert.deepEqual(units.map((n) => [n.type, n.title]), [['unit', 'Роздрібний склад'], ['unit', 'Гуртовий склад']]);
   const deputies = units.map((unit) => children.get(unit.id)[0]);
   assert.deepEqual(deputies.map((n) => n.name), ['Ігор Яблонський', 'Світлана Шевченко']);
   assert.deepEqual(children.get(deputies[0].id).map((n) => n.name), ['Людмила', 'Наталія', 'Надія', 'Дмитро', 'Каріна']);
-  assert.equal(children.get(deputies[1].id).filter(isBlank).length, 18);
-  assert.equal(managers.slice(2).every((n) => !children.get(n.id).length), true);
-  assert.equal(countPeople(next, root.id), 9);
+  assert.deepEqual(
+    children.get(deputies[1].id).map((n) => [n.title, n.count]),
+    [['Комірник', 19], ["Кур'єр", 1], ['Оператор', 2], ['Водій', 3], ['Прибиральниця', 1]],
+  );
+  assert.equal(countPeople(next, manager.id), 2 + 5 + 26);
+  const names = next.nodes.filter((n) => n.type === 'person' && n.name).map((n) => n.name);
+  assert.equal(new Set(names).size, names.length);
+  const byName = new Map(next.nodes.map((n) => [n.name, n]));
+  assert.deepEqual([byName.get('Каган Олександр').birthday, byName.get('Каган Олександр').large], ['16.11', true]);
+  assert.deepEqual([byName.get('Халипа Олена').birthday, byName.get('Халипа Олена').large], ['18.07', true]);
+  assert.deepEqual([byName.get('Сергій Моторний').birthday, byName.get('Сергій Моторний').hired], ['20.04', '01.12.2018']);
   assert.equal(plannedStructure(next), next);
+});
+
+test('hire date is a full date and marks work anniversaries', () => {
+  assert.equal(normalizeHired('28.8.2024'), '28.08.2024');
+  assert.equal(normalizeHired('2024-08-28'), '28.08.2024');
+  assert.equal(normalizeHired('31.02.2024'), '');
+  assert.equal(normalizeHired('28.08'), '');
+  assert.equal(formatHired('28.08.2024'), '28 серпня 2024');
+  const person = normalizeDoc({ nodes: [{ name: 'A', hired: '10.11.2022', large: true }] }).nodes[0];
+  assert.equal(person.large, true);
+  assert.equal(workAnniversary(person, new Date(2026, 10, 10)), 4);
+  assert.equal(workAnniversary(person, new Date(2026, 10, 11)), 0);
+  assert.equal(workAnniversary(person, new Date(2022, 10, 10)), 0);
+  assert.equal(workAnniversary({ type: 'person', hired: '29.02.2024' }, new Date(2026, 1, 28)), 2);
+  assert.equal(normalizeDoc({ nodes: [{ type: 'unit', title: 'U', hired: '10.11.2022', large: true }] }).nodes[0].large, false);
+});
+
+test('a shared card stands for several people in one role', () => {
+  const doc = normalizeDoc({
+    nodes: [
+      { id: 'u', type: 'unit', title: 'Склад' },
+      { id: 'a', parentId: 'u', name: 'Anna' },
+      { id: 'g', parentId: 'u', title: 'Комірник', count: '19' },
+      { id: 'b', parentId: 'u' },
+      { id: 'x', parentId: 'u', type: 'unit', title: 'X', count: 5 },
+    ],
+  });
+  const group = doc.nodes[2];
+  assert.equal(group.count, 19);
+  assert.equal(isGroup(group), true);
+  assert.equal(isBlank(group), false);
+  assert.equal(displayName(group), 'Комірник');
+  assert.equal(doc.nodes[4].count, 0);
+  assert.equal(countPeople(doc, 'u'), 20);
+  assert.equal(totalPeople(doc), 20);
+  assert.equal(normalizeDoc({ nodes: [{ name: 'A', count: -3 }] }).nodes[0].count, 0);
 });
 
 test('birthday keeps day and month only and matches the current date', () => {
