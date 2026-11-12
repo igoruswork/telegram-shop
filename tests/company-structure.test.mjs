@@ -15,6 +15,7 @@ import {
   formatHired,
   normalizeHired,
   workAnniversary,
+  celebrationsToday,
   normalizeBirthday,
   dutyLines,
   getDescendantIds,
@@ -224,6 +225,22 @@ test('hire date is a full date and marks work anniversaries', () => {
   assert.equal(workAnniversary(person, new Date(2022, 10, 10)), 0);
   assert.equal(workAnniversary({ type: 'person', hired: '29.02.2024' }, new Date(2026, 1, 28)), 2);
   assert.equal(normalizeDoc({ nodes: [{ type: 'unit', title: 'U', hired: '10.11.2022', large: true }] }).nodes[0].large, false);
+});
+
+test('celebrationsToday lists birthdays first, then work anniversaries', () => {
+  const doc = normalizeDoc({
+    nodes: [
+      { id: 'u', type: 'unit', title: 'U' },
+      { id: 'a', parentId: 'u', name: 'A', hired: '12.11.2024' },
+      { id: 'b', parentId: 'u', name: 'B', birthday: '12.11', hired: '12.11.2026' },
+      { id: 'c', parentId: 'u', name: 'C', birthday: '13.11' },
+    ],
+  });
+  assert.deepEqual(
+    celebrationsToday(doc, new Date(2026, 10, 12)).map((i) => [i.node.id, i.birthday, i.years]),
+    [['b', true, 0], ['a', false, 2]],
+  );
+  assert.deepEqual(celebrationsToday(doc, new Date(2026, 10, 14)), []);
 });
 
 test('a shared card stands for several people in one role', () => {

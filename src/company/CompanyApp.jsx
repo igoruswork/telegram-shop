@@ -22,6 +22,7 @@ import {
   normalizeHired,
   formatHired,
   workAnniversary,
+  celebrationsToday,
   totalPeople,
   inkOn,
   matchesQuery,
@@ -309,6 +310,55 @@ function Sheet({ open, onClose, title, children, wide, footer }) {
         {footer ? <div className="co-sheet-foot">{footer}</div> : null}
       </div>
     </div>
+  );
+}
+
+// A short note on entry: who has a birthday or a work anniversary today.
+// It does not block the page and goes away by itself.
+const HOLIDAYS_MS = 12000;
+function Holidays({ items, doc, onOpen, onClose }) {
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    if (paused) return undefined;
+    const timer = setTimeout(onClose, HOLIDAYS_MS);
+    return () => clearTimeout(timer);
+  }, [paused, onClose]);
+
+  return (
+    <aside
+      className="co-holidays"
+      aria-label="Свята сьогодні"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <div className="co-holidays-head">
+        <strong>Сьогодні святкуємо 🎉</strong>
+        <button type="button" className="co-icon-btn" onClick={onClose} aria-label="Закрити">
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+      <ul>
+        {items.map(({ node, birthday, years }) => {
+          const color = resolveColor(doc, node.id);
+          return (
+            <li key={node.id}>
+              <button type="button" className="co-holiday" style={tone(color)} onClick={() => { onClose(); onOpen(node.id); }}>
+                <Avatar node={node} color={color} size={34} />
+                <span className="co-card-text">
+                  <span className="co-card-name">{displayName(node)}</span>
+                  <span className="co-card-title">
+                    {[birthday ? '🎂 День народження' : '', years ? `🏆 ${years} ${pluralYears(years)} у компанії` : ''].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {paused ? null : <span className="co-holidays-timer" style={{ animationDuration: `${HOLIDAYS_MS}ms` }} />}
+    </aside>
   );
 }
 
@@ -1480,11 +1530,14 @@ export default function CompanyApp() {
     return () => clearInterval(timer);
   }, []);
   const today = useMemo(() => PREVIEW_DATE || new Date(dayKey), [dayKey]);
+  const [holidaysOpen, setHolidaysOpen] = useState(true);
+  const closeHolidays = useCallback(() => setHolidaysOpen(false), []);
   const saveTimer = useRef(null);
   const toastTimer = useRef(null);
   const dirty = useRef(false);
 
   const index = useMemo(() => buildIndex(doc), [doc]);
+  const holidays = useMemo(() => celebrationsToday(doc, today), [doc, today]);
   const stats = useMemo(() => ({
     people: totalPeople(doc),
     units: doc.nodes.filter((n) => n.type === 'unit').length,
@@ -1961,6 +2014,10 @@ export default function CompanyApp() {
             </button>
           </div>
         </Dialog>
+      ) : null}
+
+      {holidaysOpen && saveState !== 'loading' && holidays.length ? (
+        <Holidays items={holidays} doc={doc} onOpen={openNode} onClose={closeHolidays} />
       ) : null}
 
       <div className={`co-toast ${toast ? 'is-visible' : ''}`} role="status" aria-live="polite">{toast}</div>

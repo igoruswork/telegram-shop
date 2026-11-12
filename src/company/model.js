@@ -162,6 +162,14 @@ export function workAnniversary(node, today = new Date()) {
   return !leap && date.month === 2 && date.day === 29 && month === 2 && day === 28 ? years : 0;
 }
 
+/** Today's birthdays and work anniversaries: [{ node, birthday, years }], birthdays first. */
+export function celebrationsToday(doc, today = new Date()) {
+  return doc.nodes
+    .map((node) => ({ node, birthday: isBirthdayToday(node, today), years: workAnniversary(node, today) }))
+    .filter((item) => item.birthday || item.years)
+    .sort((a, b) => Number(b.birthday) - Number(a.birthday));
+}
+
 export const COUNT_MAX = 999;
 
 /** Whole number of people on a shared card, 0 when it is not one. */

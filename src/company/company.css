@@ -2198,3 +2198,107 @@ mark {
     transform: scale(var(--s));
   }
 }
+
+/* ─── Today's celebrations (shown on entry) ──────────── */
+
+.co-holidays {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: 14px;
+  z-index: 40;
+  width: min(340px, calc(100vw - 28px));
+  max-height: min(70vh, 460px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--co-surface);
+  border: 1px solid var(--co-border);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+  animation: co-holidays-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes co-holidays-in {
+  from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.co-holidays-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 6px 16px;
+  font-size: 15px;
+  color: var(--co-text);
+}
+
+.co-holidays ul {
+  margin: 0;
+  padding: 0 8px 10px;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.co-holiday {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.co-holiday:focus-visible {
+  outline: 2px solid var(--co-accent);
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .co-holiday:hover {
+    background: var(--co-surface-2);
+  }
+}
+
+.co-holidays-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, #f59e0b, #6366f1);
+  transform-origin: left;
+  animation: co-holidays-timer linear both;
+}
+
+@keyframes co-holidays-timer {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (max-width: 640px) {
+  .co-holidays {
+    top: auto;
+    right: 14px;
+    left: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+  @keyframes co-holidays-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .co-holidays {
+    animation: none;
+  }
+}
