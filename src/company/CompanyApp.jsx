@@ -333,6 +333,7 @@ function Holidays({ items, doc, onOpen, onClose }) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
+      <Party />
       <div className="co-holidays-head">
         <strong>Сьогодні святкуємо 🎉</strong>
         <button type="button" className="co-icon-btn" onClick={onClose} aria-label="Закрити">
@@ -345,7 +346,7 @@ function Holidays({ items, doc, onOpen, onClose }) {
           return (
             <li key={node.id}>
               <button type="button" className="co-holiday" style={tone(color)} onClick={() => { onClose(); onOpen(node.id); }}>
-                <Avatar node={node} color={color} size={34} />
+                <Avatar node={node} color={color} size={52} />
                 <span className="co-card-text">
                   <span className="co-card-name">{displayName(node)}</span>
                   <span className="co-card-title">
